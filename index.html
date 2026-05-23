@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quick Valuation Screener</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#090c14;--cd:#0f1320;--bd:#1a2234;--ib:#141a28;--ibd:#232d3f;--dm:#4a5568;--lb:#7a8494;--br:#f0f4f8;--bl:#38bdf8;--pu:#818cf8;--gn:#22c55e;--rd:#ef4444;--yw:#eab308;--tl:#34d399;--f:'DM Sans',system-ui,sans-serif;--m:'JetBrains Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}body{min-height:100vh;background:var(--bg);font-family:var(--f);color:#c8d0dc}
+.w{max-width:900px;margin:0 auto;padding:24px 16px}
+h1{font-size:20px;font-weight:800;color:var(--br);margin:2px 0 0}
+.sb{display:flex;gap:6px;margin-bottom:20px;background:var(--cd);border-radius:8px;padding:5px;border:1px solid var(--bd)}
+.sb input{flex:1;background:0 0;border:none;outline:none;color:var(--br);font-size:14px;padding:8px 10px;font-family:var(--f)}
+.sb button{background:linear-gradient(135deg,var(--bl),var(--pu));border:none;border-radius:6px;padding:8px 20px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:var(--f);white-space:nowrap}
+.sb button:disabled{background:var(--bd);cursor:wait}
+.card{background:var(--cd);border-radius:8px;border:1px solid var(--bd);margin-bottom:12px}
+.ci{display:flex;padding:12px 16px}.cm{flex:1;min-width:0}
+.cs{width:220px;flex-shrink:0;padding-left:14px;border-left:1px solid var(--bd);margin-left:12px;font-size:10px;color:var(--dm);line-height:1.5}
+.ct{font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px}
+.rw{display:flex;justify-content:space-between;align-items:baseline;padding:4px 0}
+.bt{border-top:1px solid #1e2a3a}
+.ei{display:flex;align-items:center;justify-content:space-between;padding:3px 0}
+.ei label{font-size:12px;color:var(--lb)}.ei input{width:100px;background:var(--ib);border:1px solid var(--ibd);border-radius:4px;padding:3px 6px;color:#e0e7f0;font-size:12px;font-family:var(--m);outline:none;text-align:right}
+.ei .u{font-size:10px;color:var(--dm);width:28px;margin-left:3px}
+.bg{padding:2px 7px;border-radius:3px;font-size:10px;font-weight:700;display:inline-block}
+.sp{width:28px;height:28px;border:3px solid var(--bd);border-top-color:var(--bl);border-radius:50%;margin:0 auto 12px;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+table.cp{width:100%;border-collapse:collapse;font-size:11px}
+table.cp th{text-align:right;padding:4px 6px;font-weight:700;font-family:var(--m);font-size:11px;border-bottom:1px solid #1e2a3a}
+table.cp th:first-child{text-align:left}
+table.cp td{text-align:right;padding:4px 6px;font-family:var(--m);font-size:11px;border-bottom:1px solid #131a28}
+table.cp td:first-child{text-align:left;font-family:var(--f);color:var(--lb)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mc{background:#0a0e18;border-radius:5px;padding:10px 12px;border:1px solid var(--bd)}
+b.s{color:var(--lb)}
+canvas{width:100%!important}
+@media(max-width:640px){.cs{display:none}.ci{padding:10px 12px}}
+</style>
+</head>
+<body>
+<div class="w">
+  <div style="margin-bottom:20px">
+    <div style="font-size:9px;font-weight:800;letter-spacing:3px;color:var(--bl)">QUICK VALUATION</div>
+    <h1>Company Screener</h1>
+  </div>
+  <div class="sb">
+    <input id="qi" placeholder="Ticker (e.g. AAPL, MSFT, GOOG)"/>
+    <button id="gb" onclick="go()">Analyze</button>
+  </div>
+  <div id="ld" style="display:none;text-align:center;padding:50px 0;color:var(--dm)"><div class="sp"></div><div>Fetching…</div></div>
+  <div id="er" style="display:none;background:#450a0a;border:1px solid #dc2626;border-radius:6px;padding:12px;color:#fca5a5;font-size:13px;margin-bottom:16px"></div>
+  <div id="out"></div>
+  <div id="es" style="text-align:center;padding:60px 20px;color:#1e2a3a">
+    <div style="font-size:36px;margin-bottom:10px">⬡</div>
+    <div style="font-size:13px;color:var(--dm)">Enter a ticker to auto-populate</div>
+  </div>
+</div>
+<script>
+const AK='zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J';
+const SB='https://financialmodelingprep.com/stable/';
+let CC=0;
+
+// fmp call - returns null on 402/403 (paid endpoint) instead of throwing
+async function fmp(ep,required){
+  const s=ep.includes('?')?'&':'?';
+  const r=await fetch(SB+ep+s+'apikey='+AK);
+  if(r.status===402||r.status===403){if(required)throw new Error('FMP '+r.status+' - this endpoint requires a paid plan');return null;}
+  if(!r.ok)throw new Error('FMP '+r.status);
+  return r.json();
+}
+
+function fb(n){if(n==null||isNaN(n))return'—';var a=Math.abs(n),s=n<0?'-':'';if(a>=1e6)return s+'$'+cm((a/1e6).toFixed(1))+'T';if(a>=1e3)return s+'$'+cm((a/1e3).toFixed(1))+'B';return s+'$'+cm(a.toFixed(0))+'M';}
+function pc(n){return n==null||isNaN(n)?'—':(n*100).toFixed(1)+'%';}
+function pr(n){return n==null||isNaN(n)?'—':'$'+cm(n.toFixed(2));}
+function cm(x){return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g,',');}
+function g(o){for(var i=1;i<arguments.length;i++){var k=arguments[i];if(o[k]!=null)return o[k];}return 0;}
+
+function calcM(d){
+  var sp=d.p||0,sh=d.sh||0,mc=sp*sh,ca=d.ca||0,de=d.de||0;
+  var nd=de-ca,ev=mc+nd,iNC=nd<0,ncP=mc>0?Math.abs(nd)/mc:0;
+  var cfo=d.cfo||0,sbc=d.sbc||0,tc=d.cx||0,mp=d.mp||50;
+  var mce=tc*(mp/100),af=cfo-sbc-mce,fy=ev>0?af/ev:0;
+  var tev=af/0.10,tmc=tev-nd,tp=sh>0?tmc/sh:null,pd=tp!=null?tp-sp:null;
+  var revs=(d.rv||[]).filter(function(r){return r.r>0;});
+  var cagr=null,yrs=0,yoy=[];
+  if(revs.length>=2){yrs=revs.length-1;cagr=Math.pow(revs[0].r/revs[revs.length-1].r,1/yrs)-1;
+    for(var i=0;i<revs.length-1;i++)yoy.push({y:revs[i].y,g2:(revs[i].r/revs[i+1].r)-1});}
+  var qr=(fy||0)+(cagr||0),gap=0.25-qr;
+  var np=null,nr=null;
+  if(gap>0){var nf=0.25-(cagr||0);if(nf>0){var ne=af/nf;np=sh>0?(ne-nd)/sh:null;}nr=(0.25-fy)*100;}
+  var latR=revs.length>0?revs[0].r:0;
+  var sbcP=latR>0?sbc/latR:0;
+  return{sp:sp,sh:sh,mc:mc,ca:ca,de:de,nd:nd,ev:ev,iNC:iNC,ncP:ncP,cfo:cfo,sbc:sbc,tc:tc,mp:mp,mce:mce,af:af,fy:fy,tp:tp,pd:pd,revs:revs,cagr:cagr,yrs:yrs,yoy:yoy,qr:qr,gap:gap,np:np,nr:nr,sbcP:sbcP};
+}
+
+async function buildCo(ticker){
+  var [prof,cfs,bss,incs]=await Promise.all([
+    fmp('profile?symbol='+ticker,true),
+    fmp('cash-flow-statement?symbol='+ticker+'&period=annual&limit=5',true),
+    fmp('balance-sheet-statement?symbol='+ticker+'&period=annual&limit=1',true),
+    fmp('income-statement?symbol='+ticker+'&period=annual&limit=5',true),
+  ]);
+  var p=(Array.isArray(prof)?prof[0]:prof)||{};
+  var cfA=Array.isArray(cfs)?cfs:cfs?[cfs]:[];
+  var cf0=cfA[0]||{};
+  var bs0=(Array.isArray(bss)?bss[0]:bss)||{};
+  var incA=Array.isArray(incs)?incs:incs?[incs]:[];
+  var capex=Math.abs(g(cf0,'capitalExpenditure','capital_expenditure'));
+  var sec=p.sector||'';
+  var isL=sec.match(/tech|software|communication|media/i);
+  var mc2=g(p,'marketCap','mktCap');
+  var px=g(p,'price');
+  return{
+    t:p.symbol||ticker,n:p.companyName||ticker,
+    p:px,pd:new Date().toISOString().split('T')[0],
+    sh:mc2&&px?+(mc2/px/1e6).toFixed(1):0,
+    ca:+((g(bs0,'cashAndShortTermInvestments')||g(bs0,'cashAndCashEquivalents'))/1e6).toFixed(1),
+    de:+((g(bs0,'shortTermDebt')+g(bs0,'longTermDebt'))/1e6).toFixed(1),
+    cfo:+((g(cf0,'operatingCashFlow','netCashProvidedByOperatingActivities'))/1e6).toFixed(1),
+    sbc:+((g(cf0,'stockBasedCompensation'))/1e6).toFixed(1),
+    cx:+(capex/1e6).toFixed(1),
+    mp:isL?50:70,
+    fy:'FY'+g(cf0,'calendarYear'),
+    fyEnd:(cf0.date||'').slice(0,10),
+    bsDate:(bs0.date||'').slice(0,10),
+    bsPeriod:bs0.period||'annual',
+    rv:incA.filter(Boolean).slice(0,5).map(function(y){return{y:''+g(y,'calendarYear'),r:+((g(y,'revenue'))/1e6).toFixed(1)};}),
+    cfoHist:cfA.filter(Boolean).slice(0,5).map(function(y){return{y:''+g(y,'calendarYear'),v:+((g(y,'operatingCashFlow','netCashProvidedByOperatingActivities'))/1e6).toFixed(1)};}),
+    fcfHist:cfA.filter(Boolean).slice(0,5).map(function(y){
+      var c2=g(y,'operatingCashFlow','netCashProvidedByOperatingActivities');
+      var s2=g(y,'stockBasedCompensation');var cx2=Math.abs(g(y,'capitalExpenditure'));
+      return{y:''+g(y,'calendarYear'),v:+((c2-s2-cx2*(isL?0.5:0.7))/1e6).toFixed(1)};
+    }),
+    sec:sec,exch:p.exchangeFullName||p.exchange||'',ipoDate:p.ipoDate||'',
+  };
+}
+
+var ST={d:null,co:[],ph:[],ih:[]};
+
+function gv(id){var e=document.getElementById(id);return e?parseFloat(e.value)||0:0;}
+function reCalc(){
+  var d=ST.d;if(!d)return;
+  d.p=gv('fp');d.sh=gv('fsh');d.ca=gv('fca');d.de=gv('fde');
+  d.cfo=gv('fcfo');d.sbc=gv('fsbc');d.cx=gv('fcx');d.mp=gv('fmp2');
+  (d.rv||[]).forEach(function(_,i){var e=document.getElementById('rv'+i);if(e)d.rv[i].r=parseFloat(e.value)||0;});
+  render();
+}
+
+function mkEI(id,lb,val,unit){return '<div class="ei"><label>'+lb+'</label><div style="display:flex;align-items:center;gap:3px"><input id="'+id+'" type="number" step="any" value="'+(val||'')+'" oninput="reCalc()"/><span class="u">'+unit+'</span></div></div>';}
+function mkRo(lb,val,bold,op,bt){var oH=op?'<span style="margin-right:4px;font-weight:700;font-family:var(--m);color:'+(op==='+'?'var(--bl)':'var(--rd)')+'">'+op+'</span>':'';return '<div class="rw'+(bt?' bt':'')+'"><span style="font-size:12px;color:var(--lb)">'+oH+lb+'</span><span style="font-family:var(--m);font-size:12px;color:'+(bold?'var(--br)':'#a0aab8')+';font-weight:'+(bold?700:400)+'">'+val+'</span></div>';}
+
+function drawBar(cid,series,labels){
+  setTimeout(function(){
+    var cv=document.getElementById(cid);if(!cv)return;
+    var ctx=cv.getContext('2d');var W=cv.offsetWidth,H=cv.offsetHeight;
+    cv.width=W*2;cv.height=H*2;ctx.scale(2,2);
+    var allV=[];series.forEach(function(s){s.d.forEach(function(v){if(v!=null)allV.push(v);});});
+    var mn=Math.min(0,Math.min.apply(null,allV)),mx=Math.max.apply(null,allV);
+    if(mn===mx){mn-=1;mx+=1;}
+    var p={t:10,r:10,b:22,l:48};var cw=W-p.l-p.r,ch=H-p.t-p.b;
+    var n=labels.length,bw=cw/n,gap2=bw*0.12,barW=(bw-gap2*2)/series.length;
+    ctx.strokeStyle='#1a2234';ctx.lineWidth=0.5;
+    for(var i=0;i<4;i++){var y=p.t+ch*(i/3);ctx.beginPath();ctx.moveTo(p.l,y);ctx.lineTo(W-p.r,y);ctx.stroke();var val=mx-(mx-mn)*(i/3);ctx.fillStyle='#4a5568';ctx.font='9px JetBrains Mono';ctx.textAlign='right';ctx.fillText(fb(val),p.l-4,y+3);}
+    if(mn<0){var zy=p.t+ch*(1-(-mn)/(mx-mn));ctx.strokeStyle='#2a3040';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(p.l,zy);ctx.lineTo(W-p.r,zy);ctx.stroke();}
+    series.forEach(function(s,si){s.d.forEach(function(v,i){if(v==null)return;var x=p.l+i*bw+gap2+si*barW;var zy2=p.t+ch*(1-(-mn)/(mx-mn));var vy=p.t+ch*(1-(v-mn)/(mx-mn));ctx.fillStyle=s.c;ctx.globalAlpha=0.75;ctx.fillRect(x,v>=0?vy:zy2,barW-1,Math.abs(vy-zy2)||1);ctx.globalAlpha=1;});});
+    ctx.fillStyle='#4a5568';ctx.font='9px JetBrains Mono';ctx.textAlign='center';
+    labels.forEach(function(l,i){ctx.fillText(l,p.l+i*bw+bw/2,H-4);});
+    var lx=p.l+4;series.forEach(function(s,i){var ly=p.t+4+i*13;ctx.fillStyle=s.c;ctx.fillRect(lx,ly,10,5);ctx.fillStyle='#7a8494';ctx.font='9px DM Sans';ctx.textAlign='left';ctx.fillText(s.l,lx+14,ly+5);});
+  },50);
+}
+
+function drawLine(cid,datasets,labels){
+  setTimeout(function(){
+    var cv=document.getElementById(cid);if(!cv)return;
+    var ctx=cv.getContext('2d');var W=cv.offsetWidth,H=cv.offsetHeight;
+    cv.width=W*2;cv.height=H*2;ctx.scale(2,2);
+    var allV=[];datasets.forEach(function(ds){ds.d.forEach(function(v){if(v!=null)allV.push(v);});});
+    var mn=Math.min.apply(null,allV),mx=Math.max.apply(null,allV);if(mn===mx){mn-=1;mx+=1;}
+    var p2={t:10,r:10,b:22,l:48};var cw=W-p2.l-p2.r,ch=H-p2.t-p2.b;
+    ctx.strokeStyle='#1a2234';ctx.lineWidth=0.5;
+    for(var i=0;i<4;i++){var y=p2.t+ch*(i/3);ctx.beginPath();ctx.moveTo(p2.l,y);ctx.lineTo(W-p2.r,y);ctx.stroke();var val=mx-(mx-mn)*(i/3);ctx.fillStyle='#4a5568';ctx.font='9px JetBrains Mono';ctx.textAlign='right';ctx.fillText(val.toFixed(0),p2.l-4,y+3);}
+    ctx.fillStyle='#4a5568';ctx.font='9px JetBrains Mono';ctx.textAlign='center';
+    var step=Math.max(1,Math.floor(labels.length/6));
+    labels.forEach(function(l,i){if(i%step===0||i===labels.length-1){var x=p2.l+cw*(i/(labels.length-1));ctx.fillText(l,x,H-4);}});
+    datasets.forEach(function(ds){ctx.strokeStyle=ds.c;ctx.lineWidth=ds.w||1.5;ctx.beginPath();ds.d.forEach(function(v,i){if(v==null)return;var x=p2.l+cw*(i/(labels.length-1));var y=p2.t+ch*(1-(v-mn)/(mx-mn));if(i===0||ds.d[i-1]==null)ctx.moveTo(x,y);else ctx.lineTo(x,y);});ctx.stroke();});
+    var lx=p2.l+4;datasets.forEach(function(ds,i){var ly=p2.t+4+i*13;ctx.fillStyle=ds.c;ctx.fillRect(lx,ly,10,3);ctx.fillStyle='#7a8494';ctx.font='9px DM Sans';ctx.textAlign='left';ctx.fillText(ds.l,lx+14,ly+4);});
+  },50);
+}
+
+function render(){
+  var d=ST.d,co=ST.co;if(!d)return;
+  var c=calcM(d);
+  var qC=c.qr>=0.25?'var(--gn)':c.qr>=0.20?'var(--yw)':'var(--rd)';
+  var qB=c.qr>=0.25?'#052e1688':c.qr>=0.20?'#42200688':'#450a0a88';
+  var qL=c.qr>=0.25?'Ready to Invest':c.qr>=0.20?'Watchlist':'Below Threshold';
+  var all=[d].concat(co);
+  var cms=all.map(function(x){var m=calcM(x);return{t:x.t,mc:m.mc,ev:m.ev,iNC:m.iNC,ncP:m.ncP,af:m.af,fy:m.fy,cagr:m.cagr,qr:m.qr,sbcP:m.sbcP};});
+
+  // Price CAGRs
+  var ph=ST.ph||[];var cagr5=null,cagr10=null,cagrIPO=null;
+  if(ph.length>50){
+    var lat=ph[0],now2=new Date(lat.date);
+    var p5=null,p10=null;
+    ph.forEach(function(x){var dd=new Date(x.date);var dy=(now2-dd)/31536000000;if(!p5&&dy>=4.9)p5=x;if(!p10&&dy>=9.9)p10=x;});
+    var pIPO=ph[ph.length-1];
+    if(p5)cagr5=Math.pow(lat.close/p5.close,1/((now2-new Date(p5.date))/31536000000))-1;
+    if(p10)cagr10=Math.pow(lat.close/p10.close,1/((now2-new Date(p10.date))/31536000000))-1;
+    if(pIPO){var yI=(now2-new Date(pIPO.date))/31536000000;if(yI>1)cagrIPO=Math.pow(lat.close/pIPO.close,1/yI)-1;}
+  }
+
+  var h='';
+
+  // Header
+  h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;background:var(--cd);border-radius:8px;padding:14px 16px;border:1px solid var(--bd);margin-bottom:12px"><div><div style="font-size:18px;font-weight:800;color:var(--br)">'+d.n+'</div><div style="font-size:11px;color:var(--dm)">'+d.t+' · '+d.exch+' · '+d.sec+'</div></div><div style="text-align:right"><div style="font-size:24px;font-weight:800;font-family:var(--m);color:var(--bl)">'+pr(d.p)+'</div><div style="font-size:10px;color:var(--dm)">'+d.pd+'</div></div></div>';
+
+  // Price chart (if available)
+  if(ph.length>50){
+    var pcid='pc'+(CC++);
+    h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--bl)">Stock Price vs S&P 500 (Growth of $100)</div><canvas id="'+pcid+'" style="height:170px;width:100%"></canvas><div style="display:flex;gap:16px;margin-top:6px;font-size:11px">';
+    if(cagr5!=null)h+='<div><span style="color:var(--lb)">5Y</span> <span style="font-family:var(--m);color:var(--tl);font-weight:600">'+pc(cagr5)+'</span></div>';
+    if(cagr10!=null)h+='<div><span style="color:var(--lb)">10Y</span> <span style="font-family:var(--m);color:var(--tl);font-weight:600">'+pc(cagr10)+'</span></div>';
+    if(cagrIPO!=null)h+='<div><span style="color:var(--lb)">IPO ('+(d.ipoDate||'').slice(0,4)+')</span> <span style="font-family:var(--m);color:var(--tl);font-weight:600">'+pc(cagrIPO)+'</span></div>';
+    h+='</div></div></div></div>';
+  }
+
+  // Quality Ratio
+  h+='<div style="background:'+qB+';border-radius:8px;padding:14px 16px;margin-bottom:12px;border:1px solid '+qC+'33"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--lb)">Quality Ratio</div><div style="font-size:28px;font-weight:800;font-family:var(--m);color:var(--br)">'+pc(c.qr)+'</div><div style="font-size:10px;color:var(--lb)">FCF/EV '+pc(c.fy)+' + Rev CAGR '+pc(c.cagr)+'</div></div><span class="bg" style="background:'+qC+'22;color:'+qC+'">'+qL+'</span></div></div>';
+
+  // MktCap → EV
+  h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--bl)">Market Cap → Enterprise Value</div>'+mkEI('fp','Stock Price',d.p,'USD')+mkEI('fsh','Shares Out.',d.sh,'M')+mkRo('Market Cap',fb(c.mc),1,null,1)+mkEI('fca','Cash & Equiv.',d.ca,'$M')+mkEI('fde','Total Debt',d.de,'$M')+mkRo('Enterprise Value',fb(c.ev),1,null,1)+'<div style="margin-top:6px;padding:6px 8px;border-radius:4px;background:'+(c.iNC?'#052e1644':'#450a0a44')+';border:1px solid '+(c.iNC?'#22c55e':'#ef4444')+'22;display:flex;justify-content:space-between;font-size:11px"><span style="color:'+(c.iNC?'#86efac':'#fca5a5')+'">'+(c.iNC?'✦ Net Cash':'⚠ Net Debt')+'</span><span style="font-family:var(--m);color:'+(c.iNC?'#86efac':'#fca5a5')+';font-weight:600">'+fb(Math.abs(c.nd))+' ('+pc(c.ncP)+' of MCap)</span></div></div><div class="cs"><b class="s">Price:</b> '+d.pd+'<br><b class="s">Shares:</b> per latest 10-K<br><b class="s">Balance sheet:</b> '+d.bsDate+' ('+d.bsPeriod+')<br>Cash incl. ST investments. Debt = short + long-term.</div></div></div>';
+
+  // Adj FCF
+  h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--pu)">Adjusted FCF ('+d.fy+' ending '+d.fyEnd+')</div>'+mkEI('fcfo','CFO',d.cfo,'$M')+mkEI('fsbc','Stock-Based Comp',d.sbc,'$M')+mkEI('fcx','Total CapEx',d.cx,'$M')+mkEI('fmp2','Maint CapEx %',d.mp,'%')+mkRo('Maint CapEx ('+c.mp+'% × '+fb(c.tc)+')',fb(c.mce),0,'−')+mkRo('Adjusted FCF',fb(c.af),1,null,1);
+  h+='<div style="margin-top:8px;padding-top:6px;border-top:1px solid #1e2a3a;font-size:11px"><span style="color:var(--lb)">SBC / Revenue:</span> <span style="font-family:var(--m);font-weight:600;color:'+(c.sbcP>0.15?'var(--rd)':c.sbcP>0.08?'var(--yw)':'var(--gn)')+'">'+pc(c.sbcP)+'</span>';
+  if(co.length>0){h+=' <span style="color:var(--dm)">vs ';co.forEach(function(x,i){var m2=calcM(x);h+=(i?', ':'')+x.t+' '+pc(m2.sbcP);});h+='</span>';}
+  h+='</div></div><div class="cs"><b class="s">CFO:</b> Cash flow stmt<br><b class="s">SBC:</b> Dilutive cost<br><b class="s">Maint CapEx:</b> '+c.mp+'% of total. D&A as floor. 40–60% SW, 60–80% industrial, 80%+ utilities.<br><b class="s">SBC/Rev:</b> &lt;8% healthy, 8–15% moderate, &gt;15% high.</div></div></div>';
+
+  // FCF/EV
+  h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--pu)">Adjusted FCF / EV Yield</div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:22px;font-weight:800;font-family:var(--m);color:'+(c.fy>=0.10?'var(--gn)':'var(--rd)')+'">'+pc(c.fy)+'</span><span class="bg" style="background:'+(c.fy>=0.10?'#052e1688':'#450a0a88')+';color:'+(c.fy>=0.10?'var(--gn)':'var(--rd)')+'">'+(c.fy>=0.10?'≥10%':'<10%')+'</span></div>';
+  h+='<div style="font-size:11px;color:var(--lb);margin-bottom:6px">'+fb(c.af)+' ÷ '+fb(c.ev)+' = '+pc(c.fy)+'</div>';
+  if(c.tp!=null)h+='<div class="mc"><div style="font-size:10px;color:var(--dm);margin-bottom:3px">Price for 10% yield:</div><span style="font-size:16px;font-weight:700;font-family:var(--m);color:var(--pu)">'+pr(c.tp)+'</span><span style="font-size:12px;font-family:var(--m);color:'+(c.pd>=0?'var(--rd)':'var(--gn)')+';margin-left:6px">'+(c.pd>=0?'▲':'▼')+' '+pr(Math.abs(c.pd))+' ('+((c.pd/c.sp)*100).toFixed(1)+'%)</span><div style="font-size:10px;color:#3a4050;margin-top:2px">'+(c.pd<0?'Margin of safety.':'Needs decline.')+'</div></div>';
+  h+='</div><div class="cs">≥10% strong. &lt;10% overvalued or reinvesting.</div></div></div>';
+
+  // Revenue + Chart
+  var revs=c.revs;
+  if(revs.length>=2){
+    var bcid='bc'+(CC++);
+    var yrs2=d.rv.map(function(r){return r.y;}).reverse();
+    h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--tl)">Revenue, CFO & Adj FCF ('+c.yrs+'yr CAGR: '+pc(c.cagr)+')</div>';
+    h+='<canvas id="'+bcid+'" style="height:150px;width:100%;margin-bottom:8px"></canvas>';
+    h+='<div style="overflow-x:auto"><table class="cp"><thead><tr><th style="text-align:left"></th>';
+    d.rv.forEach(function(r){h+='<th>'+r.y+'</th>';});
+    h+='</tr></thead><tbody><tr><td>Revenue</td>';
+    d.rv.forEach(function(r,i){h+='<td><input id="rv'+i+'" type="number" step="any" value="'+(r.r||'')+'" oninput="reCalc()" style="width:60px;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:2px 4px;color:#e0e7f0;font-size:10px;font-family:var(--m);outline:none;text-align:right"/></td>';});
+    h+='</tr><tr><td>YoY</td>';
+    d.rv.forEach(function(r,i){if(i<d.rv.length-1&&d.rv[i+1].r>0){var g3=(r.r/d.rv[i+1].r-1);h+='<td style="color:'+(g3>=0?'var(--tl)':'var(--rd)')+';font-weight:600">'+pc(g3)+'</td>';}else h+='<td>—</td>';});
+    h+='</tr></tbody></table></div>';
+    h+='<div style="margin-top:6px;display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--lb);font-weight:600">'+c.yrs+'-Year CAGR</span><span style="font-family:var(--m);font-weight:700;color:var(--tl)">'+pc(c.cagr)+'</span></div>';
+    h+='</div><div class="cs"><b class="s">Source:</b> Income stmt (10-K).<br>CAGR = (Latest/Oldest)^(1/yrs) − 1.</div></div></div>';
+  }
+
+  // Comp table
+  if(co.length>0){
+    var crs=[{l:'Market Cap',f:function(m){return fb(m.mc)}},{l:'Enterprise Value',f:function(m){return fb(m.ev)}},{l:'Net Cash/Debt %',f:function(m){return(m.iNC?'':'-')+pc(m.ncP)}},{l:'Adj. FCF',f:function(m){return fb(m.af)}},{l:'FCF/EV Yield',f:function(m){return pc(m.fy)}},{l:'Rev CAGR',f:function(m){return pc(m.cagr)}},{l:'SBC/Rev',f:function(m){return pc(m.sbcP)}},{l:'Quality Ratio',f:function(m){return pc(m.qr)}}];
+    var ths='<th></th>';cms.forEach(function(m,i){ths+='<th style="color:'+(i===0?'var(--bl)':'var(--lb)')+'">'+m.t+'</th>';});
+    var trs='';crs.forEach(function(r){var td='<td>'+r.l+'</td>';cms.forEach(function(m,j){var v=r.f(m);var isQ=r.l==='Quality Ratio';var qc2=isQ?(m.qr>=0.25?'var(--gn)':m.qr>=0.20?'var(--yw)':'var(--rd)'):null;td+='<td style="color:'+(qc2||(j===0?'#e0e7f0':'#a0aab8'))+';font-weight:'+(j===0?600:400)+'">'+v+'</td>';});trs+='<tr>'+td+'</tr>';});
+    h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--yw)">Competitor Comparison</div><div style="overflow-x:auto"><table class="cp"><thead><tr>'+ths+'</tr></thead><tbody>'+trs+'</tbody></table></div></div></div></div>';
+  }
+
+  // Path to 25%
+  if(c.gap<=0){
+    h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--yw)">Path to 25%</div><div style="color:var(--gn);font-size:12px">✦ Meets 25% — passes screen.</div></div></div></div>';
+  }else{
+    var pb2=c.np!=null&&c.np>0?'<div style="font-size:16px;font-weight:800;font-family:var(--m);color:var(--yw)">'+pr(c.np)+'</div><div style="font-size:10px;color:var(--dm)">'+((c.np-c.sp)/c.sp*100).toFixed(1)+'% from current</div>':'<div style="font-size:10px;color:var(--dm)">Not achievable via price alone</div>';
+    h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--yw)">Path to 25%</div><div style="font-size:11px;color:var(--lb);margin-bottom:8px">Gap: <span style="color:var(--yw);font-weight:700;font-family:var(--m)">'+(c.gap*100).toFixed(1)+'pp</span></div><div class="g2"><div class="mc"><div style="font-size:9px;font-weight:700;letter-spacing:1px;color:var(--dm);text-transform:uppercase;margin-bottom:4px">Via Price</div>'+pb2+'</div><div class="mc"><div style="font-size:9px;font-weight:700;letter-spacing:1px;color:var(--dm);text-transform:uppercase;margin-bottom:4px">Via Rev Growth</div><div style="font-size:16px;font-weight:800;font-family:var(--m);color:var(--yw)">'+(c.nr!=null?c.nr.toFixed(1):'—')+'%</div><div style="font-size:10px;color:var(--dm)">vs '+((c.cagr||0)*100).toFixed(1)+'% now</div></div></div></div><div class="cs">"Via Price" = holding CAGR. "Via Growth" = holding price.</div></div></div>';
+  }
+
+  h+='<div style="font-size:10px;color:#2a3040;line-height:1.5;padding-top:8px;border-top:1px solid var(--bd)">Adj. FCF = CFO − SBC − Maint. CapEx · EV = MCap + Net Debt · Quality = FCF/EV + Rev CAGR · ≥25% 🟢 · 20–25% 🟡 · &lt;20% 🔴 · Data: FMP (SEC filings)</div>';
+
+  document.getElementById('out').innerHTML=h;
+
+  // Draw price chart
+  if(ph.length>50){
+    var pcEl=document.querySelector('[id^="pc"]');
+    if(pcEl){
+      var ihh=ST.ih||[];
+      var phR=ph.slice().reverse();var ihR=ihh.slice().reverse();
+      var base=phR[0]?phR[0].close:1;var ibase=ihR[0]?ihR[0].close:1;
+      var lbls=phR.map(function(x){return x.date.slice(0,7);});
+      var pD=phR.map(function(x){return(x.close/base)*100;});
+      var iMap={};ihR.forEach(function(x){iMap[x.date]=x.close;});
+      var iD=phR.map(function(x){var ic=iMap[x.date];return ic?(ic/ibase)*100:null;});
+      for(var fi=1;fi<iD.length;fi++){if(iD[fi]==null)iD[fi]=iD[fi-1];}
+      drawLine(pcEl.id,[{l:d.t,d:pD,c:'#38bdf8',w:2},{l:'S&P 500',d:iD,c:'#4a5568',w:1}],lbls);
+    }
+  }
+  // Draw bar chart
+  if(revs.length>=2){
+    var bcEl=document.querySelector('[id^="bc"]');
+    if(bcEl){
+      var yL=d.rv.map(function(r){return r.y;}).reverse();
+      var rD=d.rv.map(function(r){return r.r;}).reverse();
+      var cD=(d.cfoHist||[]).map(function(r){return r.v;}).reverse();
+      var fD=(d.fcfHist||[]).map(function(r){return r.v;}).reverse();
+      while(cD.length<rD.length)cD.unshift(null);
+      while(fD.length<rD.length)fD.unshift(null);
+      drawBar(bcEl.id,[{l:'Revenue',d:rD,c:'#34d399'},{l:'CFO',d:cD,c:'#38bdf8'},{l:'Adj FCF',d:fD,c:'#818cf8'}],yL);
+    }
+  }
+}
+
+document.getElementById('qi').addEventListener('keydown',function(e){if(e.key==='Enter')go();});
+
+async function go(){
+  var t=document.getElementById('qi').value.trim().toUpperCase();if(!t)return;
+  document.getElementById('gb').disabled=true;document.getElementById('gb').textContent='…';
+  document.getElementById('ld').style.display='block';document.getElementById('er').style.display='none';
+  document.getElementById('out').innerHTML='';document.getElementById('es').style.display='none';
+  try{
+    var main=await buildCo(t);
+    ST.d=main;ST.co=[];ST.ph=[];ST.ih=[];
+
+    // Non-essential calls - won't break if 402
+    var [peers,prices,spx]=await Promise.all([
+      fmp('stock-peers?symbol='+t).catch(function(){return null;}),
+      fmp('historical-price-eod/full?symbol='+t).catch(function(){return null;}),
+      fmp('historical-price-eod/full?symbol=SPY').catch(function(){return null;}),
+    ]);
+
+    // Peers (paid)
+    if(peers){
+      var pArr=Array.isArray(peers)?peers:peers?[peers]:[];
+      var pList=((pArr[0]||{}).peersList||(pArr[0]||{}).peers_list||[]).slice(0,3);
+      if(pList.length>0){var pd=await Promise.all(pList.map(function(x){return buildCo(x).catch(function(){return null;});}));ST.co=pd.filter(Boolean);}
+    }
+
+    // Price history (paid)
+    if(prices){var phA=Array.isArray(prices)?prices:(prices.historical||[]);ST.ph=phA.slice(0,2520);}
+    if(spx){var spA=Array.isArray(spx)?spx:(spx.historical||[]);ST.ih=spA.slice(0,2520);}
+
+    render();
+  }catch(e){
+    document.getElementById('er').textContent=e.message;document.getElementById('er').style.display='block';
+  }finally{
+    document.getElementById('ld').style.display='none';document.getElementById('gb').disabled=false;document.getElementById('gb').textContent='Analyze';
+  }
+}
+</script>
+</body>
+</html>
