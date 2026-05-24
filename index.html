@@ -151,7 +151,7 @@ async function buildCo(tk){
     _ppe:+((gf(bs0,'propertyPlantAndEquipmentNet','propertyPlantAndEquipment'))/1e6).toFixed(1),
     _intang:+((gf(bs0,'goodwillAndIntangibleAssets','intangibleAssets'))/1e6).toFixed(1),
     _wc:+((gf(bs0,'totalCurrentAssets')-gf(bs0,'totalCurrentLiabilities'))/1e6).toFixed(1),
-    _tbv:+((gf(bs0,'totalStockholdersEquity')-gf(bs0,'goodwillAndIntangibleAssets','intangibleAssets','goodwill'))/1e6).toFixed(1),
+    _tbv:+(Math.max(0,(gf(bs0,'totalStockholdersEquity')-gf(bs0,'goodwillAndIntangibleAssets')-gf(bs0,'intangibleAssets')))/1e6).toFixed(1),
     _bsLoaded:true,
     sec:sec,exch:p.exchangeFullName||p.exchange||'',industry:p.industry||'',
     mcapHist:Array.isArray(mcapHist)?mcapHist:[],
@@ -376,6 +376,17 @@ async function addComps(){
 function render(){
   var d=ST.d,co=ST.co;if(!d)return;
   var c=calcM(d);
+  // Seed DCF from historical data on first load
+  if(!ST.dcf._seeded&&d.rv&&d.rv.length){
+    var _hFcfM=d.fcf&&d.fcf[0]&&d.rv[0].r>0?d.fcf[0].v/d.rv[0].r*100:15;
+    ST.dcf.fm=Math.max(5,Math.min(40,Math.round(_hFcfM)));
+    var _hRc=c.rc?Math.round(c.rc*100):10;
+    ST.dcf.r1=Math.max(1,_hRc);ST.dcf.r2=Math.max(1,_hRc-2);
+    ST.dcf.r3=Math.max(1,_hRc-4);ST.dcf.r4=Math.max(1,_hRc-5);ST.dcf.r5=Math.max(1,_hRc-6);
+    var _hSc=d.soH&&d.soH.length>=2?Math.round(cagr(d.soH[d.soH.length-1].v||1,d.soH[0].v||1,d.soH.length-1)*100*10)/10:-1.5;
+    ST.dcf.sc=Math.round(_hSc*10)/10;
+    ST.dcf._seeded=true;
+  }
   var dcf=calcDCF();
   var qC=c.qr>=0.25?'var(--gn)':c.qr>=0.20?'var(--yw)':'var(--rd)';
   var qB=c.qr>=0.25?'#052e1688':c.qr>=0.20?'#42200688':'#450a0a88';
@@ -612,17 +623,6 @@ function render(){
   // ──── DCF MODEL ────
   h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="ct" style="margin-bottom:0">5-Year DCF Projection</div><span class="tog'+(ST.showDCF?' on':'')+'" onclick="togS(\'DCF\')">'+(ST.showDCF?'▼ Hide':'▶ Expand')+'</span></div>';
   if(ST.showDCF){
-    // Re-seed defaults from last 5Y data on first open
-    if(!ST.dcf._seeded&&d.rv.length){
-      var histFcfM=d.fcf&&d.fcf[0]&&d.rv[0].r>0?d.fcf[0].v/d.rv[0].r*100:15;
-      ST.dcf.fm=Math.max(5,Math.min(40,Math.round(histFcfM)));
-      var histRc=c.rc?Math.round(c.rc*100):10;
-      ST.dcf.r1=Math.max(1,histRc);ST.dcf.r2=Math.max(1,histRc-2);
-      ST.dcf.r3=Math.max(1,histRc-4);ST.dcf.r4=Math.max(1,histRc-5);ST.dcf.r5=Math.max(1,histRc-6);
-      var histSc=d.soH&&d.soH.length>=2?Math.round(cagr(d.soH[d.soH.length-1].v||1,d.soH[0].v||1,d.soH.length-1)*100*10)/10:-1.5;
-      ST.dcf.sc=Math.round(histSc*10)/10;
-      ST.dcf._seeded=true;
-    }
     var dcf2=calcDCF();
 
     // Assumptions panel
@@ -734,7 +734,7 @@ function render(){
   h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="ct" style="color:var(--pu);margin-bottom:0">Balance Sheet & Asset-Based Valuation</div><span class="tog'+(ST.showBS?' on':'')+'" onclick="togS(\'BS\')">'+(ST.showBS?'▼ Hide':'▶ Expand')+'</span></div>';
   if(ST.showBS){
     // Pull latest BS values from cached data
-    var bsTa=gf(d,'_ta')||0,bsPpe=gf(d,'_ppe')||0,bsWc=gf(d,'_wc')||0,bsTbv=gf(d,'_tbv')||0;
+    var bsTa=d._ta||0,bsPpe=d._ppe||0,bsWc=d._wc||0,bsTbv=d._tbv||0;
     var bsNd=c.nd,bsMc=c.mc;
     // Replacement value: PPE at book + working capital + cash - debt
     var replEV=bsPpe+bsWc+(d.ca||0);
@@ -759,7 +759,12 @@ function render(){
 
     h+='<div class="mc"><div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:6px">Book Value / TBV</div>';
     h+='<div style="font-size:11px;line-height:2;color:var(--lb)">';
-    h+=(bsTbv>0?'TBV: <span style="font-family:var(--m);color:var(--br)">'+D(bsTbv)+'</span><br>TBV/share: <span style="font-family:var(--m);color:var(--pu)">'+(tbvPs?pr(tbvPs):'—')+'</span><br>P/TBV: <span style="font-family:var(--m);color:'+(ptbv&&ptbv<3?'var(--gn)':ptbv&&ptbv<6?'var(--yw)':'var(--rd)')+'">'+(ptbv?ptbv.toFixed(1)+'x':'—')+'</span>':'<span style="color:var(--dm)">Load ticker to calculate</span>');
+    h+='Total Assets: <span style="font-family:var(--m);color:var(--br)">'+D(bsTa)+'</span><br>';
+    h+='Intangibles: <span style="font-family:var(--m);color:var(--dm)">'+D(d._intang||0)+'</span><br>';
+    h+='TBV: <span style="font-family:var(--m);color:'+(bsTbv>0?'var(--br)':'var(--rd)')+'">'+D(bsTbv)+'</span>';
+    if(bsTbv<=0)h+=' <span style="font-size:9px;color:var(--rd)">(negative — buybacks/losses)</span>';
+    h+='<br>TBV/share: <span style="font-family:var(--m);color:var(--pu)">'+(tbvPs?pr(tbvPs):bsTbv<0?'Negative':'—')+'</span><br>';
+    h+='P/TBV: <span style="font-family:var(--m);color:'+(ptbv&&ptbv<3?'var(--gn)':ptbv&&ptbv<6?'var(--yw)':'var(--rd)')+'">'+(ptbv?ptbv.toFixed(1)+'x':bsTbv<=0?'N/A (neg TBV)':'—')+'</span>';
     h+='</div></div>';
 
     h+='<div class="mc"><div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:6px">Replacement Cost Est.</div>';
@@ -767,10 +772,22 @@ function render(){
     h+=(bsPpe>0?'PP&E: <span style="font-family:var(--m);color:var(--br)">'+D(bsPpe)+'</span><br>Work. Capital: <span style="font-family:var(--m);color:var(--br)">'+D(bsWc)+'</span><br>Repl. Value/sh: <span style="font-family:var(--m);color:var(--pu)">'+(replPs?pr(replPs):'—')+'</span>':'<span style="color:var(--dm)">Load ticker to calculate</span>');
     h+='</div></div></div>';
 
-    // Fetch BS data if not already there
-    if(!d._bsLoaded){
-      h+='<div id="bsload" style="font-size:10px;color:var(--dm);text-align:center;padding:6px">Loading balance sheet detail… <button onclick="loadBS()" style="background:var(--bl);border:none;border-radius:4px;padding:3px 10px;color:#fff;font-size:10px;cursor:pointer">Load Now</button></div>';
-    }
+    // Key BS ratios table
+    h+='<div style="margin-top:10px"><table class="t"><thead><tr><th>Metric</th><th>Value</th><th>Benchmark</th><th>Signal</th></tr></thead><tbody>';
+    var bsRows=[
+      {m:'Total Assets',v:D(bsTa),b:'—',s:''},
+      {m:'Working Capital',v:D(bsWc),b:'>0',s:bsWc>0?'✓ Positive':'⚠ Negative'},
+      {m:'Net Cash / (Debt)',v:D(-c.nd),b:'>0 = net cash',s:c.iNC?'✓ Net Cash':'⚠ Net Debt'},
+      {m:'Debt / Equity',v:bsTbv>0?((d.de||0)/bsTbv).toFixed(2)+'x':'N/A',b:'<1x healthy',s:bsTbv>0&&d.de/bsTbv<1?'✓ Low':'⚠ High'},
+      {m:'PP&E (net)',v:D(bsPpe),b:'Asset base',s:''},
+      {m:'Tangible Book Value',v:D(bsTbv),b:'Positive',s:bsTbv>0?'✓':'⚠ Negative'},
+      {m:'P/TBV',v:ptbv?ptbv.toFixed(1)+'x':'N/A',b:'<3x cheap, <6x fair',s:ptbv?ptbv<3?'✓ Cheap':ptbv<6?'◐ Fair':'⚠ Expensive':''},
+      {m:'Replacement Value/sh',v:replPs?pr(replPs):'—',b:'vs current price',s:replPs&&d.p?d.p<replPs?'✓ Below replacement':'⚠ Above replacement':''}
+    ];
+    bsRows.forEach(function(r){
+      h+='<tr><td>'+r.m+'</td><td style="font-family:var(--m)">'+r.v+'</td><td style="color:var(--dm)">'+r.b+'</td><td style="color:'+(r.s.startsWith('✓')?'var(--gn)':r.s.startsWith('⚠')?'var(--yw)':'var(--lb)')+'">'+r.s+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
   }
   h+='</div></div></div>';
 
