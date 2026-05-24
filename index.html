@@ -567,12 +567,16 @@ function render(){
     fsN>0&&(fsRv||[]).forEach(function(){h+='<td></td>';});h+='<td></td><td></td></tr>';
 
     // ── CAPITAL ALLOCATION ─────────────────────────────────────
-    h+='<tr style="border-top:2px solid var(--bd)"><td colspan="'+(fsN+3)+'" style="font-size:9px;font-weight:700;color:var(--dm);letter-spacing:1px;padding:5px 5px 3px;text-transform:uppercase">Capital Allocation</td></tr>';
+    h+='<tr style="border-top:2px solid var(--bd)"><td colspan="'+(fsN+3)+'" style="font-size:9px;font-weight:700;color:var(--dm);letter-spacing:1px;padding:5px 5px 3px;text-transform:uppercase">Capital Allocation & Valuation</td></tr>';
 
-    // Price close row
-    h+='<tr><td>Price Close (latest)</td>';
-    (fsRv||[]).forEach(function(r,i){h+='<td style="color:var(--dm);font-size:9px">'+(i===fsRv.length-1?pr(d.p):'—')+'</td>';});
-    h+='<td>'+pr(d.p)+'</td><td></td></tr>';
+    // Price Close — use historical MCap/shares for historical years
+    h+='<tr><td>Price Close</td>';
+    var _bsHR=(d.bsH||[]).slice(0,5).reverse();
+    (fsSo||[]).forEach(function(x,i){
+      if(i===fsSo.length-1){h+='<td style="font-weight:600">'+pr(d.p)+'</td>';}
+      else{h+='<td style="color:var(--dm)">—</td>';}
+    });
+    h+='<td style="font-weight:600">'+pr(d.p)+'</td><td></td></tr>';
 
     // Shares
     h+='<tr><td>Shares Out. (M)</td>';
@@ -582,75 +586,118 @@ function render(){
     if(sopos.length>=2){var scagr2=cagr(sopos[0],sopos[sopos.length-1],sopos.length-1);h+='<td style="color:'+(scagr2>0.005?'var(--rd)':'var(--gn)')+'">'+pc(scagr2)+'</td>';}else h+='<td></td>';
     h+='</tr>';
 
-    // Market Cap (shares × latest price — best proxy without hist prices)
+    // Market Cap (est = shares × latest price)
     var mcapVals=(fsSo||[]).map(function(x){return x&&x.v?+(x.v*d.p).toFixed(1):null;});
     h+='<tr><td style="font-weight:600;color:var(--bl)">Market Cap (est.)</td>';
     (mcapVals||[]).forEach(function(v){h+='<td style="font-weight:600">'+D(v)+'</td>';});
     var mcpos=(mcapVals||[]).filter(Boolean);
     h+='<td style="font-weight:600">'+D(av(mcapVals))+'</td><td style="color:var(--tl)">'+(mcpos.length>=2?pc(cagr(mcpos[0],mcpos[mcpos.length-1],mcpos.length-1)):'')+'</td></tr>';
 
-    // Cash (latest only from BS)
-    h+='<tr><td>+ Cash & Equiv (latest)</td>';
-    (fsRv||[]).forEach(function(r,i){h+='<td style="color:var(--dm);font-size:9px">'+(i===fsRv.length-1?D(d.ca):'—')+'</td>';});
+    // Cash — use bsH for historical
+    h+='<tr><td>+ Cash & Equiv</td>';
+    (fsSo||[]).forEach(function(x,i){var bs3=(_bsHR||[])[i];h+='<td>'+(bs3?D(bs3.cash):D(d.ca))+'</td>';});
     h+='<td>'+D(d.ca)+'</td><td></td></tr>';
 
-    // Debt (latest only from BS)
-    h+='<tr><td>− Total Debt (latest)</td>';
-    (fsRv||[]).forEach(function(r,i){h+='<td style="color:var(--dm);font-size:9px">'+(i===fsRv.length-1?D(d.de):'—')+'</td>';});
+    // Debt — use bsH for historical
+    h+='<tr><td>− Total Debt</td>';
+    (fsSo||[]).forEach(function(x,i){var bs3=(_bsHR||[])[i];h+='<td>'+(bs3?D(bs3.debt):D(d.de))+'</td>';});
     h+='<td>'+D(d.de)+'</td><td></td></tr>';
 
-    // EV (current only, can't compute historical without hist prices)
-    h+='<tr><td style="font-weight:600;color:var(--bl)">Enterprise Value (latest)</td>';
-    (fsRv||[]).forEach(function(r,i){h+='<td style="color:var(--dm);font-size:9px">'+(i===fsRv.length-1?D(c.ev):'—')+'</td>';});
+    // EV — MCap + Debt - Cash
+    h+='<tr><td style="font-weight:600;color:var(--bl)">Enterprise Value</td>';
+    (fsSo||[]).forEach(function(x,i){
+      var mc2=mcapVals[i];var bs3=(_bsHR||[])[i];
+      var ca2=bs3?bs3.cash:d.ca;var de2=bs3?bs3.debt:d.de;
+      var ev2=mc2?mc2+de2-ca2:null;
+      h+='<td style="font-weight:600">'+D(ev2)+'</td>';
+    });
     h+='<td style="font-weight:600">'+D(c.ev)+'</td><td></td></tr>';
-    h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:10px">MCap + Debt − Cash</td>';
-    (fsRv||[]).forEach(function(r,i){h+='<td style="color:var(--dm)">'+(i===fsRv.length-1?D(c.mc)+'+'+D(d.de)+'−'+D(d.ca):'')+'</td>';});
-    h+='<td></td><td></td></tr>';
+    h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:10px">= MCap + Debt − Cash</td>';
+    (fsSo||[]).forEach(function(){h+='<td></td>';});h+='<td></td><td></td></tr>';
+
+    // Adj FCF / EV Yield — per year
+    h+='<tr><td style="font-weight:600">Adj FCF / EV Yield</td>';
+    (fsSo||[]).forEach(function(x,i){
+      var mc2=mcapVals[i];var bs3=(_bsHR||[])[i];
+      var ca2=bs3?bs3.cash:d.ca;var de2=bs3?bs3.debt:d.de;
+      var ev2=mc2?mc2+de2-ca2:null;
+      var fcf4=fsFcf[i];var yld=ev2&&ev2>0&&fcf4&&fcf4.v!=null?fcf4.v/ev2:null;
+      var col=yld!=null&&yld>=0.10?'var(--gn)':yld!=null&&yld>=0.05?'var(--yw)':'var(--rd)';
+      h+='<td style="font-weight:600;color:'+col+'">'+pc(yld)+'</td>';
+    });
+    h+='<td style="font-weight:600;color:'+(c.fy>=0.10?'var(--gn)':c.fy>=0.05?'var(--yw)':'var(--rd)')+'">'+pc(c.fy)+'</td><td></td></tr>';
+    h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:10px">🟢 ≥10% strong · 🟡 5–10% · 🔴 &lt;5%</td>';
+    (fsSo||[]).forEach(function(){h+='<td></td>';});h+='<td></td><td></td></tr>';
+
+    // Buybacks
+    var hasBuy=(fsBuy||[]).some(function(x){return x&&x.v>0;});
+    if(hasBuy){
+      hlRow('Share Buybacks',fsBuy,'v',false,'');
+      h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:10px">Buyback Yield (BB/MCap)</td>';
+      (fsBuy||[]).forEach(function(x,i){var mc=mcapVals[i];var by=mc&&mc>0&&x?x.v/mc:null;h+='<td style="color:'+(by>=0.03?'var(--tl)':'var(--dm)')+'">'+pc(by)+'</td>';});
+      var avgBy=av((fsBuy||[]).map(function(x,i){var mc=mcapVals[i];return mc&&mc>0&&x?x.v/mc:null;}));
+      h+='<td>'+pc(avgBy)+'</td><td></td></tr>';
+    }
 
     // Dividends
-    var hasDiv=fsDiv.some(function(x){return x&&x.v>0;});
+    var hasDiv=(fsDiv||[]).some(function(x){return x&&x.v>0;});
     if(hasDiv){
       hlRow('Dividends Paid',fsDiv,'v',false,'');
-      // Dividend yield = div / mcap
-      h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:10px">Div Yield (Div/MCap)</td>';
-      (fsDiv||[]).forEach(function(x,i){var mc=mcapVals[i];var dy=mc&&mc>0&&x?x.v/mc:null;h+='<td style="color:'+(dy>=0.03?'var(--tl)':'var(--dm)')+'">'+pc(dy)+'</td>';});
+      h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:10px">Dividend Yield (Div/MCap)</td>';
+      (fsDiv||[]).forEach(function(x,i){var mc=mcapVals[i];var dy=mc&&mc>0&&x?x.v/mc:null;h+='<td style="color:'+(dy>=0.02?'var(--tl)':'var(--dm)')+'">'+pc(dy)+'</td>';});
       var avgDy=av((fsDiv||[]).map(function(x,i){var mc=mcapVals[i];return mc&&mc>0&&x?x.v/mc:null;}));
       h+='<td>'+pc(avgDy)+'</td><td></td></tr>';
     }
 
-    // Buybacks
-    var hasBuy=fsBuy.some(function(x){return x&&x.v>0;});
-    if(hasBuy){
-      hlRow('Share Buybacks',fsBuy,'v',false,'');
-      // Buyback yield = buybacks / mcap
-      h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:10px">Buyback Yield (BB/MCap)</td>';
-      (fsBuy||[]).forEach(function(x,i){var mc=mcapVals[i];var by=mc&&mc>0&&x?x.v/mc:null;h+='<td style="color:'+(by>=0.03?'var(--tl)':'var(--dm)')+'">'+pc(by)+'</td>';});
-      var avgBy=av((fsBuy||[]).map(function(x,i){var mc=mcapVals[i];return mc&&mc>0&&x?x.v/mc:null;}));
-      h+='<td style="color:'+(avgBy>=0.03?'var(--tl)':'var(--dm)')+'">'+pc(avgBy)+'</td><td></td></tr>';
-    }
-
-    // Total Shareholder Yield = Div + Buyback yield
+    // Total Shareholder Yield
     if(hasDiv||hasBuy){
       h+='<tr style="border-top:1px solid var(--bd)"><td style="font-weight:600">Total Shareholder Yield</td>';
-      (fsDiv||[]).forEach(function(x,i){
+      (fsSo||[]).forEach(function(x,i){
         var mc=mcapVals[i];
-        var dy=mc&&mc>0&&x?x.v/mc:0;
-        var bx=fsBuy[i];
-        var by=mc&&mc>0&&bx?bx.v/mc:0;
+        var dv=(fsDiv||[])[i];var bk=(fsBuy||[])[i];
+        var dy=mc&&mc>0&&dv&&dv.v?dv.v/mc:0;
+        var by=mc&&mc>0&&bk&&bk.v?bk.v/mc:0;
         var ty=dy+by;
         h+='<td style="font-weight:600;color:'+(ty>=0.05?'var(--tl)':ty>=0.02?'var(--yw)':'var(--dm)')+'">'+pc(ty||null)+'</td>';
       });
-      var avgTy=av((fsDiv||[]).map(function(x,i){
-        var mc=mcapVals[i];var dy=mc&&mc>0&&x?x.v/mc:0;var bx=fsBuy[i];var by=mc&&mc>0&&bx?bx.v/mc:0;return dy+by||null;
+      var avgTy=av((fsSo||[]).map(function(x,i){
+        var mc=mcapVals[i];var dv=(fsDiv||[])[i];var bk=(fsBuy||[])[i];
+        var dy=mc&&mc>0&&dv&&dv.v?dv.v/mc:0;var by=mc&&mc>0&&bk&&bk.v?bk.v/mc:0;return dy+by||null;
       }));
       h+='<td style="font-weight:600;color:'+(avgTy>=0.05?'var(--tl)':avgTy>=0.02?'var(--yw)':'var(--dm)')+'">'+pc(avgTy)+'</td><td></td></tr>';
-      h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:10px">Div Yield + Buyback Yield</td>';
-      (fsRv||[]).forEach(function(){h+='<td></td>';});h+='<td></td><td></td></tr>';
+      h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:10px">= Buyback Yield + Dividend Yield</td>';
+      (fsSo||[]).forEach(function(){h+='<td></td>';});h+='<td></td><td></td></tr>';
     }
+
+    // ── RETURNS ────────────────────────────────────────────────
+    h+='<tr style="border-top:2px solid var(--bd)"><td colspan="'+(fsN+3)+'" style="font-size:9px;font-weight:700;color:var(--dm);letter-spacing:1px;padding:5px 5px 3px;text-transform:uppercase">Returns on Capital</td></tr>';
+
+    // ROIC = NI / (Equity + Debt - Cash)
+    h+='<tr><td style="font-weight:600">ROIC</td>';
+    (fsNi||[]).forEach(function(ni2,i){
+      var bs3=(_bsHR||[])[i]||{};
+      var invCap=(bs3.te||0)+(bs3.debt||0)-(bs3.cash||0);
+      var r2=invCap>0&&ni2?ni2.v/invCap:null;
+      h+='<td style="font-weight:600;color:'+(r2!=null&&r2>0.25?'var(--gn)':r2!=null&&r2>0.15?'var(--yw)':'var(--rd)')+'">'+pc(r2)+'</td>';
+    });
+    h+='<td></td><td></td></tr>';
+    h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:10px">= NI ÷ (Equity + Debt − Cash) · 🟢 >25%</td>';
+    (fsSo||[]).forEach(function(){h+='<td></td>';});h+='<td></td><td></td></tr>';
+
+    // ROE = NI / Equity
+    h+='<tr><td style="font-weight:600">ROE</td>';
+    (fsNi||[]).forEach(function(ni2,i){
+      var bs3=(_bsHR||[])[i]||{};
+      var roe=bs3.te>0&&ni2?ni2.v/bs3.te:null;
+      h+='<td style="font-weight:600;color:'+(roe!=null&&roe>0.20?'var(--gn)':roe!=null&&roe>0.10?'var(--yw)':'var(--rd)')+'">'+pc(roe)+'</td>';
+    });
+    h+='<td></td><td></td></tr>';
+    h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:10px">= NI ÷ Equity · 🟢 >20% (at low leverage)</td>';
+    (fsSo||[]).forEach(function(){h+='<td></td>';});h+='<td></td><td></td></tr>';
 
     h+='</tbody></table></div>';
   }
-  h+='</div><div class="cs"><b class="s">Years: old → recent</b><br><br><b class="s">Maint CapEx:</b> Editable %. Default = sector-based (50% tech, 70% other). Benchmark: ~D&A or maintenance/sustain portion of capex.<br><br><b class="s">Adj FCF/EV:</b><br>🟢 ≥10% strong<br>🟡 5–10% moderate<br>🔴 &lt;5% weak<br><br><b class="s">Yields:</b><br>🟢 ≥5% strong<br>🟡 2–5% moderate<br>(MCap est. = shares × current price)</div></div></div>';
+  h+='</div><div class="cs"><b class="s">Years: old → recent</b><br><br><b class="s">Adj FCF/EV:</b><br>🟢 ≥10% strong<br>🟡 5–10% moderate<br>🔴 &lt;5% weak<br><br><b class="s">ROIC:</b> NI ÷ Invested Capital. &gt;25% = moat.<br><br><b class="s">ROE:</b> NI ÷ Equity. &gt;20% = strong (only meaningful at low leverage).<br><br><b class="s">Shareholder Yield:</b> Buybacks + Dividends as % of MCap. &gt;5% = meaningful capital return.</div></div></div>';
 
   // ── FINANCIAL HEALTH ─────────────────────────────────────────
   h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="ct" style="color:var(--pu);margin-bottom:0">Balance Sheet Strength</div><span class="tog'+(ST.showFS?' on':'')+'" onclick="togSection(\'FS\')">'+(ST.showFS?'▼ Hide':'▶ Expand')+'</span></div>';
