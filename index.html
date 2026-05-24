@@ -126,6 +126,7 @@ async function buildCo(tk){
 
   var years=incA.map(function(y){return getYr(y);}).filter(Boolean);
   var rev=incA.filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),r:+((gf(y,'revenue'))/1e6).toFixed(1)};});
+  var ni=incA.filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+((gf(y,'netIncome'))/1e6).toFixed(1)};});
   var gm=incA.filter(Boolean).slice(0,5).map(function(y){var r=gf(y,'revenue');var gp=gf(y,'grossProfit');return{y:yrOf(y),v:r>0?gp/r:0};});
   var cfoH=cfA.filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+((gf(y,'operatingCashFlow','netCashProvidedByOperatingActivities'))/1e6).toFixed(1)};});
   var fcfH=cfA.filter(Boolean).slice(0,5).map(function(y){var c2=gf(y,'operatingCashFlow','netCashProvidedByOperatingActivities');var s2=gf(y,'stockBasedCompensation');var cx2=Math.abs(gf(y,'capitalExpenditure'));return{y:yrOf(y),v:+((c2-s2-cx2*(isL?0.5:0.7))/1e6).toFixed(1)};});
@@ -145,8 +146,8 @@ async function buildCo(tk){
     cfo:+(gf(cf0,'operatingCashFlow','netCashProvidedByOperatingActivities')/1e6).toFixed(1),
     sbc:+(gf(cf0,'stockBasedCompensation')/1e6).toFixed(1),
     cx:+(capex/1e6).toFixed(1),mp:mpct,
-    fy:'FY'+(gf(cf0,'calendarYear')||''),fyEnd:fyEnd,bsDate:(bs0.date||'').slice(0,10),filingLink:cf0.finalLink||cf0.link||'',
-    rv:rev,gm:gm,cfoH:cfoH,fcf:fcfH,sbcH:sbcH,capexH:capexH,soH:soH,divH:divH,buyH:buyH,
+    fy:'FY'+(yrOf(cf0)||''),fyEnd:fyEnd,bsDate:(bs0.date||'').slice(0,10),filingLink:cf0.finalLink||cf0.link||'',
+    rv:rev,ni:ni,gm:gm,cfoH:cfoH,fcf:fcfH,sbcH:sbcH,capexH:capexH,soH:soH,divH:divH,buyH:buyH,
     _ta:+((gf(bs0,'totalAssets'))/1e6).toFixed(1),
     _ppe:+((gf(bs0,'propertyPlantAndEquipmentNet','propertyPlantAndEquipment'))/1e6).toFixed(1),
     _intang:+((gf(bs0,'goodwillAndIntangibleAssets','intangibleAssets'))/1e6).toFixed(1),
@@ -669,19 +670,20 @@ function render(){
   if(ST.showDCF){
     var dcf2=calcDCF();
     var v2=ST.dcf;
-    // Compute projected years (current FY + 1..5)
-    var lastHistYr=d.rv&&d.rv.length?parseInt(d.rv[0].y)||2024:2024;
+    // Compute projected years — use the most recent year from rv array
+    var lastHistYr=d.rv&&d.rv.length&&d.rv[0].y?parseInt(d.rv[0].y):new Date().getFullYear();
+    if(isNaN(lastHistYr))lastHistYr=new Date().getFullYear();
     var projYrs=[lastHistYr+1,lastHistYr+2,lastHistYr+3,lastHistYr+4,lastHistYr+5];
 
-    // History: all 5 years, oldest first
-    var histRv =d.rv.slice(0,5).reverse();
-    var histNi =d.ni.slice(0,5).reverse();
-    var histGm =d.gm.slice(0,5).reverse();
-    var histCfo=d.cfoH.slice(0,5).reverse();
-    var histSbc=d.sbcH.slice(0,5).reverse();
-    var histCx =d.capexH.slice(0,5).reverse();
-    var histFcf=d.fcf.slice(0,5).reverse();
-    var histSo =d.soH.slice(0,5).reverse();
+    // History: all available years, oldest first — guard each array
+    var histRv =(d.rv||[]).slice(0,5).reverse();
+    var histNi =(d.ni||[]).slice(0,5).reverse();
+    var histGm =(d.gm||[]).slice(0,5).reverse();
+    var histCfo=(d.cfoH||[]).slice(0,5).reverse();
+    var histSbc=(d.sbcH||[]).slice(0,5).reverse();
+    var histCx =(d.capexH||[]).slice(0,5).reverse();
+    var histFcf=(d.fcf||[]).slice(0,5).reverse();
+    var histSo =(d.soH||[]).slice(0,5).reverse();
     var hn=histRv.length;
 
     // Input style helper (inline in table cell)
