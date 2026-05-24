@@ -301,7 +301,8 @@ function sp500CAGR(fromYr, toYr) {
 }
 
 
-var ST={d:null,co:[],stockPts:[],indMult:15,mpOver:null,showPath:true,showFS:false,showBS:false,
+var CC=0;
+var ST={d:null,co:[],stockPts:[],priceHist:[],indexHist:[],indMult:15,mpOver:null,showPath:true,showFS:false,showBS:false,
   dcf:{
     // Per-year revenue growth %
     r1:12,r2:10,r3:9,r4:8,r5:7,
@@ -443,22 +444,31 @@ function render(){
   // Quality
   h+='<div style="background:'+qB+';border-radius:8px;padding:14px 16px;margin-bottom:12px;border:1px solid '+qC+'33"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--lb)">Quality Ratio</div><div style="font-size:28px;font-weight:800;font-family:var(--m);color:var(--br)">'+pc(c.qr)+'</div><div style="font-size:10px;color:var(--lb)">FCF/EV '+pc(c.fy)+' + Rev CAGR '+pc(c.rc)+'</div></div><span class="bg" style="background:'+qC+'22;color:'+qC+'">'+qL+'</span></div></div>';
 
-  // ── PRICE CHART (MCap history → price, vs embedded S&P) ─────
+  // ── PRICE CHART ───────────────────────────────────────────
+  var _ph=ST.priceHist||[];
+  var _sp=ST.stockPts||[];
+  var _cid='pc'+(CC++);
   h+='<div class="card"><div class="ci"><div class="cm">';
   h+='<div class="ct" style="color:var(--bl)">Stock Price vs S&P 500 — Growth of $100</div>';
-  if(ST.stockPts&&ST.stockPts.length>=3){
-    var _lastYr=ST.stockPts[ST.stockPts.length-1].year;
-    var _ipoYr=ST.stockPts[0].year;
-    var _cagrs={
-      y5:cagrYrs(ST.stockPts,5),y10:cagrYrs(ST.stockPts,10),ipo:cagrAll(ST.stockPts),
-      sp5:sp500CAGR(_lastYr-5,_lastYr),sp10:sp500CAGR(_lastYr-10,_lastYr),
-      spiPO:sp500CAGR(_ipoYr,_lastYr)
-    };
-    h+=buildGrowthChart(d.t,ST.stockPts,_cagrs,_ipoYr);
+  if(_ph.length>10){
+    // Compute CAGRs from annual points
+    var _lastYr=_sp.length?_sp[_sp.length-1].year:0;
+    var _ipoYr=_sp.length?_sp[0].year:0;
+    var _c5=cagrYrs(_sp,5),_c10=cagrYrs(_sp,10),_cIPO=cagrAll(_sp);
+    var _s5=sp500CAGR(_lastYr-5,_lastYr),_s10=sp500CAGR(_lastYr-10,_lastYr),_sIPO=sp500CAGR(_ipoYr,_lastYr);
+    var _op=(_c5!=null&&_s5!=null)?_c5-_s5:null;
+    var _col=_op!=null&&_op>=0?'var(--gn)':'var(--bl)';
+    h+='<canvas id="'+_cid+'" style="height:180px;width:100%"></canvas>';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;font-size:11px;align-items:center">';
+    if(_c5!=null)h+='<span style="color:var(--lb)">5Y: <b style="color:'+_col+'">'+pc(_c5)+'</b>'+((_s5!=null)?' <span style="color:#4a5568">vs '+pc(_s5)+'</span>':'')+'</span>';
+    if(_c10!=null)h+='<span style="color:var(--lb)">10Y: <b style="color:'+_col+'">'+pc(_c10)+'</b>'+((_s10!=null)?' <span style="color:#4a5568">vs '+pc(_s10)+'</span>':'')+'</span>';
+    if(_cIPO!=null)h+='<span style="color:var(--lb)">Since '+_ipoYr+': <b style="color:'+_col+'">'+pc(_cIPO)+'</b>'+((_sIPO!=null)?' <span style="color:#4a5568">vs '+pc(_sIPO)+'</span>':'')+'</span>';
+    if(_op!=null)h+='<b style="color:'+(_op>=0?'var(--gn)':'var(--rd)')+'">'+(_op>=0?'▲ Outperforming':'▼ Underperforming')+' by '+Math.abs(_op*100).toFixed(1)+'pp/yr</b>';
+    h+='</div>';
   }else{
-    h+='<div style="font-size:10px;color:var(--dm);padding:20px;text-align:center">Loading price history…</div>';
+    h+='<div id="'+_cid+'_ph" style="font-size:10px;color:var(--dm);padding:20px;text-align:center">Loading price history…</div>';
   }
-  h+='</div><div class="cs"><b class="s">Growth of $100</b> from earliest available year.<br><br>🟢 Green = outperforming S&P 500.<br><br><b class="s">CAGR:</b> 5Y · 10Y · Since IPO<br>vs S&P 500 (year-end closes).<br><br>Source: FMP market cap history ÷ shares.</div></div></div>';
+  h+='</div><div class="cs"><b class="s">Growth of $100</b> from start.<br><br>🟢 Outperforming S&P<br><br><b class="s">CAGR:</b> 5Y · 10Y · IPO<br>vs S&P 500.<br><br>Source: FMP market cap ÷ shares.</div></div></div>';
 
   // MktCap→EV
   h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--bl)">Market Cap → Enterprise Value</div>'+mkEI('fp','Stock Price',d.p,'USD')+mkEI('fsh','Shares Out.',d.sh,'M')+mkRo('Market Cap',D(c.mc),1,null,1)+mkEI('fca','Cash & Equiv.',d.ca,'$M')+mkEI('fde','Total Debt',d.de,'$M')+mkRo('Enterprise Value',D(c.ev),1,null,1)+'<div style="margin-top:6px;padding:6px 8px;border-radius:4px;background:'+(c.iNC?'#052e1644':'#450a0a44')+';border:1px solid '+(c.iNC?'#22c55e':'#ef4444')+'22;display:flex;justify-content:space-between;font-size:11px"><span style="color:'+(c.iNC?'#86efac':'#fca5a5')+'">'+(c.iNC?'✦ Net Cash':'⚠ Net Debt')+'</span><span style="font-family:var(--m);color:'+(c.iNC?'#86efac':'#fca5a5')+';font-weight:600">'+D(Math.abs(c.nd))+' ('+pc(c.ncP)+' MCap)</span></div></div><div class="cs"><b class="s">Filing:</b> 10-K ('+d.fy+', '+d.fyEnd+')'+(d.filingLink?'<br><a href="'+d.filingLink+'" target="_blank" style="color:var(--bl);font-size:9px">View Filing →</a>':'')+'<br><b class="s">Price:</b> '+d.pd+'<br><b class="s">BS:</b> '+d.bsDate+'</div></div></div>';
@@ -805,6 +815,40 @@ function render(){
   
   h+='<div style="font-size:9px;color:#2a3040;padding-top:8px;border-top:1px solid var(--bd)">Quality ≥25% 🟢 | Adj FCF = CFO − SBC − Maint CapEx | Data: FMP (SEC 10-K) | <a href="/valuation-screener/valuation/" style="color:#4a5568">DCF & Valuation Model →</a></div>';
   document.getElementById('out').innerHTML=h;
+
+  // Draw price chart after DOM update
+  var _ph2=ST.priceHist||[];
+  if(_ph2.length>10){
+    var _sp2=ST.stockPts||[];
+    var _phR=_ph2.slice().reverse();
+    var _base=_phR[0]?_phR[0].close:1;
+    var _ibase=1;
+    // Build S&P monthly from annual embedded data
+    var _spMap={};
+    Object.keys(SP500Y).forEach(function(yr){_spMap[yr]=SP500Y[yr];});
+    var _labels=_phR.map(function(x){return x.date.slice(0,7);});
+    var _pData=_phR.map(function(x){return(x.close/_base)*100;});
+    // S&P: interpolate monthly from annual closes
+    var _spData=_phR.map(function(x){
+      var yr=x.date.slice(0,4);var mo=parseInt(x.date.slice(5,7));
+      var y0=SP500Y[yr]||SP500Y[parseInt(yr)-1]||null;
+      var y1=SP500Y[parseInt(yr)+1]||y0;
+      if(!y0)return null;
+      var frac=(mo-1)/12;
+      return y0+(y1-y0)*frac;
+    });
+    // Normalize S&P to base 100
+    var _spBase=_spData[0]||1;
+    _spData=_spData.map(function(v){return v?(v/_spBase)*100:null;});
+    for(var _fi=1;_fi<_spData.length;_fi++){if(_spData[_fi]==null)_spData[_fi]=_spData[_fi-1];}
+    var _pcEl=document.getElementById(_cid);
+    var _lastP=_pData[_pData.length-1],_lastS=_spData[_spData.length-1];
+    var _stockCol=(_lastP>_lastS)?'#22c55e':'#38bdf8';
+    if(_pcEl)drawChart(_cid,[
+      {label:d.t,data:_pData,color:_stockCol,width:2.5},
+      {label:'S&P 500',data:_spData,color:'#4a5568',width:1.5}
+    ],_labels);
+  }
 }
 
 document.getElementById('qi').addEventListener('keydown',function(e){if(e.key==='Enter')go();});
@@ -821,21 +865,26 @@ async function go(){
       if(pL.length>0){var pd=await Promise.all(pL.map(function(x){return buildCo(x).catch(function(){return null;});}));ST.co=pd.filter(Boolean);}}
     render();
     if(!ST.co.length)document.getElementById('ci2').placeholder='Type competitors: MSFT, GOOG';
-    // Fetch annual price history via market cap (free FMP endpoint)
-    fmp('historical-market-capitalization?symbol='+t+'&limit=400').then(function(mcH){
-      if(!mcH||!mcH.length){render();return;}
+    // Fetch price history via historical-market-cap (free FMP endpoint)
+    // Returns daily market cap; derive price = marketCap / shares
+    fmp('historical-market-capitalization?symbol='+t+'&limit=3000').then(function(mcH){
       var arr=Array.isArray(mcH)?mcH:[];
-      // Keep one data point per year (end-of-year = lowest month number per year)
+      if(!arr.length){render();return;}
+      var sh0=ST.d&&ST.d.sh>0?ST.d.sh*1e6:0; // shares in units
+      if(!sh0){render();return;}
+      // Group by year, keep the LAST date of each year (highest date string = Dec or latest)
       var byYr={};
       arr.forEach(function(x){
         var yr=parseInt((x.date||'').slice(0,4));
-        var mc=x.marketCap||x.market_cap;
-        var sh=ST.d&&ST.d.sh>0?ST.d.sh*1e6:null;
-        if(!yr||!mc||!sh)return;
-        var price=mc/sh;
-        if(!byYr[yr]||x.date<byYr[yr].date)byYr[yr]={year:yr,close:price,date:x.date};
+        var mc=x.marketCap||x.market_cap||0;
+        if(!yr||!mc)return;
+        var price=mc/sh0;
+        if(!byYr[yr]||x.date>byYr[yr].date)byYr[yr]={year:yr,close:price,date:x.date};
       });
-      ST.stockPts=Object.values(byYr).sort(function(a,b){return a.year-b.year;});
+      ST.stockPts=Object.values(byYr).filter(function(p){return p.close>0;}).sort(function(a,b){return a.year-b.year;});
+      // Store daily data too for monthly chart
+      ST.priceHist=arr.map(function(x){return{date:x.date,close:(x.marketCap||x.market_cap||0)/sh0};}).filter(function(x){return x.close>0;});
+      ST.indexHist=[]; // not used anymore
       render();
     }).catch(function(){render();});
   }catch(e){document.getElementById('er').textContent=e.message;document.getElementById('er').style.display='block';
