@@ -54,6 +54,10 @@ b.s{color:var(--lb)}
 .val-num{font-size:16px;font-weight:800;font-family:var(--m);color:var(--bl);margin-bottom:2px}
 .val-note{font-size:9px;color:var(--dm)}
 @media(max-width:640px){.cs{display:none}.ci{padding:10px 12px}}
+
+.chart-svg{overflow:visible}
+.chart-label{font-size:9px;font-family:var(--m);fill:var(--lb)}
+.chart-title{font-size:9px;font-weight:700;fill:var(--dm);text-transform:uppercase;letter-spacing:1px}
 </style>
 </head>
 <body>
@@ -108,9 +112,11 @@ function calcM(d){
 }
 
 async function buildCo(tk){
-  var[prof,cfs,bss,incs]=await Promise.all([
+  var[prof,cfs,bss,incs,mcapHist]=await Promise.all([
     fmp('profile?symbol='+tk,true),fmp('cash-flow-statement?symbol='+tk+'&period=annual&limit=5',true),
-    fmp('balance-sheet-statement?symbol='+tk+'&period=annual&limit=5',true),fmp('income-statement?symbol='+tk+'&period=annual&limit=5',true)]);
+    fmp('balance-sheet-statement?symbol='+tk+'&period=annual&limit=5',true),
+    fmp('income-statement?symbol='+tk+'&period=annual&limit=5',true),
+    fmp('historical-market-capitalization?symbol='+tk+'&limit=2000').catch(function(){return null;})]);
   var p=(Array.isArray(prof)?prof[0]:prof)||{};
   var cfA=Array.isArray(cfs)?cfs:[];var cf0=cfA[0]||{};
   var bsA=Array.isArray(bss)?bss:[];var bs0=bsA[0]||{};
@@ -142,7 +148,106 @@ async function buildCo(tk){
     fy:'FY'+(gf(cf0,'calendarYear')||''),fyEnd:fyEnd,bsDate:(bs0.date||'').slice(0,10),filingLink:cf0.finalLink||cf0.link||'',
     rv:rev,gm:gm,cfoH:cfoH,fcf:fcfH,sbcH:sbcH,soH:soH,divH:divH,buyH:buyH,
     sec:sec,exch:p.exchangeFullName||p.exchange||'',industry:p.industry||'',
+    mcapHist:Array.isArray(mcapHist)?mcapHist:[],
   };
+}
+
+
+// S&P 500 annual close prices (Dec 31 each year)
+var SP500={2015:2043.94,2016:2238.83,2017:2673.61,2018:2506.85,2019:3230.78,
+  2020:3756.07,2021:4766.18,2022:3839.50,2023:4769.83,2024:5881.63};
+
+function buildPriceChart(ticker,mcapData,soData,years){
+  // mcapData: [{date,marketCap}] from FMP (most recent first)
+  // soData: [{y,v}] shares per year (millions)
+  // years: ['2020','2021',...] from financial summary
+  if(!mcapData||!mcapData.length)return'<div style="font-size:10px;color:var(--dm);padding:10px">Historical price data unavailable</div>';
+
+  // Extract year-end prices from MCap data
+  var pricesByYear={};
+  mcapData.forEach(function(d){
+    if(!d.date)return;
+    var yr=d.date.substring(0,4);
+    var mo=parseInt(d.date.substring(5,7));
+    // Take the last entry we see for each year (data is newest first, so first occurrence = latest in year)
+    if(!pricesByYear[yr]&&d.marketCap>0){
+      // Find matching shares for that year
+      var so=soData.find(function(s){return s.y===yr;});
+      if(so&&so.v>0){pricesByYear[yr]=+(d.marketCap/1e6/so.v).toFixed(2);}
+    }
+  });
+
+  var dataYears=Object.keys(pricesByYear).sort();
+  if(dataYears.length<2)return'<div style="font-size:10px;color:var(--dm);padding:10px">Insufficient price history</div>';
+
+  // Normalize both series to 100 at first year
+  var firstYr=dataYears[0];
+  var stockBase=pricesByYear[firstYr];
+  var sp500Base=SP500[parseInt(firstYr)];
+  if(!stockBase||!sp500Base)return'<div style="font-size:10px;color:var(--dm);padding:10px">Cannot normalize chart</div>';
+
+  var stockNorm=[],sp500Norm=[],chartYrs=[];
+  dataYears.forEach(function(yr){
+    var sp=SP500[parseInt(yr)];
+    if(pricesByYear[yr]&&sp){
+      stockNorm.push(+(pricesByYear[yr]/stockBase*100).toFixed(1));
+      sp500Norm.push(+(sp/sp500Base*100).toFixed(1));
+      chartYrs.push(yr);
+    }
+  });
+  if(chartYrs.length<2)return'';
+
+  // Calculate CAGRs
+  var n=chartYrs.length-1;
+  var stockCagr=Math.pow(stockNorm[n]/100,1/n)-1;
+  var spCagr=Math.pow(sp500Norm[n]/100,1/n)-1;
+
+  // SVG chart
+  var W=500,H=160,pad={l:30,r:10,t:15,b:25};
+  var cw=W-pad.l-pad.r,ch=H-pad.t-pad.b;
+  var allVals=stockNorm.concat(sp500Norm);
+  var minV=Math.min.apply(null,allVals)*0.95,maxV=Math.max.apply(null,allVals)*1.05;
+  function xp(i){return pad.l+i/(chartYrs.length-1)*cw;}
+  function yp(v){return pad.t+ch-(v-minV)/(maxV-minV)*ch;}
+
+  var stockPath='',spPath='';
+  chartYrs.forEach(function(y,i){
+    var cmd=i===0?'M':'L';
+    stockPath+=cmd+xp(i).toFixed(1)+','+yp(stockNorm[i]).toFixed(1)+' ';
+    spPath+=cmd+xp(i).toFixed(1)+','+yp(sp500Norm[i]).toFixed(1)+' ';
+  });
+
+  var stockColor=stockCagr>spCagr?'#34d399':'#38bdf8';
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" class="chart-svg">';
+  // Grid lines
+  svg+='<line x1="'+pad.l+'" y1="'+pad.t+'" x2="'+pad.l+'" y2="'+(H-pad.b)+'" stroke="#1a2234" stroke-width="1"/>';
+  svg+='<line x1="'+pad.l+'" y1="'+(H-pad.b)+'" x2="'+(W-pad.r)+'" y2="'+(H-pad.b)+'" stroke="#1a2234" stroke-width="1"/>';
+  // Base line (100)
+  var y100=yp(100);
+  svg+='<line x1="'+pad.l+'" y1="'+y100.toFixed(1)+'" x2="'+(W-pad.r)+'" y2="'+y100.toFixed(1)+'" stroke="#232d3f" stroke-width="1" stroke-dasharray="3,3"/>';
+  svg+='<text x="'+pad.l+'" y="'+(y100-3).toFixed(1)+'" class="chart-label">100</text>';
+  // Year labels
+  chartYrs.forEach(function(y,i){if(i%Math.ceil(chartYrs.length/5)===0||i===chartYrs.length-1)svg+='<text x="'+xp(i).toFixed(1)+'" y="'+(H-6)+'" class="chart-label" text-anchor="middle">'+y+'</text>';});
+  // S&P line
+  svg+='<path d="'+spPath.trim()+'" fill="none" stroke="#4a5568" stroke-width="2"/>';
+  // Stock line
+  svg+='<path d="'+stockPath.trim()+'" fill="none" stroke="'+stockColor+'" stroke-width="2.5"/>';
+  // End dots
+  var lastI=chartYrs.length-1;
+  svg+='<circle cx="'+xp(lastI).toFixed(1)+'" cy="'+yp(stockNorm[lastI]).toFixed(1)+'" r="3" fill="'+stockColor+'"/>';
+  svg+='<circle cx="'+xp(lastI).toFixed(1)+'" cy="'+yp(sp500Norm[lastI]).toFixed(1)+'" r="3" fill="#4a5568"/>';
+  // End value labels
+  svg+='<text x="'+(xp(lastI)+4)+'" y="'+(yp(stockNorm[lastI])+4).toFixed(1)+'" class="chart-label" fill="'+stockColor+'">'+stockNorm[lastI]+'</text>';
+  svg+='<text x="'+(xp(lastI)+4)+'" y="'+(yp(sp500Norm[lastI])+4).toFixed(1)+'" class="chart-label">' +sp500Norm[lastI]+'</text>';
+  svg+='</svg>';
+
+  var stockColor2=stockCagr>spCagr?'var(--gn)':'var(--rd)';
+  var legend='<div style="display:flex;gap:16px;font-size:10px;margin-top:6px;flex-wrap:wrap">';
+  legend+='<div><span style="display:inline-block;width:16px;height:2px;background:'+stockColor+';vertical-align:middle;margin-right:4px"></span><b>'+ticker+'</b> CAGR: <span style="color:'+stockColor2+';font-weight:600">'+(stockCagr*100).toFixed(1)+'%</span></div>';
+  legend+='<div><span style="display:inline-block;width:16px;height:2px;background:#4a5568;vertical-align:middle;margin-right:4px"></span><b>S&P 500</b> CAGR: <span style="color:var(--lb)">'+(spCagr*100).toFixed(1)+'%</span></div>';
+  legend+='<div style="color:var(--dm)">Indexed to 100 from '+chartYrs[0]+'</div></div>';
+
+  return svg+legend;
 }
 
 var ST={d:null,co:[],indMult:15,showPath:true,showDCF:false,showTri:false,
@@ -269,6 +374,16 @@ function render(){
   var m3Val=null; // Placeholder for BS approach
   h+='<div class="val-box"><div class="val-label">Method 3: Balance Sheet</div><div class="val-num">'+(m3Val?pr(m3Val):'TBD')+'</div><div class="val-note">Asset-based approach</div></div>';
   h+='</div></div><div class="cs"><b class="s">Triangulate:</b> 3 methods to find fair value range</div></div></div>';
+
+  // ── PRICE CHART vs S&P 500 ────────────────────────────────────
+  h+='<div class="card"><div class="ci"><div class="cm">';
+  h+='<div class="ct" style="color:var(--bl)">Stock Price vs S&P 500 (Indexed, Year-End)</div>';
+  if(d.mcapHist&&d.mcapHist.length){
+    h+=buildPriceChart(d.t,d.mcapHist,d.soH,d.yrs||[]);
+  }else{
+    h+='<div style="font-size:10px;color:var(--dm);padding:8px">Fetching historical market cap data…</div>';
+  }
+  h+='</div><div class="cs"><b class="s">Price chart</b> derived from historical market cap ÷ weighted avg shares.<br><br>Indexed to 100 at earliest year. Green = outperforming S&P 500.<br><br>S&P 500 data: annual Dec 31 closes.</div></div></div>';
 
   // ──── FINANCIALS TABLE ────
   h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--tl)">Financial Summary — '+d.t+'</div>';
