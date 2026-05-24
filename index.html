@@ -147,6 +147,12 @@ async function buildCo(tk){
     cx:+(capex/1e6).toFixed(1),mp:mpct,
     fy:'FY'+(gf(cf0,'calendarYear')||''),fyEnd:fyEnd,bsDate:(bs0.date||'').slice(0,10),filingLink:cf0.finalLink||cf0.link||'',
     rv:rev,gm:gm,cfoH:cfoH,fcf:fcfH,sbcH:sbcH,capexH:capexH,soH:soH,divH:divH,buyH:buyH,
+    _ta:+((gf(bs0,'totalAssets'))/1e6).toFixed(1),
+    _ppe:+((gf(bs0,'propertyPlantAndEquipmentNet','propertyPlantAndEquipment'))/1e6).toFixed(1),
+    _intang:+((gf(bs0,'goodwillAndIntangibleAssets','intangibleAssets'))/1e6).toFixed(1),
+    _wc:+((gf(bs0,'totalCurrentAssets')-gf(bs0,'totalCurrentLiabilities'))/1e6).toFixed(1),
+    _tbv:+((gf(bs0,'totalStockholdersEquity')-gf(bs0,'goodwillAndIntangibleAssets','intangibleAssets','goodwill'))/1e6).toFixed(1),
+    _bsLoaded:true,
     sec:sec,exch:p.exchangeFullName||p.exchange||'',industry:p.industry||'',
     mcapHist:Array.isArray(mcapHist)?mcapHist:[],
   };
@@ -297,7 +303,7 @@ function buildChart(ticker, mcapData, currentMcap, currentShares) {
 }
 
 
-var ST={d:null,co:[],indMult:15,showPath:true,showDCF:false,showTri:false,
+var ST={d:null,co:[],indMult:15,showPath:true,showDCF:false,showTri:false,showBS:false,
   dcf:{r1:12,r2:10,r3:9,r4:8,r5:7,fm:15,wacc:9,tg:3,sc:-1.5}};
 
 function toggleTheme(){
@@ -314,6 +320,7 @@ function updDCF(){
   render();
 }
 function togS(k){ST['show'+k]=!ST['show'+k];render();}
+function loadBS(){if(ST.d)render();}
 
 function calcDCF(){
   var d=ST.d,v=ST.dcf;
@@ -321,22 +328,36 @@ function calcDCF(){
   var latRev=d.rv[0].r,latSh=d.soH&&d.soH[0]?d.soH[0].v:d.sh;
   var rates=[v.r1/100,v.r2/100,v.r3/100,v.r4/100,v.r5/100];
   var fm=v.fm/100,wacc=v.wacc/100,tg=v.tg/100,sc=v.sc/100;
-  var pR=[],pF=[],pS=[],pV=[];
+  var pR=[],pF=[],pS=[],pV=[],pCfo=[],pSbc=[],pMx=[];
   var cR=latRev,cS=latSh;
+  var latCfo=d.cfoH&&d.cfoH[0]?d.cfoH[0].v:0;
+  var latSbc=d.sbcH&&d.sbcH[0]?d.sbcH[0].v:0;
+  var latCx=d.capexH&&d.capexH[0]?d.capexH[0].v:0;
+  var cfoGrow=latRev>0?latCfo/latRev:0.2;
+  var sbcGrow=latRev>0?latSbc/latRev:0.03;
+  var cxGrow=latRev>0?latCx/latRev:0.05;
+  var mp2=d.mp||50;
   for(var i=0;i<5;i++){
     cR=cR*(1+rates[i]);pR.push(cR);
     var f=cR*fm;pF.push(f);
     cS=cS*(1+sc);pS.push(cS);
     pV.push(f/Math.pow(1+wacc,i+1));
+    pCfo.push(cR*cfoGrow);
+    pSbc.push(cR*sbcGrow);
+    pMx.push(cR*cxGrow*(mp2/100));
   }
   var tvF=pF[4]*(1+tg),tv=tvF/(wacc-tg),tvPv=tv/Math.pow(1+wacc,5);
   var totPv=pV.reduce(function(a,b){return a+b;},0)+tvPv;
   var eq=totPv-(d.de||0)+(d.ca||0);if(eq<0)eq=0;
   var iv=pS[4]>0?eq/pS[4]:0,mos=d.p>0?(iv-d.p)/d.p:0;
-  return{pR:pR,pF:pF,pS:pS,pV:pV,tv:tv,tvPv:tvPv,totPv:totPv,iv:iv,mos:mos};
+  return{pR:pR,pF:pF,pS:pS,pV:pV,pCfo:pCfo,pSbc:pSbc,pMx:pMx,tv:tv,tvPv:tvPv,totPv:totPv,iv:iv,mos:mos};
 }
 function gv(id){var e=document.getElementById(id);return e?parseFloat(e.value)||0:0;}
-function updDCF(){render();} // legacy stub - new updDCF handles ST.dcf
+function updDCF(){
+  ST.dcf.r1=gv('dr1');ST.dcf.r2=gv('dr2');ST.dcf.r3=gv('dr3');ST.dcf.r4=gv('dr4');ST.dcf.r5=gv('dr5');
+  ST.dcf.fm=gv('dfm');ST.dcf.wacc=gv('dwacc');ST.dcf.tg=gv('dtg');ST.dcf.sc=gv('dsc');
+  render();
+}
 function reCalc(){var d=ST.d;if(!d)return;d.p=gv('fp');d.sh=gv('fsh');d.ca=gv('fca');d.de=gv('fde');d.cfo=gv('fcfo');d.sbc=gv('fsbc');d.cx=gv('fcx');d.mp=gv('fmp2');ST.indMult=gv('indm')||15;render();}
 function togSection(sec){ST['show'+sec]=!ST['show'+sec];render();}
 function mkEI(id,lb,val,unit){return'<div class="ei"><label>'+lb+'</label><div style="display:flex;align-items:center;gap:3px"><input id="'+id+'" type="number" step="any" value="'+(val||'')+'" oninput="reCalc()"/><span class="u">'+unit+'</span></div></div>';}
@@ -508,35 +529,37 @@ function render(){
 
   // ──── COMPETITIVE LANDSCAPE ────
   if(co.length>0){
-    var crs=[{l:'Market Cap',f:function(m){return D(m.mc)}},{l:'EV',f:function(m){return D(m.ev)}},{l:'Net Cash/Debt %',f:function(m){return(m.iNC?'':'-')+pc(m.ncP)}},{l:'Adj FCF',f:function(m){return D(m.af)}},{l:'FCF/EV',f:function(m){return pc(m.fy)}},{l:'Rev CAGR',f:function(m){return pc(m.rc)}},{l:'SBC/Rev',f:function(m){return colS(m.sbcP)}},{l:'EV/FCF',f:function(m){return m.evF?fx(m.evF):'—'}},{l:'Quality',f:function(m){return pc(m.qr)}}];
+    var all=[d].concat(co);
+    var crs=[{l:'Market Cap',f:function(m){return D(m.mc)}},{l:'EV',f:function(m){return D(m.ev)}},{l:'Net Cash/Debt %',f:function(m){return(m.iNC?'':'-')+pc(m.ncP)}},{l:'Adj FCF',f:function(m){return D(m.af)}},{l:'FCF/EV Yield',f:function(m){return pc(m.fy)}},{l:'Rev CAGR',f:function(m){return pc(m.rc)}},{l:'SBC/Rev',f:function(m){return colS(m.sbcP)}},{l:'EV/FCF',f:function(m){return m.evF?fx(m.evF):'—'}},{l:'Quality Ratio',f:function(m){return pc(m.qr)}}];
     var ths='<th></th>';cms.forEach(function(m,i){ths+='<th style="color:'+(i===0?'var(--bl)':'var(--lb)')+'">'+m.t+'</th>';});
-    var trs='';crs.forEach(function(r){var td='<td>'+r.l+'</td>';cms.forEach(function(m,j){var v=r.f(m);var isQ=r.l==='Quality';var qc=isQ?(m.qr>=0.25?'var(--gn)':m.qr>=0.20?'var(--yw)':'var(--rd)'):null;td+='<td style="color:'+(qc||(j===0?'#e0e7f0':'#a0aab8'))+';font-weight:'+(j===0?600:400)+'">'+v+'</td>';});trs+='<tr>'+td+'</tr>';});
-
-    h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--yw)">Competitive Landscape</div>';
+    var trs='';crs.forEach(function(r){var td='<td>'+r.l+'</td>';cms.forEach(function(m,j){var v=r.f(m);var isQ=r.l==='Quality Ratio';var qc=isQ?(m.qr>=0.25?'var(--gn)':m.qr>=0.20?'var(--yw)':'var(--rd)'):null;td+='<td style="color:'+(qc||(j===0?'#e0e7f0':'#a0aab8'))+';font-weight:'+(j===0?600:400)+'">'+v+'</td>';});trs+='<tr>'+td+'</tr>';});
     var bQ=cms.reduce(function(a,b){return a.qr>b.qr?a:b;});
     var bY=cms.reduce(function(a,b){return a.fy>b.fy?a:b;});
     var bG=cms.reduce(function(a,b){return(a.rc||0)>(b.rc||0)?a:b;});
     var pam=av(co.map(function(x){return calcM(x).evF;}).filter(Boolean));
+    h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--yw)">Competitive Landscape</div>';
     h+='<div style="font-size:11px;color:var(--lb);margin-bottom:10px;padding:8px 10px;background:#0a0e18;border-radius:5px;border:1px solid var(--bd);line-height:1.6">';
-    h+='<b style="color:var(--br)">'+d.industry+'</b><br>'+d.t+' at '+fx(c.evF)+' EV/FCF'+(pam?' vs peer avg '+fx(pam):'')+'. Best quality: <span style="color:var(--tl)">'+bQ.t+' '+pc(bQ.qr)+'</span>. Best yield: <span style="color:var(--tl)">'+bY.t+' '+pc(bY.fy)+'</span>. Fastest: <span style="color:var(--tl)">'+bG.t+' '+pc(bG.rc)+'</span>.';
+    h+='<b style="color:var(--br)">'+d.industry+'</b> — '+d.t+' at '+fx(c.evF)+' EV/FCF'+(pam?' vs peer avg '+fx(pam):'')+'. Best quality: <span style="color:var(--tl)">'+bQ.t+' '+pc(bQ.qr)+'</span>. Best yield: <span style="color:var(--tl)">'+bY.t+' '+pc(bY.fy)+'</span>. Fastest growth: <span style="color:var(--tl)">'+bG.t+' '+pc(bG.rc)+'</span>.';
     h+='</div>';
     h+='<div style="overflow-x:auto"><table class="t"><thead><tr>'+ths+'</tr></thead><tbody>'+trs+'</tbody></table></div>';
-
-    // Revenue, FCF, SBC comps
     ['Revenue','Adj FCF','SBC/Rev'].forEach(function(metric){
       h+='<div style="font-size:9px;font-weight:700;letter-spacing:1px;color:var(--dm);text-transform:uppercase;margin:10px 0 4px">'+metric+'</div><table class="t"><thead><tr><th></th>';
-      d.rv.map(function(r){return r.y;}).forEach(function(y){h+='<th>'+y+'</th>';});
+      d.rv.slice().reverse().forEach(function(r){h+='<th>'+r.y+'</th>';});
       h+='<th>'+(metric==='SBC/Rev'?'Avg':'CAGR')+'</th></tr></thead><tbody>';
       all.forEach(function(x,xi){
         h+='<tr><td style="color:'+(xi===0?'var(--bl)':'')+'">'+x.t+'</td>';
+        var xrv=x.rv?x.rv.slice().reverse():[];
         if(metric==='Revenue'){
-          var rv=x.rv||[];d.rv.map(function(r){return r.y;}).forEach(function(y,yi){var found=(rv||[])[yi];h+='<td>'+D(found?found.r:null)+'</td>';});
-          var rvV=(rv||[]).map(function(x){return x.r;}).filter(Boolean);h+='<td style="color:var(--tl)">'+(rvV.length>=2?pc(cagr(rvV[rvV.length-1],rvV[0],rvV.length-1)):'—')+'</td>';
-        }else if(metric==='Adj FCF'){
-          var fcf=x.fcf||[];d.rv.map(function(r){return r.y;}).forEach(function(y,yi){var found=(fcf||[])[yi];h+='<td>'+D(found?found.v:null)+'</td>';});
-          var fcfV=(fcf||[]).map(function(x){return x.v;}).filter(function(x){return x>0;});h+='<td style="color:var(--tl)">'+(fcfV.length>=2?pc(cagr(fcfV[fcfV.length-1],fcfV[0],fcfV.length-1)):'—')+'</td>';
-        }else{
-          var pcts=[];d.rv.map(function(r){return r.y;}).forEach(function(y){var s=lk(x.sbcH,y);var rv2=lk(x.rv,y,'r');var p3=(s!=null&&rv2>0)?s/rv2:null;pcts.push(p3);h+='<td>'+colS(p3)+'</td>';});
+          xrv.forEach(function(r){h+='<td>'+D(r?r.r:null)+'</td>';});
+          var rvV=xrv.map(function(r){return r?r.r:null;}).filter(Boolean);
+          h+='<td style="color:var(--tl)">'+(rvV.length>=2?pc(cagr(rvV[0],rvV[rvV.length-1],rvV.length-1)):'—')+'</td>';
+        } else if(metric==='Adj FCF'){
+          var xfcf=x.fcf?x.fcf.slice().reverse():[];
+          xfcf.forEach(function(r){h+='<td>'+D(r?r.v:null)+'</td>';});
+          var fcfV=xfcf.map(function(r){return r?r.v:null;}).filter(function(v){return v>0;});
+          h+='<td style="color:var(--tl)">'+(fcfV.length>=2?pc(cagr(fcfV[0],fcfV[fcfV.length-1],fcfV.length-1)):'—')+'</td>';
+        } else {
+          var pcts=[];xrv.forEach(function(r,ri){var s=x.sbcH?x.sbcH[x.sbcH.length-1-ri]:null;var p3=(s&&r&&r.r>0)?s.v/r.r:null;pcts.push(p3);h+='<td>'+colS(p3)+'</td>';});
           h+='<td>'+colS(av(pcts))+'</td>';
         }
         h+='</tr>';
@@ -547,138 +570,236 @@ function render(){
     h+='</div><div class="cs"><b class="s">Peers:</b> Auto or manually entered</div></div></div>';
   }
 
-  // ──── DCF MODEL ────
-  h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between"><div class="ct">5-Year DCF Projection</div><span class="tog'+(ST.showDCF?' on':'')+'" onclick="togSection(\'DCF\')">'+(ST.showDCF?'▼':'▶')+'</span></div>';
-  if(ST.showDCF&&dcf){
-    h+='<div style="margin-top:10px"><div style="font-size:10px;color:var(--dm);margin-bottom:10px"><b>Assumptions (edit to recalculate):</b></div>';
-    h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;font-size:10px">';
-    h+='<div><label>Rev CAGR %</label><input id="dcf_rc" type="number" step="1" value="'+ST.dcf.r1+'" oninput="updDCF()" style="width:100%;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:3px;color:#e0e7f0;font-family:var(--m);outline:none;text-align:center"/></div>';
-    h+='<div><label>FCF Margin %</label><input id="dcf_fm" type="number" step="1" value="'+ST.dcf.fm+'" oninput="updDCF()" style="width:100%;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:3px;color:#e0e7f0;font-family:var(--m);outline:none;text-align:center"/></div>';
-    h+='<div><label>WACC %</label><input id="dcf_wacc" type="number" step="1" value="'+ST.dcf.wacc+'" oninput="updDCF()" style="width:100%;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:3px;color:#e0e7f0;font-family:var(--m);outline:none;text-align:center"/></div>';
-    h+='<div><label>Terminal Growth %</label><input id="dcf_tg" type="number" step="0.5" value="'+ST.dcf.tg+'" oninput="updDCF()" style="width:100%;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:3px;color:#e0e7f0;font-family:var(--m);outline:none;text-align:center"/></div>';
-    h+='</div>';
-    h+='<div style="overflow-x:auto"><table class="t"><thead><tr><th></th><th>Y1</th><th>Y2</th><th>Y3</th><th>Y4</th><th>Y5</th></tr></thead><tbody>';
-    h+='<tr><td>Revenue ($M)</td>';dcf.projRev.forEach(function(x){h+='<td>'+D(x)+'</td>';});h+='</tr>';
-    h+='<tr><td>Shares (M)</td>';dcf.projShares.forEach(function(x){h+='<td>'+SH(x)+'</td>';});h+='</tr>';
-    h+='<tr><td>Adj FCF ($M)</td>';dcf.projFcf.forEach(function(x){h+='<td style="font-weight:600">'+D(x)+'</td>';});h+='</tr>';
-    h+='<tr><td>PV @ WACC</td>';dcf.pv.forEach(function(x){h+='<td>'+D(x)+'</td>';});h+='</tr>';
-    h+='<tr style="border-top:2px solid #1e2a3a"><td>Terminal Value</td><td colspan="5" style="font-weight:600">'+D(dcf.tv)+' | PV: '+D(dcf.tvPv)+'</td></tr>';
-    h+='<tr><td style="font-weight:600">Total PV</td><td colspan="5" style="font-weight:600;color:var(--bl)">'+D(dcf.totalPv)+'</td></tr>';
-    h+='<tr><td style="font-weight:600">Intrinsic Value</td><td colspan="5" style="font-weight:600;color:var(--pu)">'+pr(dcf.iv)+' / share (Current: '+pr(d.p)+')</td></tr>';
-    var mosColor=dcf.mos>=1?'var(--gn)':dcf.mos>=0.5?'var(--yw)':'var(--rd)';
-    var mosLabel=dcf.mos>=1?'Ready ✓':dcf.mos>=0.5?'Watch ◐':'Below ✗';
-    h+='<tr style="border-top:2px solid #1e2a3a"><td style="font-weight:600">Margin of Safety</td><td colspan="5" style="font-weight:600;color:'+mosColor+'">'+pc(dcf.mos)+' — '+mosLabel+'</td></tr>';
-    h+='</tbody></table></div>';
-    h+='</div>';
-  }
-  h+='</div></div></div>';
-
-  // ──── PATH TO 25% + VALUATION UPSIDE ────
-  h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between"><div class="ct" style="color:var(--yw)">Path to 25% + Valuation Upside</div><span class="tog'+(ST.showPath?' on':'')+'" onclick="togSection(\'Path\')">'+(ST.showPath?'▼':'▶')+'</span></div>';
+  // ──── PATH TO 25% ────
+  h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="ct" style="color:var(--yw);margin-bottom:0">Path to 25% + Annual Return</div><span class="tog'+(ST.showPath?' on':'')+'" onclick="togSection(\'Path\')">'+(ST.showPath?'▼':'▶')+'</span></div>';
   if(ST.showPath){
-    if(c.gap<=0)h+='<div style="color:var(--gn);font-size:12px;margin-bottom:10px">✦ Meets 25%.</div>';
-    else{var pb=c.np!=null&&c.np>0?'<div style="font-size:16px;font-weight:800;font-family:var(--m);color:var(--yw)">'+pr(c.np)+'</div><div style="font-size:10px;color:var(--dm)">'+((c.np-c.sp)/c.sp*100).toFixed(1)+'%</div>':'<div style="font-size:10px;color:var(--dm)">Not via price</div>';
-      h+='<div style="font-size:11px;color:var(--lb);margin-bottom:8px">Gap: <span style="color:var(--yw);font-weight:700;font-family:var(--m)">'+(c.gap*100).toFixed(1)+'pp</span></div><div class="g2" style="margin-bottom:12px"><div class="mc"><div style="font-size:9px;font-weight:700;color:var(--dm);text-transform:uppercase;margin-bottom:4px">Via Price</div>'+pb+'</div><div class="mc"><div style="font-size:9px;font-weight:700;color:var(--dm);text-transform:uppercase;margin-bottom:4px">Via Growth</div><div style="font-size:16px;font-weight:800;font-family:var(--m);color:var(--yw)">'+(c.nr!=null?c.nr.toFixed(1):'—')+'%</div><div style="font-size:10px;color:var(--dm)">vs '+((c.rc||0)*100).toFixed(1)+'%</div></div></div>';}
-    h+='<div style="border-top:1px solid #1e2a3a;padding-top:10px"><div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--pu);margin-bottom:6px">Valuation Multiples</div>';
-    h+='<table class="t"><thead><tr><th>EV/FCF</th><th>Current</th><th>3Y</th><th>5Y</th>';
+    h+='<div style="margin-bottom:10px;padding:8px;background:#0a0e18;border-radius:5px;border:1px solid var(--bd);font-size:11px">';
+    h+='<b>Total Annual Return</b> = FCF/EV Yield <span style="color:var(--bl);font-family:var(--m)">'+pc(c.fy)+'</span> + Rev CAGR <span style="color:var(--tl);font-family:var(--m)">'+pc(c.rc)+'</span> + Re-rating = <span style="color:var(--yw);font-family:var(--m)">'+pc(c.qr)+' (current)</span></div>';
+    if(c.gap<=0){h+='<div style="color:var(--gn);font-size:12px;margin-bottom:10px">✦ Already meets 25% threshold.</div>';}
+    else{
+      var np2=c.sh>0&&(0.25-c.rc)>0?(c.af/(0.25-c.rc)-c.nd)/d.sh:null;
+      h+='<div style="font-size:11px;color:var(--lb);margin-bottom:8px">Gap to 25%: <span style="color:var(--yw);font-weight:700;font-family:var(--m)">'+(c.gap*100).toFixed(1)+'pp</span></div>';
+      h+='<div class="g2" style="margin-bottom:12px">';
+      h+='<div class="mc"><div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:4px">Via Lower Price</div>';
+      h+=(np2&&np2>0?'<div style="font-size:16px;font-weight:800;font-family:var(--m);color:var(--yw)">'+pr(np2)+'</div><div style="font-size:10px;color:var(--dm)">'+((np2-d.p)/d.p*100).toFixed(1)+'% from current</div>':'<div style="font-size:10px;color:var(--dm)">N/A at current FCF</div>')+'</div>';
+      h+='<div class="mc"><div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:4px">Via Higher Rev Growth</div><div style="font-size:16px;font-weight:800;font-family:var(--m);color:var(--yw)">'+((0.25-c.fy)*100).toFixed(1)+'%</div><div style="font-size:10px;color:var(--dm)">needed vs '+pc(c.rc)+' now</div></div>';
+      h+='</div>';
+    }
+    h+='<div style="border-top:1px solid var(--bd);padding-top:10px">';
+    h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:6px">EV/FCF Multiples & Re-rating Upside</div>';
+    h+='<table class="t"><thead><tr><th>EV/FCF</th><th>Current</th><th>3Y Avg</th><th>5Y Avg</th>';
     if(co.length>0)h+='<th>Peer Avg</th>';
     h+='<th>Industry</th></tr></thead><tbody><tr><td>Multiple</td><td style="font-weight:600;color:var(--br)">'+fx(c.evF)+'</td><td>'+fx(c.evF3)+'</td><td>'+fx(c.evF5)+'</td>';
     if(co.length>0){h+='<td>'+fx(av(co.map(function(x){return calcM(x).evF;}).filter(Boolean)))+'</td>';}
-    h+='<td><input id="indm" type="number" step="any" value="'+ST.indMult+'" oninput="reCalc()" style="width:42px;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:2px 3px;color:#e0e7f0;font-size:10px;font-family:var(--m);outline:none;text-align:right"/>x</td></tr></tbody></table>';
+    h+='<td><input id="indm" type="number" step="any" value="'+ST.indMult+'" oninput="ST.indMult=parseFloat(this.value)||15;render();" style="width:42px;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:2px 3px;color:var(--br);font-size:10px;font-family:var(--m);outline:none;text-align:right"/>x</td></tr></tbody></table>';
+    // Re-rating calc
+    var iM=ST.indMult||15;var useFcf=c.a5f||c.a3f||c.af;
+    if(c.evF&&c.evF>0&&iM>0&&useFcf>0){
+      var fEV=useFcf*iM,fMC=fEV-c.nd,fP=d.sh>0?fMC/d.sh:null;
+      if(fP){
+        var ry=5,aR=Math.pow(fP/d.p,1/ry)-1,totR=aR+(c.fy||0);
+        h+='<div style="margin-top:8px;padding:8px;background:#0a0e18;border-radius:4px;border:1px solid var(--bd);font-size:11px">';
+        h+='Re-rate to '+fx(iM)+' over 5yr: Fair value <span style="font-family:var(--m);font-weight:600">'+pr(fP)+'</span>';
+        h+=' | Upside <span style="color:'+(fP>d.p?'var(--gn)':'var(--rd)')+'">'+pc((fP-d.p)/d.p)+'</span>';
+        h+=' | Ann. rerate <span style="font-family:var(--m)">'+pc(aR)+'</span>';
+        h+=' | <b>Total return: <span style="color:'+(totR>=0.15?'var(--gn)':totR>=0.10?'var(--yw)':'var(--rd)')+'">'+pc(totR)+'</span></b></div>';
+      }
+    }
     h+='</div>';
   }
   h+='</div></div></div>';
 
-    // DCF calc
-  var dcf=calcDCF();
-
-  // SECTION 6: 5-Year DCF
-  h+='<div class="card"><div class="ci"><div class="cm">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
-  h+='<div class="ct" style="margin-bottom:0">5-Year DCF Projection</div>';
-  h+='<span class="tog'+(ST.showDCF?' on':'')+'" onclick="togS(\'DCF\')">'+(ST.showDCF?'Hide':'Expand')+'</span></div>';
-  if(ST.showDCF&&dcf){
-    h+='<div style="background:var(--ib);border-radius:6px;padding:10px;border:1px solid var(--bd);margin-bottom:10px">';
-    h+='<div style="font-size:9px;font-weight:700;color:var(--dm);text-transform:uppercase;margin-bottom:6px">YoY Revenue Growth Per Year</div>';
-    h+='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px">';
-    var dcfRateKeys=['r1','r2','r3','r4','r5'];
-    for(var di=0;di<5;di++){
-      h+='<div style="text-align:center"><div style="font-size:9px;color:var(--dm);margin-bottom:3px">Y'+(di+1)+'</div>';
-      h+='<input id="d'+dcfRateKeys[di]+'" type="number" step="0.5" value="'+ST.dcf[dcfRateKeys[di]]+'" oninput="updDCF()" style="width:100%;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:4px;color:var(--br);font-family:var(--m);outline:none;text-align:center;font-size:11px"/>%</div>';
+  // ──── DCF MODEL ────
+  h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="ct" style="margin-bottom:0">5-Year DCF Projection</div><span class="tog'+(ST.showDCF?' on':'')+'" onclick="togS(\'DCF\')">'+(ST.showDCF?'▼ Hide':'▶ Expand')+'</span></div>';
+  if(ST.showDCF){
+    // Re-seed defaults from last 5Y data on first open
+    if(!ST.dcf._seeded&&d.rv.length){
+      var histFcfM=d.fcf&&d.fcf[0]&&d.rv[0].r>0?d.fcf[0].v/d.rv[0].r*100:15;
+      ST.dcf.fm=Math.max(5,Math.min(40,Math.round(histFcfM)));
+      var histRc=c.rc?Math.round(c.rc*100):10;
+      ST.dcf.r1=Math.max(1,histRc);ST.dcf.r2=Math.max(1,histRc-2);
+      ST.dcf.r3=Math.max(1,histRc-4);ST.dcf.r4=Math.max(1,histRc-5);ST.dcf.r5=Math.max(1,histRc-6);
+      var histSc=d.soH&&d.soH.length>=2?Math.round(cagr(d.soH[d.soH.length-1].v||1,d.soH[0].v||1,d.soH.length-1)*100*10)/10:-1.5;
+      ST.dcf.sc=Math.round(histSc*10)/10;
+      ST.dcf._seeded=true;
     }
+    var dcf2=calcDCF();
+
+    // Assumptions panel
+    h+='<div style="background:var(--ib);border-radius:6px;padding:10px;border:1px solid var(--bd);margin-bottom:10px">';
+    h+='<div style="font-size:9px;font-weight:700;color:var(--dm);text-transform:uppercase;margin-bottom:8px">Revenue Growth Assumptions — Year by Year</div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px">';
+    ['r1','r2','r3','r4','r5'].forEach(function(k,i){
+      h+='<div style="text-align:center"><div style="font-size:9px;color:var(--dm);margin-bottom:3px">Y'+(i+1)+'</div>';
+      h+='<input id="d'+k+'" type="number" step="0.5" value="'+ST.dcf[k]+'" oninput="updDCF()" style="width:100%;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:4px;color:var(--br);font-family:var(--m);outline:none;text-align:center;font-size:11px"/>%</div>';
+    });
     h+='</div>';
     h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">';
-    var dcfOther=[{k:'fm',l:'FCF Margin %'},{k:'wacc',l:'WACC %'},{k:'tg',l:'Terminal Growth %'},{k:'sc',l:'Shares CAGR %'}];
-    for(var di2=0;di2<dcfOther.length;di2++){
-      var dx=dcfOther[di2];
-      h+='<div style="text-align:center"><div style="font-size:9px;color:var(--dm);margin-bottom:3px">'+dx.l+'</div>';
-      h+='<input id="d'+dx.k+'" type="number" step="0.5" value="'+ST.dcf[dx.k]+'" oninput="updDCF()" style="width:100%;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:4px;color:var(--br);font-family:var(--m);outline:none;text-align:center;font-size:11px"/>%</div>';
-    }
+    [{k:'fm',l:'Adj FCF Margin %'},{k:'wacc',l:'WACC %'},{k:'tg',l:'Terminal Growth %'},{k:'sc',l:'Shares CAGR %'}].forEach(function(x){
+      h+='<div style="text-align:center"><div style="font-size:9px;color:var(--dm);margin-bottom:3px">'+x.l+'</div>';
+      h+='<input id="d'+x.k+'" type="number" step="0.5" value="'+ST.dcf[x.k]+'" oninput="updDCF()" style="width:100%;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:4px;color:var(--br);font-family:var(--m);outline:none;text-align:center;font-size:11px"/>%</div>';
+    });
     h+='</div></div>';
-    var histRv=d.rv.slice(0,3);
+
+    // History + Projection table (last 3 years + 5 projected)
+    var histRvR=d.rv.slice(0,3).reverse(); // oldest of last 3 first
+    var histFcfR=d.fcf.slice(0,3).reverse();
+    var histSoR=d.soH.slice(0,3).reverse();
+    var histCfoR=d.cfoH.slice(0,3).reverse();
+    var histSbcR=d.sbcH.slice(0,3).reverse();
+    var histCxR=d.capexH.slice(0,3).reverse();
+    var histGmR=d.gm.slice(0,3).reverse();
+    var hn=histRvR.length;
+
     h+='<div style="overflow-x:auto"><table class="t"><thead><tr><th></th>';
-    for(var hi=0;hi<histRv.length;hi++)h+='<th style="color:var(--dm)">'+histRv[hi].y+'</th>';
-    h+='<th style="border-left:2px solid var(--bd);color:var(--bl)">Y1</th><th>Y2</th><th>Y3</th><th>Y4</th><th>Y5</th></tr></thead><tbody>';
-    h+='<tr><td style="font-weight:600;color:var(--bl)">Revenue</td>';
-    for(var hi2=0;hi2<histRv.length;hi2++)h+='<td style="color:var(--dm)">'+D(histRv[hi2].r)+'</td>';
-    for(var pi=0;pi<5;pi++)h+='<td style="'+(pi===0?'border-left:2px solid var(--bd);':'')+';font-weight:600">'+D(dcf.pR[pi])+'</td>';
+    // History headers (greyed)
+    histRvR.forEach(function(r){h+='<th style="color:var(--dm)">'+r.y+'</th>';});
+    // Projected headers
+    for(var pi=1;pi<=5;pi++)h+='<th style="color:var(--bl)'+(pi===1?';border-left:2px solid var(--bd)':'')+'">'+'Y'+pi+'</th>';
+    h+='</tr></thead><tbody>';
+
+    function dcfRow(label,histArr,projArr,fmt,bold,color){
+      var f=fmt||D;var c2=bold?'color:'+(color||'var(--bl)')+';font-weight:600':'';
+      h+='<tr><td style="'+c2+'">'+label+'</td>';
+      histArr.forEach(function(v){h+='<td style="color:var(--dm)">'+f(v)+'</td>';});
+      projArr.forEach(function(v,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd);':'')+c2+'">'+f(v)+'</td>';});
+      h+='</tr>';
+    }
+    function dcfYoy(histArr,projArr){
+      var all2=histArr.concat(projArr);
+      h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:12px">YoY</td>';
+      histArr.forEach(function(v,i){
+        var prev=histArr[i-1];h+='<td style="color:var(--dm)">'+(i>0&&prev>0?colG(v/prev-1):'')+'</td>';
+      });
+      projArr.forEach(function(v,i){
+        var prev=i===0?(histArr[histArr.length-1]||0):projArr[i-1];
+        h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+'">'+( prev>0?colG(v/prev-1):'')+'</td>';
+      });
+      h+='</tr>';
+    }
+
+    // Revenue
+    var hRv=histRvR.map(function(r){return r.r;});
+    dcfRow('Revenue',hRv,dcf2.pR,D,true,'var(--bl)');
+    dcfYoy(hRv,dcf2.pR);
+    // Gross Margin
+    h+='<tr><td style="color:var(--dm)">Gross Margin</td>';
+    histGmR.forEach(function(x){h+='<td style="color:var(--dm)">'+pc(x?x.v:null)+'</td>';});
+    for(var gi=0;gi<5;gi++)h+='<td style="'+(gi===0?'border-left:2px solid var(--bd)':'')+'"></td>';
     h+='</tr>';
-    h+='<tr><td>Shares (M)</td>';
-    for(var hi3=0;hi3<histRv.length;hi3++)h+='<td style="color:var(--dm)">'+(d.soH&&d.soH[hi3]?SH(d.soH[hi3].v):'—')+'</td>';
-    for(var pi2=0;pi2<5;pi2++)h+='<td style="'+(pi2===0?'border-left:2px solid var(--bd)':'')+'">'+SH(dcf.pS[pi2])+'</td>';
+    // CFO
+    var hCfo=histCfoR.map(function(x){return x?x.v:null;});
+    dcfRow('CFO',hCfo,dcf2.pCfo||[],D,false,'');
+    // SBC
+    var hSbc=histSbcR.map(function(x){return x?x.v:null;});
+    dcfRow('SBC',hSbc,dcf2.pSbc||[],D,false,'');
+    // Maint CapEx
+    var hMx=histCxR.map(function(x){return x?+(x.v*(d.mp/100)).toFixed(1):null;});
+    dcfRow('Maint CapEx ('+d.mp+'%)',hMx,dcf2.pMx||[],D,false,'');
+    // Adj FCF
+    var hFcf=histFcfR.map(function(x){return x?x.v:null;});
+    dcfRow('Adj FCF',hFcf,dcf2.pR.map(function(r){return r*ST.dcf.fm/100;}),D,true,'var(--tl)');
+    dcfYoy(hFcf,dcf2.pR.map(function(r){return r*ST.dcf.fm/100;}));
+    // Shares
+    var hSo=histSoR.map(function(x){return x?x.v:null;});
+    dcfRow('Shares (M)',hSo,dcf2.pS,SH,false,'');
+    // PV
+    h+='<tr><td>PV @ '+ST.dcf.wacc+'% WACC</td>';
+    for(var hx=0;hx<hn;hx++)h+='<td></td>';
+    dcf2.pV.forEach(function(v,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+'">'+D(v)+'</td>';});
     h+='</tr>';
-    h+='<tr><td style="font-weight:600;color:var(--bl)">Adj FCF</td>';
-    for(var hi4=0;hi4<histRv.length;hi4++)h+='<td style="color:var(--dm)">'+(d.fcf&&d.fcf[hi4]?D(d.fcf[hi4].v):'—')+'</td>';
-    for(var pi3=0;pi3<5;pi3++)h+='<td style="'+(pi3===0?'border-left:2px solid var(--bd);':'')+';font-weight:600">'+D(dcf.pF[pi3])+'</td>';
-    h+='</tr>';
-    h+='<tr><td>PV @ WACC</td>';
-    for(var hi5=0;hi5<histRv.length;hi5++)h+='<td></td>';
-    for(var pi4=0;pi4<5;pi4++)h+='<td style="'+(pi4===0?'border-left:2px solid var(--bd)':'')+'">'+D(dcf.pV[pi4])+'</td>';
-    h+='</tr>';
-    h+='<tr style="border-top:2px solid var(--bd)"><td>Terminal Value</td>';
-    for(var hi6=0;hi6<histRv.length;hi6++)h+='<td></td>';
-    h+='<td colspan="5" style="border-left:2px solid var(--bd);font-weight:600">'+D(dcf.tv)+' (PV: '+D(dcf.tvPv)+')</td></tr>';
-    h+='<tr><td style="font-weight:600">Total PV</td>';
-    for(var hi7=0;hi7<histRv.length;hi7++)h+='<td></td>';
-    h+='<td colspan="5" style="border-left:2px solid var(--bd);font-weight:600;color:var(--bl)">'+D(dcf.totPv)+'</td></tr>';
+
+    // Terminal value + outputs
+    h+='<tr style="border-top:2px solid var(--bd)"><td style="font-weight:600">Terminal Value</td>';
+    for(var hx2=0;hx2<hn;hx2++)h+='<td></td>';
+    h+='<td colspan="5" style="border-left:2px solid var(--bd);font-weight:600">'+D(dcf2.tv)+' → PV: '+D(dcf2.tvPv)+'</td></tr>';
+    h+='<tr><td style="font-weight:600">Total PV (equity)</td>';
+    for(var hx3=0;hx3<hn;hx3++)h+='<td></td>';
+    h+='<td colspan="5" style="border-left:2px solid var(--bd);font-weight:600;color:var(--bl)">'+D(dcf2.totPv)+'</td></tr>';
     h+='<tr><td style="font-weight:600">Intrinsic Value</td>';
-    for(var hi8=0;hi8<histRv.length;hi8++)h+='<td></td>';
-    h+='<td colspan="5" style="border-left:2px solid var(--bd);font-weight:700;color:var(--pu)">'+pr(dcf.iv)+' / share (current: '+pr(d.p)+')</td></tr>';
-    var mosC=dcf.mos>=1?'var(--gn)':dcf.mos>=0.5?'var(--yw)':'var(--rd)';
-    var mosL=dcf.mos>=1?'Ready to Invest':dcf.mos>=0.5?'Watch':'Below Threshold';
+    for(var hx4=0;hx4<hn;hx4++)h+='<td></td>';
+    h+='<td colspan="5" style="border-left:2px solid var(--bd);font-weight:700;color:var(--pu)">'+pr(dcf2.iv)+' / share</td></tr>';
+    var mosC2=dcf2.mos>=1?'var(--gn)':dcf2.mos>=0.5?'var(--yw)':'var(--rd)';
+    var mosL2=dcf2.mos>=1?'Ready to Invest ✓':dcf2.mos>=0.5?'Watchlist ◐':'Below Threshold ✗';
     h+='<tr style="border-top:2px solid var(--bd)"><td style="font-weight:600">Margin of Safety</td>';
-    for(var hi9=0;hi9<histRv.length;hi9++)h+='<td></td>';
-    h+='<td colspan="5" style="border-left:2px solid var(--bd);font-weight:700;color:'+mosC+'">'+pc(dcf.mos)+' ('+mosL+')</td></tr>';
+    for(var hx5=0;hx5<hn;hx5++)h+='<td></td>';
+    h+='<td colspan="5" style="border-left:2px solid var(--bd);font-weight:700;color:'+mosC2+'">'+pc(dcf2.mos)+' — '+mosL2+'</td></tr>';
     h+='</tbody></table></div>';
+    // Explanation
+    h+='<div style="font-size:9px;color:var(--dm);margin-top:8px;line-height:1.6"><b>Adj FCF/EV Yield → Share Price:</b> If FCF/EV = 10%, then EV = 10× Adj FCF. Subtract net debt, divide by shares → implied price. At '+pc(c.fy)+' yield: EV = '+D(c.af/0.10)+', MCap = '+D(c.af/0.10-c.nd)+', Price = '+pr(d.sh>0?(c.af/0.10-c.nd)/d.sh:0)+'. Shrink EV by raising price (lower yield) = overvalued; grow FCF to maintain yield = intrinsic growth.</div>';
   }
   h+='</div></div></div>';
 
-  // SECTION 7: Valuation Triangle
-  h+='<div class="card"><div class="ci"><div class="cm">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
-  h+='<div class="ct" style="margin-bottom:0">Valuation Triangle</div>';
-  h+='<span class="tog'+(ST.showTri?' on':'')+'" onclick="togS(\'Tri\')">'+(ST.showTri?'Hide':'Expand')+'</span></div>';
-  if(ST.showTri){
-    var tm1=c.ev>0&&d.sh>0?c.ev/d.sh:null,tm2=dcf?dcf.iv:null;
-    h+='<div class="g3" style="margin-top:10px;margin-bottom:12px">';
-    h+='<div class="val-box"><div class="val-label">FCF Yield (EV/sh)</div><div class="val-num">'+(tm1?pr(tm1):'—')+'</div><div class="val-note">Weight <input id="tw1" type="number" value="33" min="0" max="100" style="width:36px;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:1px 3px;color:var(--br);font-family:var(--m);outline:none;text-align:center"/>%</div></div>';
-    h+='<div class="val-box"><div class="val-label">DCF 5-Year</div><div class="val-num">'+(tm2?pr(tm2):'—')+'</div><div class="val-note">Weight <input id="tw2" type="number" value="50" min="0" max="100" style="width:36px;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:1px 3px;color:var(--br);font-family:var(--m);outline:none;text-align:center"/>%</div></div>';
-    h+='<div class="val-box"><div class="val-label">Balance Sheet</div><div class="val-num" style="font-size:11px;color:var(--dm)">Coming soon</div><div class="val-note">Weight <input id="tw3" type="number" value="17" min="0" max="100" style="width:36px;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:1px 3px;color:var(--br);font-family:var(--m);outline:none;text-align:center"/>%</div></div>';
+  // ──── BALANCE SHEET APPROACH ────
+  h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="ct" style="color:var(--pu);margin-bottom:0">Balance Sheet & Asset-Based Valuation</div><span class="tog'+(ST.showBS?' on':'')+'" onclick="togS(\'BS\')">'+(ST.showBS?'▼ Hide':'▶ Expand')+'</span></div>';
+  if(ST.showBS){
+    // Pull latest BS values from cached data
+    var bsTa=gf(d,'_ta')||0,bsPpe=gf(d,'_ppe')||0,bsWc=gf(d,'_wc')||0,bsTbv=gf(d,'_tbv')||0;
+    var bsNd=c.nd,bsMc=c.mc;
+    // Replacement value: PPE at book + working capital + cash - debt
+    var replEV=bsPpe+bsWc+(d.ca||0);
+    var replMc=replEV-bsNd;
+    var replPs=d.sh>0?replMc/d.sh:null;
+    // Tangible book value
+    var tbvPs=d.sh>0&&bsTbv>0?bsTbv/d.sh:null;
+    // P/TBV
+    var ptbv=tbvPs&&tbvPs>0?d.p/tbvPs:null;
+
+    h+='<div style="font-size:10px;color:var(--dm);margin-bottom:10px;line-height:1.6;padding:8px;background:#0a0e18;border-radius:5px;border:1px solid var(--bd)">';
+    h+='<b>Three lenses:</b> (1) Replacement cost — what it would cost to rebuild the assets, (2) Tangible Book Value per share, (3) P/TBV ratio vs sector.<br>';
+    h+='<b>Limitation:</b> Asset-based valuation suits capital-heavy businesses (industrials, banks, utilities). For asset-light tech/software, use as a <i>floor</i> check only.';
     h+='</div>';
-    if(tm1&&tm2){
-      var tw1=33,tw2=50,tw3=17,wfv=(tm1*tw1+tm2*tw2)/(tw1+tw2);
-      var ups=(wfv-d.p)/d.p;
-      h+='<div style="padding:10px;background:var(--ib);border-radius:5px;border:1px solid var(--bd);font-size:11px">';
-      h+='<b>Weighted Fair Value:</b> <span style="font-family:var(--m);color:var(--bl);font-weight:600">'+pr(wfv)+'</span>';
-      h+=' | <b>Current:</b> '+pr(d.p);
-      h+=' | <b>Upside:</b> <span style="color:'+(ups>0?'var(--gn)':'var(--rd)')+';font-weight:600">'+pc(ups)+'</span>';
-      h+='</div>';
+
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">';
+    h+='<div class="mc"><div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:6px">Current Mkt Valuation</div>';
+    h+='<div style="font-size:11px;line-height:2;color:var(--lb)">Market Cap: <span style="font-family:var(--m);color:var(--br)">'+D(bsMc)+'</span><br>';
+    h+='Net Debt: <span style="font-family:var(--m);color:'+(c.iNC?'var(--gn)':'var(--rd)')+'">'+D(bsNd)+'</span><br>';
+    h+='EV: <span style="font-family:var(--m);color:var(--bl)">'+D(c.ev)+'</span><br>';
+    h+='Price: <span style="font-family:var(--m);color:var(--br)">'+pr(d.p)+'</span></div></div>';
+
+    h+='<div class="mc"><div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:6px">Book Value / TBV</div>';
+    h+='<div style="font-size:11px;line-height:2;color:var(--lb)">';
+    h+=(bsTbv>0?'TBV: <span style="font-family:var(--m);color:var(--br)">'+D(bsTbv)+'</span><br>TBV/share: <span style="font-family:var(--m);color:var(--pu)">'+(tbvPs?pr(tbvPs):'—')+'</span><br>P/TBV: <span style="font-family:var(--m);color:'+(ptbv&&ptbv<3?'var(--gn)':ptbv&&ptbv<6?'var(--yw)':'var(--rd)')+'">'+(ptbv?ptbv.toFixed(1)+'x':'—')+'</span>':'<span style="color:var(--dm)">Load ticker to calculate</span>');
+    h+='</div></div>';
+
+    h+='<div class="mc"><div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:6px">Replacement Cost Est.</div>';
+    h+='<div style="font-size:11px;line-height:2;color:var(--lb)">';
+    h+=(bsPpe>0?'PP&E: <span style="font-family:var(--m);color:var(--br)">'+D(bsPpe)+'</span><br>Work. Capital: <span style="font-family:var(--m);color:var(--br)">'+D(bsWc)+'</span><br>Repl. Value/sh: <span style="font-family:var(--m);color:var(--pu)">'+(replPs?pr(replPs):'—')+'</span>':'<span style="color:var(--dm)">Load ticker to calculate</span>');
+    h+='</div></div></div>';
+
+    // Fetch BS data if not already there
+    if(!d._bsLoaded){
+      h+='<div id="bsload" style="font-size:10px;color:var(--dm);text-align:center;padding:6px">Loading balance sheet detail… <button onclick="loadBS()" style="background:var(--bl);border:none;border-radius:4px;padding:3px 10px;color:#fff;font-size:10px;cursor:pointer">Load Now</button></div>';
     }
   }
   h+='</div></div></div>';
 
+  // ──── VALUATION TRIANGLE ────
+  h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="ct" style="margin-bottom:0">Valuation Triangle — Weighted Average</div><span class="tog'+(ST.showTri?' on':'')+'" onclick="togS(\'Tri\')">'+(ST.showTri?'▼ Hide':'▶ Expand')+'</span></div>';
+  if(ST.showTri){
+    var dcfVal=calcDCF();
+    var m1=c.ev>0&&d.sh>0?c.ev/d.sh:null;
+    var m2=dcfVal?dcfVal.iv:null;
+    var m3=d._tbv&&d.sh>0?d._tbv/d.sh:null;
+    h+='<div class="g3" style="margin-top:10px;margin-bottom:12px">';
+    h+='<div class="val-box"><div class="val-label">Method 1: FCF Yield</div><div class="val-num">'+(m1?pr(m1):'—')+'</div><div class="val-note" style="margin-top:4px">EV ÷ shares at current yield<br>Weight: <input id="tw1" type="number" value="33" min="0" max="100" onchange="updateTri()" style="width:36px;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:1px 3px;color:var(--br);font-family:var(--m);outline:none;text-align:center"/>%</div></div>';
+    h+='<div class="val-box"><div class="val-label">Method 2: DCF 5-Year</div><div class="val-num">'+(m2?pr(m2):'Expand DCF')+'</div><div class="val-note" style="margin-top:4px">Discounted cash flows<br>Weight: <input id="tw2" type="number" value="50" min="0" max="100" onchange="updateTri()" style="width:36px;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:1px 3px;color:var(--br);font-family:var(--m);outline:none;text-align:center"/>%</div></div>';
+    h+='<div class="val-box"><div class="val-label">Method 3: Balance Sheet</div><div class="val-num">'+(m3?pr(m3):'Expand BS')+'</div><div class="val-note" style="margin-top:4px">TBV or replacement cost<br>Weight: <input id="tw3" type="number" value="17" min="0" max="100" onchange="updateTri()" style="width:36px;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:1px 3px;color:var(--br);font-family:var(--m);outline:none;text-align:center"/>%</div></div>';
+    h+='</div>';
+    var tw1=33,tw2=50,tw3=17,wtot=tw1+tw2+tw3;
+    var vals2=[m1,m2,m3],ws=[tw1,tw2,tw3];
+    var wsum=0,wdiv=0;
+    vals2.forEach(function(v,i){if(v){wsum+=v*ws[i];wdiv+=ws[i];}});
+    var wfv=wdiv>0?wsum/wdiv:null;
+    h+='<div id="triout" style="padding:10px;background:#0a0e18;border-radius:5px;border:1px solid var(--bd);font-size:11px">';
+    h+='<b>Weighted Fair Value:</b> <span style="font-family:var(--m);color:var(--bl);font-weight:600;font-size:14px">'+(wfv?pr(wfv):'—')+'</span>';
+    if(wfv&&d.p){var ups=(wfv-d.p)/d.p;h+=' | <b>Current:</b> '+pr(d.p)+' | <b>Upside:</b> <span style="color:'+(ups>0?'var(--gn)':'var(--rd)')+';font-weight:600">'+pc(ups)+'</span>';}
+    h+='<br><span style="font-size:9px;color:var(--dm)">Weights: M1 '+tw1+'% + M2 '+tw2+'% + M3 '+tw3+'% (adjust above and re-expand to recalculate)</span>';
+    h+='</div>';
+  }
+  h+='</div></div></div>';
 
-  h+='<div style="font-size:10px;color:#2a3040;line-height:1.5;padding-top:8px;border-top:1px solid var(--bd)">Quality Ratio ≥25% 🟢 ready to invest, 20–25% 🟡 watchlist, <20% 🔴. Three valuation methods to triangulate fair value. Data: FMP (SEC 10-K)</div>';
+  h+='<div style="font-size:9px;color:#2a3040;padding-top:8px;border-top:1px solid var(--bd)">Quality ≥25% 🟢 | Adj FCF = CFO − SBC − Maint CapEx | EV = MCap + Net Debt | Data: FMP (SEC 10-K)</div>';
   document.getElementById('out').innerHTML=h;
 }
 
