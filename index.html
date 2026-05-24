@@ -187,9 +187,13 @@ async function fetchYahooChart(symbol, years){
   var r=await fetch(url);
   if(!r.ok)throw new Error('Yahoo '+r.status);
   var d=await r.json();
-  var ts=d.chart.result[0].timestamp;
-  var closes=d.chart.result[0].indicators.adjclose[0].adjclose;
-  return ts.map(function(t,i){return{date:new Date(t*1000).toISOString().slice(0,7),close:closes[i]};}).filter(function(x){return x.close>0;});
+  var result=d&&d.chart&&d.chart.result&&d.chart.result[0];
+  if(!result||!result.timestamp)return[];
+  var ts=result.timestamp;
+  var adjClose=result.indicators&&result.indicators.adjclose&&result.indicators.adjclose[0];
+  var closes=adjClose?adjClose.adjclose:result.indicators&&result.indicators.quote&&result.indicators.quote[0]?result.indicators.quote[0].close:null;
+  if(!closes)return[];
+  return ts.map(function(t,i){return{date:new Date(t*1000).toISOString().slice(0,7),close:closes[i]||null};}).filter(function(x){return x.close&&x.close>0;});
 }
 
 function buildGrowthChart(ticker,stockPts,spPts,cagrs,ipoDate){
@@ -462,7 +466,7 @@ function render(){
   // ── FINANCIAL HIGHLIGHTS TABLE ─────────────────────────────
   h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--tl)">Financial Highlights (5 Years)</div>';
   {
-    var fsMp=ST.mpOver!=null?ST.mpOver:d.mp;  // adjustable maint capex %
+    var fsMp=ST.mpOver!=null?ST.mpOver:(d.mp||50);  // adjustable maint capex %
     var fsRv=(d.rv||[]).slice(0,5).reverse();
     var fsNi=(d.ni||[]).slice(0,5).reverse();
     var fsGm=(d.gm||[]).slice(0,5).reverse();
@@ -666,7 +670,7 @@ function render(){
 
     // BVPS
     h+='<tr><td>Book Value / Share</td>';
-    bsH2.forEach(function(y,i){var so2=(d.soH||[])[d.soH.length-1-i];var bvps2=so2&&so2.v>0?y.te/so2.v:null;h+='<td>'+pr(bvps2)+'</td>';});
+    bsH2.forEach(function(y,i){var _soH2=d.soH||[];var so2=_soH2[_soH2.length-1-i];var bvps2=so2&&so2.v>0?y.te/so2.v:null;h+='<td>'+pr(bvps2)+'</td>';});
     h+='<td>'+pr(d.sh>0&&d._bvps?d._bvps/d.sh:null)+'</td></tr>';
 
     // Debt/Equity
@@ -676,7 +680,7 @@ function render(){
 
     // Debt/Adj FCF
     h+='<tr><td>Debt / Adj FCF</td>';
-    bsH2.forEach(function(y,i){var fcf3=(d.fcf||[])[d.fcf.length-1-i];var daf=fcf3&&fcf3.v>0?y.debt/fcf3.v:null;h+='<td style="color:'+(daf!=null&&daf<2?'var(--gn)':daf!=null&&daf<4?'var(--yw)':'var(--rd)')+'">'+fx(daf)+'</td>';});
+    bsH2.forEach(function(y,i){var _fcf3=d.fcf||[];var fcf3=_fcf3[_fcf3.length-1-i];var daf=fcf3&&fcf3.v>0?y.debt/fcf3.v:null;h+='<td style="color:'+(daf!=null&&daf<2?'var(--gn)':daf!=null&&daf<4?'var(--yw)':'var(--rd)')+'">'+fx(daf)+'</td>';});
     var latDAF=latFcf2>0?d.de/latFcf2:null;h+='<td style="color:'+(latDAF!=null&&latDAF<2?'var(--gn)':latDAF!=null&&latDAF<4?'var(--yw)':'var(--rd)')+'">'+fx(latDAF)+'</td></tr>';
 
     // Interest Coverage (EBIT/Interest Expense)
