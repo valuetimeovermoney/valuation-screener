@@ -706,152 +706,167 @@ function render(){
       return h2+'</tr>';
     }
 
+    // Pre-compute historical % ratios for assumption rows
+    var hRv=histRv.map(function(r){return r.r;});
+    var hNi=histNi.map(function(x){return x?x.v:null;});
+    var hCfo=histCfo.map(function(x){return x?x.v:null;});
+    var hSbc=histSbc.map(function(x){return x?x.v:null;});
+    var hCx=histCx.map(function(x){return x?x.v:null;});
+    var hFcf=histFcf.map(function(x){return x?x.v:null;});
+    var hSo=histSo.map(function(x){return x?x.v:null;});
+
+    // Helper: assumption row — shows historical actual % in hist cols, editable input in proj cols
+    function assumRow(label,histPcts,keyPfx,suffix){
+      suffix=suffix||'%';
+      var r='<tr style="background:#0d1520"><td style="font-size:9px;color:var(--yw);padding-left:8px">↳ '+label+'</td>';
+      histPcts.forEach(function(v,i){
+        r+='<td style="font-size:9px;color:var(--dm);text-align:right">'+(v!=null?((Math.round(v*1000)/10).toFixed(1)+suffix):'')+'</td>';
+      });
+      for(var pi=1;pi<=5;pi++){
+        r+='<td style="'+(pi===1?'border-left:2px solid var(--bd)':'')+';padding:2px 3px">'
+          +dcfInp(keyPfx+pi, v2[keyPfx+pi]||0, 40)+suffix+'</td>';
+      }
+      return r+'</tr>';
+    }
+    // Shares assumption row — shows historical shares, editable projected
+    function sharesAssumRow(){
+      var r='<tr style="background:#0d1520"><td style="font-size:9px;color:var(--yw);padding-left:8px">↳ Shares (M) assumption</td>';
+      hSo.forEach(function(v){r+='<td style="font-size:9px;color:var(--dm);text-align:right">'+(v!=null?SH(v):'')+'</td>';});
+      for(var pi=1;pi<=5;pi++){
+        r+='<td style="'+(pi===1?'border-left:2px solid var(--bd)':'')+';padding:2px 3px">'
+          +dcfInp('sh'+pi, v2['sh'+pi]||0, 48)+'</td>';
+      }
+      return r+'</tr>';
+    }
+
     h+='<div style="overflow-x:auto"><table class="t"><thead><tr>';
-    h+='<th style="min-width:150px">Row</th>';
+    h+='<th style="min-width:160px">Row</th>';
     histRv.forEach(function(r){h+='<th style="color:var(--dm)">'+r.y+'</th>';});
     projYrs.forEach(function(y,i){h+='<th style="color:var(--bl)'+(i===0?';border-left:2px solid var(--bd)':'')+'">'+y+'</th>';});
-    h+='</tr>';
-    h+='<tr style="background:#0a0e18"><td style="font-size:9px;color:var(--dm)">Assumption (proj. yrs)</td>';
-    histRv.forEach(function(){h+='<td></td>';});
-    // Revenue growth inputs
-    ['1','2','3','4','5'].forEach(function(n,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+';padding:2px 3px">'+inp('r'+n,40)+'%</td>';});
     h+='</tr></thead><tbody>';
 
-    // INCOME STATEMENT
+    // ── INCOME STATEMENT ─────────────────────────────────────────
     h+=secRow('Income Statement');
-    // Revenue
-    var hRv=histRv.map(function(r){return r.r;});
+
+    // Revenue + inline YoY assumption row
     h+='<tr><td style="color:var(--bl);font-weight:600">Revenue</td>';
     hRv.forEach(function(v){h+='<td style="font-weight:600">'+D(v)+'</td>';});
     dcf2.pR.forEach(function(v,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd);':'')+';font-weight:600;color:var(--bl)">'+D(v)+'</td>';});
     h+='</tr>';
-    h+=yoyRow(hRv,dcf2.pR);
+    // YoY row — hist shows actual YoY, proj cols are editable growth inputs
+    h+='<tr style="background:#0d1520"><td style="font-size:9px;color:var(--yw);padding-left:8px">↳ YoY Growth</td>';
+    hRv.forEach(function(v,i){
+      var yoy=i>0&&hRv[i-1]>0?(v/hRv[i-1]-1):null;
+      h+='<td style="font-size:9px;color:var(--dm);text-align:right">'+(yoy!=null?colG(yoy):'')+'</td>';
+    });
+    for(var pi=1;pi<=5;pi++){
+      h+='<td style="'+(pi===1?'border-left:2px solid var(--bd)':'')+';padding:2px 3px">'
+        +dcfInp('r'+pi, v2['r'+pi]||0, 40)+'%</td>';
+    }
+    h+='</tr>';
 
-    // Gross Margin (display only from history)
+    // Gross Margin
     h+='<tr><td>Gross Margin</td>';
     histGm.forEach(function(x){h+='<td>'+pc(x?x.v:null)+'</td>';});
     for(var gi=0;gi<5;gi++)h+='<td style="'+(gi===0?'border-left:2px solid var(--bd)':'')+';color:var(--dm)">—</td>';
     h+='</tr>';
 
-    // NI with editable margin assumption
-    var hNi=histNi.map(function(x){return x?x.v:null;});
-    h+='<tr><td style="font-size:9px;color:var(--lb)">NI Margin assump.</td>';
-    histRv.forEach(function(){h+='<td></td>';});
-    ['1','2','3','4','5'].forEach(function(n,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+';padding:2px">'+inp('ni'+n,40)+'%</td>';});
-    h+='</tr>';
+    // Net Income + NI margin assumption
     h+='<tr><td>Net Income</td>';
     hNi.forEach(function(v){h+='<td>'+D(v)+'</td>';});
     dcf2.pNI.forEach(function(v,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+'">'+D(v)+'</td>';});
     h+='</tr>';
-    h+=yoyRow(hNi.filter(Boolean).length>0?hNi:[],dcf2.pNI);
+    // NI margin assumption — hist shows actual NI/Rev%, proj editable
+    var histNiPct=hRv.map(function(rv,i){return rv>0&&hNi[i]!=null?hNi[i]/rv:null;});
+    h+=assumRow('NI Margin % of Rev', histNiPct, 'ni');
 
-    // CASH FLOW
-    h+=secRow('Cash Flow & Adj FCF Derivation');
-    // CFO with margin input
-    var hCfo=histCfo.map(function(x){return x?x.v:null;});
-    h+='<tr><td style="font-size:9px;color:var(--lb)">CFO Margin assump.</td>';
-    histRv.forEach(function(){h+='<td></td>';});
-    ['1','2','3','4','5'].forEach(function(n,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+';padding:2px">'+inp('cfo'+n,40)+'%</td>';});
-    h+='</tr>';
+    // ── CASH FLOW → ADJ FCF ──────────────────────────────────────
+    h+=secRow('Cash Flow → Adjusted FCF');
+
+    // CFO + margin assumption
     h+='<tr><td>CFO</td>';
     hCfo.forEach(function(v){h+='<td>'+D(v)+'</td>';});
     dcf2.pCfo.forEach(function(v,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+'">'+D(v)+'</td>';});
     h+='</tr>';
+    var histCfoPct=hRv.map(function(rv,i){return rv>0&&hCfo[i]!=null?hCfo[i]/rv:null;});
+    h+=assumRow('CFO Margin % of Rev', histCfoPct, 'cfo');
 
-    // SBC with % input
-    var hSbc=histSbc.map(function(x){return x?x.v:null;});
-    h+='<tr><td style="font-size:9px;color:var(--lb)">SBC % Rev assump.</td>';
-    histRv.forEach(function(){h+='<td></td>';});
-    ['1','2','3','4','5'].forEach(function(n,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+';padding:2px">'+inp('sbc'+n,40)+'%</td>';});
-    h+='</tr>';
+    // SBC + % assumption
     h+='<tr><td>− SBC</td>';
     hSbc.forEach(function(v){h+='<td>'+D(v)+'</td>';});
     dcf2.pSbc.forEach(function(v,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+'">'+D(v)+'</td>';});
     h+='</tr>';
+    var histSbcPct=hRv.map(function(rv,i){return rv>0&&hSbc[i]!=null?hSbc[i]/rv:null;});
+    h+=assumRow('SBC % of Rev', histSbcPct, 'sbc');
 
-    // Total CapEx with % input
-    var hCx=histCx.map(function(x){return x?x.v:null;});
-    h+='<tr><td style="font-size:9px;color:var(--lb)">Total CapEx % Rev assump.</td>';
-    histRv.forEach(function(){h+='<td></td>';});
-    ['1','2','3','4','5'].forEach(function(n,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+';padding:2px">'+inp('cx'+n,40)+'%</td>';});
-    h+='</tr>';
+    // Total CapEx + % assumption
     h+='<tr><td>Total CapEx</td>';
     hCx.forEach(function(v){h+='<td>'+D(v)+'</td>';});
     dcf2.pCx.forEach(function(v,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+'">'+D(v)+'</td>';});
     h+='</tr>';
+    var histCxPct=hRv.map(function(rv,i){return rv>0&&hCx[i]!=null?hCx[i]/rv:null;});
+    h+=assumRow('Total CapEx % of Rev', histCxPct, 'cx');
 
-    // Maint CapEx % with single input (applies to all years)
-    h+='<tr><td style="font-size:9px;color:var(--lb)">Maint CapEx % of Total CapEx</td>';
-    histRv.forEach(function(){h+='<td></td>';});
-    h+='<td colspan="5" style="border-left:2px solid var(--bd);padding:2px">';
-    h+=dcfInp('_mp',v2.mp,40)+'% (all years)</td></tr>';
+    // Maint CapEx % of total CapEx — single global input
     h+='<tr><td>− Maint CapEx</td>';
     histCx.forEach(function(x){h+='<td>'+D(x?+(x.v*(v2.mp/100)).toFixed(1):null)+'</td>';});
     dcf2.pMx.forEach(function(v,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+'">'+D(v)+'</td>';});
     h+='</tr>';
+    h+='<tr style="background:#0d1520"><td style="font-size:9px;color:var(--yw);padding-left:8px">↳ Maint % of Total CapEx</td>';
+    histCx.forEach(function(x){
+      h+='<td style="font-size:9px;color:var(--dm);text-align:right">'+(x&&x.v>0?pc(v2.mp/100):'')+'</td>';
+    });
+    h+='<td colspan="5" style="border-left:2px solid var(--bd);padding:2px 3px">'
+      +dcfInp('_mp', v2.mp, 40)+'% of total capex (all years)</td></tr>';
 
-    // Adj FCF (calculated, bold)
-    var hFcf=histFcf.map(function(x){return x?x.v:null;});
+    // Adj FCF
     h+='<tr style="border-top:1px solid var(--bd)"><td style="font-weight:600;color:var(--tl)">Adj FCF</td>';
     hFcf.forEach(function(v){h+='<td style="font-weight:600">'+D(v)+'</td>';});
     dcf2.pFcf.forEach(function(v,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd);':'')+';font-weight:600;color:var(--tl)">'+D(v)+'</td>';});
     h+='</tr>';
-    h+=yoyRow(hFcf.filter(Boolean).length>0?hFcf:[],dcf2.pFcf);
-
-    // Adj FCF / NI conversion
-    h+='<tr><td>Adj FCF / NI ratio</td>';
-    histFcf.forEach(function(x,i){
-      var ni2=histNi[i];
-      var ratio=(x&&x.v&&ni2&&ni2.v&&ni2.v>0)?x.v/ni2.v:null;
-      h+='<td>'+fx(ratio)+'</td>';
-    });
-    dcf2.pFcf.forEach(function(f,i){
-      var ni2=dcf2.pNI[i];var ratio=(ni2>0)?f/ni2:null;
-      h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+'">'+fx(ratio)+'</td>';
+    // YoY
+    h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:10px">YoY</td>';
+    hFcf.forEach(function(v,i){h+='<td style="color:var(--dm)">'+(i>0&&hFcf[i-1]>0?colG(v/hFcf[i-1]-1):'')+'</td>';});
+    dcf2.pFcf.forEach(function(v,i){
+      var prev=i===0?(hFcf[hFcf.length-1]||0):dcf2.pFcf[i-1];
+      h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+'">'+( prev>0?colG(v/prev-1):'')+'</td>';
     });
     h+='</tr>';
 
-    // Adj FCF / CFO conversion
-    h+='<tr><td>Adj FCF / CFO ratio</td>';
-    histFcf.forEach(function(x,i){
-      var cfo2=histCfo[i];
-      var ratio=(x&&x.v&&cfo2&&cfo2.v&&cfo2.v>0)?x.v/cfo2.v:null;
-      h+='<td>'+fx(ratio)+'</td>';
-    });
-    dcf2.pFcf.forEach(function(f,i){
-      var cfo2=dcf2.pCfo[i];var ratio=(cfo2>0)?f/cfo2:null;
-      h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+'">'+fx(ratio)+'</td>';
-    });
+    // Conversion ratios
+    h+='<tr><td>Adj FCF / NI</td>';
+    hFcf.forEach(function(v,i){h+='<td>'+fx(hNi[i]>0?v/hNi[i]:null)+'</td>';});
+    dcf2.pFcf.forEach(function(v,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+'">'+fx(dcf2.pNI[i]>0?v/dcf2.pNI[i]:null)+'</td>';});
+    h+='</tr>';
+    h+='<tr><td>Adj FCF / CFO</td>';
+    hFcf.forEach(function(v,i){h+='<td>'+fx(hCfo[i]>0?v/hCfo[i]:null)+'</td>';});
+    dcf2.pFcf.forEach(function(v,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+'">'+fx(dcf2.pCfo[i]>0?v/dcf2.pCfo[i]:null)+'</td>';});
     h+='</tr>';
 
-    // Shares with editable inputs
-    var hSo=histSo.map(function(x){return x?x.v:null;});
-    h+='<tr style="border-top:1px solid var(--bd)"><td style="font-size:9px;color:var(--lb)">Shares (M) — edit</td>';
-    histRv.forEach(function(){h+='<td></td>';});
-    ['1','2','3','4','5'].forEach(function(n,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+';padding:2px">'+inp('sh'+n,48)+'</td>';});
-    h+='</tr>';
+    // ── SHARES ───────────────────────────────────────────────────
+    h+=secRow('Shares Outstanding');
     h+='<tr><td>Shares (M)</td>';
     hSo.forEach(function(v){h+='<td>'+SH(v)+'</td>';});
     dcf2.pS.forEach(function(v,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+'">'+SH(v)+'</td>';});
     h+='</tr>';
+    h+=sharesAssumRow();
 
-    // DCF OUTPUTS
+    // ── DCF OUTPUTS ──────────────────────────────────────────────
     h+=secRow('DCF Outputs & Valuation');
-    h+='<tr><td>PV of FCF @ '+v2.wacc+'% WACC</td>';
+    h+='<tr style="background:#0d1520"><td style="font-size:9px;color:var(--yw);padding-left:8px">↳ WACC / Terminal Growth</td>';
+    histRv.forEach(function(){h+='<td></td>';});
+    h+='<td colspan="3" style="border-left:2px solid var(--bd);padding:2px">WACC: '+dcfInp('_wacc',v2.wacc,36)+'%&nbsp;&nbsp;Term.G: '+dcfInp('_tg',v2.tg,36)+'%</td><td colspan="2"></td></tr>';
+
+    h+='<tr><td>PV of Adj FCF</td>';
     histRv.forEach(function(){h+='<td></td>';});
     dcf2.pV.forEach(function(v,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+'">'+D(v)+'</td>';});
     h+='</tr>';
 
-    // Global assumption inputs row
-    h+='<tr style="background:#0a0e18"><td style="font-size:9px;color:var(--dm)">WACC / Terminal Growth</td>';
-    histRv.forEach(function(){h+='<td></td>';});
-    h+='<td colspan="3" style="border-left:2px solid var(--bd);padding:2px">WACC: '+dcfInp('_wacc',v2.wacc,36)+'% &nbsp; Term.G: '+dcfInp('_tg',v2.tg,36)+'%</td><td colspan="2"></td></tr>';
-
     var mosC=dcf2.mos>=1?'var(--gn)':dcf2.mos>=0.5?'var(--yw)':'var(--rd)';
-    var mosL=dcf2.mos>=1?'Ready ✓':dcf2.mos>=0.5?'Watch ◐':'Below ✗';
-    h+='<tr style="border-top:2px solid var(--bd)"><td>Terminal Value</td>';
+    var mosL=dcf2.mos>=1?'Ready to Invest ✓':dcf2.mos>=0.5?'Watchlist ◐':'Below Threshold ✗';
+    h+='<tr style="border-top:2px solid var(--bd)"><td>Terminal Value (PV)</td>';
     histRv.forEach(function(){h+='<td></td>';});
-    h+='<td colspan="5" style="border-left:2px solid var(--bd);font-weight:600">PV of TV: '+D(dcf2.tvPv)+'</td></tr>';
+    h+='<td colspan="5" style="border-left:2px solid var(--bd);">'+D(dcf2.tvPv)+'</td></tr>';
     h+='<tr><td style="font-weight:600">Total PV (FCF+TV)</td>';
     histRv.forEach(function(){h+='<td></td>';});
     h+='<td colspan="5" style="border-left:2px solid var(--bd);font-weight:600;color:var(--bl)">'+D(dcf2.totPv)+'</td></tr>';
@@ -861,9 +876,9 @@ function render(){
     h+='<tr><td style="font-weight:600">Equity Value</td>';
     histRv.forEach(function(){h+='<td></td>';});
     h+='<td colspan="5" style="border-left:2px solid var(--bd);font-weight:600">'+D(dcf2.eq)+'</td></tr>';
-    h+='<tr style="border-top:2px solid var(--bd)"><td style="font-weight:600;color:var(--pu)">Intrinsic Value / share</td>';
+    h+='<tr style="border-top:2px solid var(--bd)"><td style="font-weight:700;color:var(--pu)">Intrinsic Value / share</td>';
     histRv.forEach(function(){h+='<td></td>';});
-    h+='<td colspan="5" style="border-left:2px solid var(--bd);font-weight:700;color:var(--pu)">'+pr(dcf2.iv)+' vs current '+pr(d.p)+'</td></tr>';
+    h+='<td colspan="5" style="border-left:2px solid var(--bd);font-weight:700;color:var(--pu)">'+pr(dcf2.iv)+' &nbsp;<span style="font-size:9px;color:var(--dm)">vs current '+pr(d.p)+'</span></td></tr>';
     h+='<tr><td style="font-weight:600">Margin of Safety</td>';
     histRv.forEach(function(){h+='<td></td>';});
     h+='<td colspan="5" style="border-left:2px solid var(--bd);font-weight:700;color:'+mosC+'">'+pc(dcf2.mos)+' — '+mosL+'</td></tr>';
