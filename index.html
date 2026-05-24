@@ -108,7 +108,7 @@ var ST={d:null,co:[],indMult:15,showDCF:false,showPath:false,showFS:false,showBS
 
 function gv(id){var e=document.getElementById(id);return e?parseFloat(e.value)||0:0;}
 function mkEI(id,lb,val,unit){return'<div class="ei"><label>'+lb+'</label><div style="display:flex;align-items:center;gap:3px"><input id="'+id+'" type="number" step="any" value="'+(val||0)+'" oninput="reCalc()"/><span class="u">'+unit+'</span></div></div>';}
-function mkRo(lb,val,bold,sym,bt){return'<div class="rw'+(bt?' bt':'')+'"><span style="font-size:12px;color:var(--lb)">'+(sym?'<span style="font-family:var(--m);color:'+(sym==='-'?'var(--rd)':'var(--bl))');font-weight:700;margin-right:4px">'+sym+'</span>':'')+lb+'</span><span style="font-family:var(--m);font-size:12px;font-weight:'+(bold?700:400)+';color:'+(bold?'var(--br)':'#a0aab8')+'">'+val+'</span></div>';}
+function mkRo(lb,val,bold,sym,bt){return'<div class="rw'+(bt?' bt':'')+'"><span style="font-size:12px;color:var(--lb)">'+(sym?'<span style="font-family:var(--m);color:'+(sym==='-'?'var(--rd)':'var(--bl)');font-weight:700;margin-right:4px">'+sym+'</span>':'')+lb+'</span><span style="font-family:var(--m);font-size:12px;font-weight:'+(bold?700:400)+';color:'+(bold?'var(--br)':'#a0aab8')+'">'+val+'</span></div>';}
 
 function calcM(d){
   var sp=d.p||0,sh=d.sh||0,mc=sp*sh,ca=d.ca||0,de=d.de||0;
