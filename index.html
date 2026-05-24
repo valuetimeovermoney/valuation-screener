@@ -130,6 +130,7 @@ async function buildCo(tk){
   var cfoH=cfA.filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+((gf(y,'operatingCashFlow','netCashProvidedByOperatingActivities'))/1e6).toFixed(1)};});
   var fcfH=cfA.filter(Boolean).slice(0,5).map(function(y){var c2=gf(y,'operatingCashFlow','netCashProvidedByOperatingActivities');var s2=gf(y,'stockBasedCompensation');var cx2=Math.abs(gf(y,'capitalExpenditure'));return{y:yrOf(y),v:+((c2-s2-cx2*(isL?0.5:0.7))/1e6).toFixed(1)};});
   var sbcH=cfA.filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+((gf(y,'stockBasedCompensation'))/1e6).toFixed(1)};});
+  var capexH=cfA.filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+(Math.abs(gf(y,'capitalExpenditure'))/1e6).toFixed(1)};});
   var divH=cfA.filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+(Math.abs(gf(y,'dividendsPaid'))/1e6).toFixed(1)};});
   var buyH=cfA.filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+(Math.abs(gf(y,'commonStockRepurchased'))/1e6).toFixed(1)};});
   var soH=incA.filter(Boolean).slice(0,5).map(function(y){var s=gf(y,'weightedAverageShsOut');if(!s)s=gf(y,'weightedAverageShsOutDil');return{y:yrOf(y),v:s>0?+(s/1e6).toFixed(1):null};});
@@ -145,7 +146,7 @@ async function buildCo(tk){
     sbc:+(gf(cf0,'stockBasedCompensation')/1e6).toFixed(1),
     cx:+(capex/1e6).toFixed(1),mp:mpct,
     fy:'FY'+(gf(cf0,'calendarYear')||''),fyEnd:fyEnd,bsDate:(bs0.date||'').slice(0,10),filingLink:cf0.finalLink||cf0.link||'',
-    rv:rev,gm:gm,cfoH:cfoH,fcf:fcfH,sbcH:sbcH,soH:soH,divH:divH,buyH:buyH,
+    rv:rev,gm:gm,cfoH:cfoH,fcf:fcfH,sbcH:sbcH,capexH:capexH,soH:soH,divH:divH,buyH:buyH,
     sec:sec,exch:p.exchangeFullName||p.exchange||'',industry:p.industry||'',
     mcapHist:Array.isArray(mcapHist)?mcapHist:[],
   };
@@ -400,40 +401,110 @@ function render(){
 
   // ──── FINANCIALS TABLE ────
   h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--tl)">Financial Summary — '+d.t+'</div>';
-  h+='<div style="overflow-x:auto"><table class="t"><thead><tr><th></th>';
-  d.rv.map(function(r){return r.y;}).forEach(function(y){h+='<th>'+y+'</th>';});
-  h+='<th>Avg</th><th>CAGR</th></tr></thead><tbody>';
 
-  function row(label,arr,field,bold,showYoY,showCagr){
-    var vals=d.rv.map(function(r){return lk(arr,r.y,field);});
-    var vf=vals.filter(function(x){return x!=null&&x>0;});
+  // Arrays are stored newest-first; reverse for left=old, right=recent display
+  var fsRv=d.rv.slice().reverse();
+  var fsGm=d.gm.slice().reverse();
+  var fsCfo=d.cfoH.slice().reverse();
+  var fsSbc=d.sbcH.slice().reverse();
+  var fsCx=d.capexH.slice().reverse();
+  var fsFcf=d.fcf.slice().reverse();
+  var fsSo=d.soH.slice().reverse();
+  var fsDiv=d.divH.slice().reverse();
+  var fsBuy=d.buyH.slice().reverse();
+  var fsN=fsRv.length;
+
+  h+='<div style="overflow-x:auto"><table class="t"><thead><tr><th></th>';
+  fsRv.forEach(function(r){h+='<th>'+r.y+'</th>';});
+  h+='<th style="color:var(--lb)">Avg</th><th style="color:var(--tl)">CAGR</th></tr></thead><tbody>';
+
+  // Helper: render a $ row from a reversed array (using .r for revenue, .v for others)
+  function fsRow(label,arr,vkey,bold,showYoY,showCagr,fmtFn){
+    var fmt=fmtFn||D;
+    var vals=arr.map(function(x){return x?x[vkey]:null;});
+    var vpos=vals.filter(function(x){return x!=null&&x>0;});
     h+='<tr><td style="'+(bold?'color:var(--bl);font-weight:600':'')+'">'+label+'</td>';
-    vals.forEach(function(v){h+='<td'+(bold?' style="font-weight:600"':'')+'>'+D(v)+'</td>';});
-    h+='<td style="font-weight:600">'+D(av(vals))+'</td>';
-    if(showCagr&&vf.length>=2)h+='<td style="color:var(--tl)">'+pc(cagr(vf[vf.length-1],vf[0],vf.length-1))+'</td>';else h+='<td></td>';
+    vals.forEach(function(v){h+='<td'+(bold?' style="font-weight:600"':'')+'>'+fmt(v)+'</td>';});
+    h+='<td style="font-weight:600">'+fmt(av(vals))+'</td>';
+    if(showCagr&&vpos.length>=2)h+='<td style="color:var(--tl)">'+pc(cagr(vpos[0],vpos[vpos.length-1],vpos.length-1))+'</td>';
+    else h+='<td></td>';
     h+='</tr>';
     if(showYoY){
-      h+='<tr class="yoy"><td>YoY</td>';
-      vals.forEach(function(v,i){if(i<vals.length-1&&vals[i+1]>0)h+='<td>'+colG(v/vals[i+1]-1)+'</td>';else h+='<td>—</td>';});
+      h+='<tr class="yoy"><td></td>';
+      vals.forEach(function(v,i){
+        h+='<td>'+(i>0&&vals[i-1]!=null&&vals[i-1]>0?colG(v/vals[i-1]-1):'')+'</td>';
+      });
       h+='<td></td><td></td></tr>';
     }
   }
 
-  row('Revenue',d.rv,'r',true,true,true);
-  h+='<tr><td>Gross Margin</td>';d.rv.forEach(function(r){var g=lk(d.gm,r.y);h+='<td>'+pc(g)+'</td>';});h+='<td>'+pc(av(d.gm.map(function(x){return x.v;})))+'</td><td></td></tr>';
-  row('CFO',d.cfoH,'v',false,true,true);
-  row('Adj FCF',d.fcf,'v',true,true,true);
-  row('SBC',d.sbcH,'v',false,false,false);
-  h+='<tr><td>SBC / Rev</td>';d.rv.forEach(function(r){var s=lk(d.sbcH,r.y);var rv=lk(d.rv,r.y,'r');h+='<td>'+colS(rv&&rv>0?s/rv:null)+'</td>';});var sbcA=d.sbcH.map(function(x,i){var rv=d.rv[i];return rv&&rv.r>0?x.v/rv.r:null;});h+='<td>'+colS(av(sbcA))+'</td><td></td></tr>';
+  // ── Income Statement ──────────────────────────────────────────
+  h+='<tr style="border-top:2px solid var(--bd)"><td colspan="'+(fsN+3)+'" style="font-size:9px;font-weight:700;color:var(--dm);letter-spacing:1px;padding-top:6px">INCOME STATEMENT</td></tr>';
+  fsRow('Revenue',fsRv,'r',true,true,true);
+  // Gross Margin
+  h+='<tr><td>Gross Margin</td>';
+  fsGm.forEach(function(x){h+='<td>'+pc(x?x.v:null)+'</td>';});
+  h+='<td>'+pc(av(fsGm.map(function(x){return x?x.v:null;})))+'</td><td></td></tr>';
+
+  // ── Cash Flow → Adj FCF derivation ───────────────────────────
+  h+='<tr style="border-top:2px solid var(--bd)"><td colspan="'+(fsN+3)+'" style="font-size:9px;font-weight:700;color:var(--dm);letter-spacing:1px;padding-top:6px">CASH FLOW → ADJ FCF</td></tr>';
+  fsRow('CFO',fsCfo,'v',false,true,true);
+  fsRow('− SBC',fsSbc,'v',false,false,false);
+  // Maint CapEx = mp% of total capex
+  var fsMaint=fsCx.map(function(x){return x?{v:+(x.v*(d.mp/100)).toFixed(1)}:null;});
+  fsRow('Total CapEx',fsCx,'v',false,false,false);
+  fsRow('− Maint CapEx ('+d.mp+'%)',fsMaint,'v',false,false,false);
+  fsRow('Adj FCF',fsFcf,'v',true,true,true);
+  // FCF / EV Yield (using current EV as proxy)
+  h+='<tr><td>Adj FCF / EV Yield</td>';
+  fsFcf.forEach(function(x){var y=c.ev>0&&x?x.v/c.ev:null;h+='<td style="color:'+(y!=null&&y>=0.10?'var(--gn)':y!=null&&y>=0.05?'var(--yw)':'var(--dm)')+'">'+pc(y)+'</td>';});
+  h+='<td>'+pc(c.fy)+'</td><td></td></tr>';
+  // SBC / Rev %
+  h+='<tr><td>SBC / Rev</td>';
+  fsSbc.forEach(function(x,i){var rv=fsRv[i];h+='<td>'+colS(rv&&rv.r>0&&x?x.v/rv.r:null)+'</td>';});
+  var sbcAvg=fsSbc.map(function(x,i){var rv=fsRv[i];return rv&&rv.r>0&&x?x.v/rv.r:null;});
+  h+='<td>'+colS(av(sbcAvg))+'</td><td></td></tr>';
+  // ── Capital Allocation ────────────────────────────────────────
+  h+='<tr style="border-top:2px solid var(--bd)"><td colspan="'+(fsN+3)+'" style="font-size:9px;font-weight:700;color:var(--dm);letter-spacing:1px;padding-top:6px">CAPITAL ALLOCATION</td></tr>';
+
+  // Market Cap row (current price × shares per year)
+  h+='<tr><td style="font-weight:600;color:var(--bl)">Market Cap</td>';
+  var mcapVals=fsSo.map(function(x){return x&&x.v?+(x.v*d.p).toFixed(1):null;});
+  mcapVals.forEach(function(v){h+='<td style="font-weight:600">'+D(v)+'</td>';});
+  h+='<td style="font-weight:600">'+D(av(mcapVals))+'</td>';
+  var mcapPos=mcapVals.filter(function(x){return x>0;});
+  h+='<td style="color:var(--tl)">'+(mcapPos.length>=2?pc(cagr(mcapPos[0],mcapPos[mcapPos.length-1],mcapPos.length-1)):'')+'</td></tr>';
 
   // Shares outstanding
-  h+='<tr><td>Shares Out. (M)</td>';d.rv.forEach(function(r){var s=lk(d.soH,r.y);h+='<td>'+SH(s)+'</td>';});var soV=d.soH.map(function(x){return x.v;}).filter(function(x){return x>0;});h+='<td>'+SH(av(soV))+'</td>';if(soV.length>=2)h+='<td style="color:'+(cagr(soV[soV.length-1],soV[0],soV.length-1)<0?'var(--rd)':'var(--tl)')+'">'+pc(cagr(soV[soV.length-1],soV[0],soV.length-1))+'</td>';else h+='<td></td>';h+='</tr>';
+  h+='<tr><td>Shares Out. (M)</td>';
+  fsSo.forEach(function(x){h+='<td>'+SH(x?x.v:null)+'</td>';});
+  var soPos=fsSo.map(function(x){return x?x.v:null;}).filter(function(x){return x>0;});
+  h+='<td>'+SH(av(soPos))+'</td>';
+  if(soPos.length>=2){
+    var soCAGR=cagr(soPos[0],soPos[soPos.length-1],soPos.length-1);
+    h+='<td style="color:'+(soCAGR>0.005?'var(--rd)':soCAGR<-0.005?'var(--gn)':'var(--lb)')+'">'+pc(soCAGR)+'</td>';
+  } else h+='<td></td>';
+  h+='</tr>';
 
-  // Dividends & Buybacks
-  if(d.divH.some(function(x){return x.v>0;}))row('Dividends',d.divH,'v',false,false,false);
-  if(d.buyH.some(function(x){return x.v>0;}))row('Buybacks',d.buyH,'v',false,false,false);
+  // Dividends
+  if(fsDiv.some(function(x){return x&&x.v>0;})){
+    fsRow('Dividends',fsDiv,'v',false,false,false);
+  }
 
-  h+='</tbody></table></div></div><div class="cs"><b class="s">10-K filing</b><br><b class="s">Shares CAGR:</b> +ve = dilution 🔴, −ve = buybacks 🟢<br><br><b class="s">SBC/Rev:</b><br>🟢 &lt;8% min<br>🟡 8–15% mod<br>🔴 &gt;15% heavy<br>S&P 500 ~2–3%</div></div></div>';
+  // Buybacks + % of MCap
+  if(fsBuy.some(function(x){return x&&x.v>0;})){
+    fsRow('Buybacks',fsBuy,'v',false,false,false);
+    h+='<tr><td>Buybacks % MCap</td>';
+    fsBuy.forEach(function(x,i){
+      var mc=mcapVals[i];
+      var pct=mc&&mc>0&&x?x.v/mc:null;
+      h+='<td style="color:'+(pct!=null&&pct>=0.03?'var(--tl)':'var(--dm)')+'">'+pc(pct)+'</td>';
+    });
+    var buyPctAvg=fsBuy.map(function(x,i){var mc=mcapVals[i];return mc&&mc>0&&x?x.v/mc:null;});
+    h+='<td>'+pc(av(buyPctAvg))+'</td><td></td></tr>';
+  }
+
+  h+='</tbody></table></div></div><div class="cs"><b class="s">Left→Right: oldest to most recent</b><br><br><b class="s">Adj FCF</b> = CFO − SBC − Maint CapEx<br><br><b class="s">Adj FCF/EV:</b><br>🟢 ≥10% strong<br>🟡 5-10% moderate<br>🔴 &lt;5% weak<br><br><b class="s">SBC/Rev:</b><br>🟢 &lt;8%<br>🟡 8-15%<br>🔴 &gt;15%<br><br><b class="s">Buybacks % MCap:</b><br>🟢 ≥3% meaningful</div></div></div>';
 
   // ──── COMPETITIVE LANDSCAPE ────
   if(co.length>0){
