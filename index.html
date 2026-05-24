@@ -289,7 +289,7 @@ function calcDCF(){
   return{pR:pR,pF:pF,pS:pS,pV:pV,tv:tv,tvPv:tvPv,totPv:totPv,iv:iv,mos:mos};
 }
 function gv(id){var e=document.getElementById(id);return e?parseFloat(e.value)||0:0;}
-function updDCF(){ST.dcfVals={revCagr:gv('dcf_rc')/100,fcfMargin:gv('dcf_fm')/100,wacc:gv('dcf_wacc')/100,termGrowth:gv('dcf_tg')/100};render();}
+function updDCF(){render();} // legacy stub - new updDCF handles ST.dcf
 function reCalc(){var d=ST.d;if(!d)return;d.p=gv('fp');d.sh=gv('fsh');d.ca=gv('fca');d.de=gv('fde');d.cfo=gv('fcfo');d.sbc=gv('fsbc');d.cx=gv('fcx');d.mp=gv('fmp2');ST.indMult=gv('indm')||15;render();}
 function togSection(sec){ST['show'+sec]=!ST['show'+sec];render();}
 function mkEI(id,lb,val,unit){return'<div class="ei"><label>'+lb+'</label><div style="display:flex;align-items:center;gap:3px"><input id="'+id+'" type="number" step="any" value="'+(val||'')+'" oninput="reCalc()"/><span class="u">'+unit+'</span></div></div>';}
@@ -304,35 +304,6 @@ async function addComps(){
   }catch(e){}finally{document.getElementById('ld').style.display='none';}
 }
 
-function calcDCF(){
-  var d=ST.d,v=ST.dcfVals;
-  if(!d||!d.rv.length)return null;
-  var latRev=d.rv[0].r;
-  var latShares=d.soH[0]?d.soH[0].v:d.sh;
-
-  var projRev=[],projFcf=[],projShares=[],pv=[],years=[];
-  var cRev=latRev,cShares=latShares;
-  
-  for(var i=1;i<=5;i++){
-    cRev=cRev*(1+v.revCagr);
-    projRev.push(cRev);
-    var fcf=cRev*v.fcfMargin;projFcf.push(fcf);
-    cShares=cShares*(1-0.02);projShares.push(cShares);
-    var df=Math.pow(1+v.wacc,i);pv.push(fcf/df);
-    years.push(i);
-  }
-
-  var tvFcf=projFcf[4]*(1+v.termGrowth);
-  var tv=tvFcf/(v.wacc-v.termGrowth);
-  var tvPv=tv/Math.pow(1+v.wacc,5);
-
-  var totalPv=pv.reduce(function(a,b){return a+b;},0)+tvPv;
-  var eq=totalPv-(d.de||0)+(d.ca||0);if(eq<0)eq=0;
-  var iv=projShares[4]>0?eq/projShares[4]:0;
-  var mos=(iv-d.p)/d.p;
-
-  return{projRev:projRev,projFcf:projFcf,projShares:projShares,pv:pv,years:years,tv:tv,tvPv:tvPv,totalPv:totalPv,iv:iv,mos:mos};
-}
 
 function render(){
   var d=ST.d,co=ST.co;if(!d)return;
@@ -468,10 +439,10 @@ function render(){
   if(ST.showDCF&&dcf){
     h+='<div style="margin-top:10px"><div style="font-size:10px;color:var(--dm);margin-bottom:10px"><b>Assumptions (edit to recalculate):</b></div>';
     h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;font-size:10px">';
-    h+='<div><label>Rev CAGR %</label><input id="dcf_rc" type="number" step="1" value="'+Math.round(ST.dcfVals.revCagr*100)+'" oninput="updDCF()" style="width:100%;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:3px;color:#e0e7f0;font-family:var(--m);outline:none;text-align:center"/></div>';
-    h+='<div><label>FCF Margin %</label><input id="dcf_fm" type="number" step="1" value="'+Math.round(ST.dcfVals.fcfMargin*100)+'" oninput="updDCF()" style="width:100%;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:3px;color:#e0e7f0;font-family:var(--m);outline:none;text-align:center"/></div>';
-    h+='<div><label>WACC %</label><input id="dcf_wacc" type="number" step="1" value="'+Math.round(ST.dcfVals.wacc*100)+'" oninput="updDCF()" style="width:100%;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:3px;color:#e0e7f0;font-family:var(--m);outline:none;text-align:center"/></div>';
-    h+='<div><label>Terminal Growth %</label><input id="dcf_tg" type="number" step="0.5" value="'+(ST.dcfVals.termGrowth*100).toFixed(1)+'" oninput="updDCF()" style="width:100%;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:3px;color:#e0e7f0;font-family:var(--m);outline:none;text-align:center"/></div>';
+    h+='<div><label>Rev CAGR %</label><input id="dcf_rc" type="number" step="1" value="'+ST.dcf.r1+'" oninput="updDCF()" style="width:100%;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:3px;color:#e0e7f0;font-family:var(--m);outline:none;text-align:center"/></div>';
+    h+='<div><label>FCF Margin %</label><input id="dcf_fm" type="number" step="1" value="'+ST.dcf.fm+'" oninput="updDCF()" style="width:100%;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:3px;color:#e0e7f0;font-family:var(--m);outline:none;text-align:center"/></div>';
+    h+='<div><label>WACC %</label><input id="dcf_wacc" type="number" step="1" value="'+ST.dcf.wacc+'" oninput="updDCF()" style="width:100%;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:3px;color:#e0e7f0;font-family:var(--m);outline:none;text-align:center"/></div>';
+    h+='<div><label>Terminal Growth %</label><input id="dcf_tg" type="number" step="0.5" value="'+ST.dcf.tg+'" oninput="updDCF()" style="width:100%;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:3px;color:#e0e7f0;font-family:var(--m);outline:none;text-align:center"/></div>';
     h+='</div>';
     h+='<div style="overflow-x:auto"><table class="t"><thead><tr><th></th><th>Y1</th><th>Y2</th><th>Y3</th><th>Y4</th><th>Y5</th></tr></thead><tbody>';
     h+='<tr><td>Revenue ($M)</td>';dcf.projRev.forEach(function(x){h+='<td>'+D(x)+'</td>';});h+='</tr>';
