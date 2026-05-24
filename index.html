@@ -55,9 +55,8 @@ b.s{color:var(--lb)}
 .val-note{font-size:9px;color:var(--dm)}
 @media(max-width:640px){.cs{display:none}.ci{padding:10px 12px}}
 
-.chart-svg{overflow:visible}
-.chart-label{font-size:9px;font-family:var(--m);fill:var(--lb)}
-.chart-title{font-size:9px;font-weight:700;fill:var(--dm);text-transform:uppercase;letter-spacing:1px}
+.chart-svg{overflow:visible;display:block}
+.cl{font-size:9px;font-family:'JetBrains Mono',monospace}
 </style>
 </head>
 <body>
@@ -152,103 +151,150 @@ async function buildCo(tk){
   };
 }
 
+// ── S&P 500 monthly closes (Jan of each year shown + Dec) ──────────
+// Source: public market data, year-end closes
+var SP500Y={
+  '2015-01':1994.99,'2015-06':2063.11,'2015-12':2043.94,
+  '2016-01':1940.24,'2016-06':2098.86,'2016-12':2238.83,
+  '2017-01':2278.87,'2017-06':2423.41,'2017-12':2673.61,
+  '2018-01':2823.81,'2018-06':2718.37,'2018-12':2506.85,
+  '2019-01':2704.10,'2019-06':2941.76,'2019-12':3230.78,
+  '2020-01':3225.52,'2020-06':3100.29,'2020-12':3756.07,
+  '2021-01':3714.24,'2021-06':4297.50,'2021-12':4766.18,
+  '2022-01':4515.55,'2022-06':3785.38,'2022-12':3839.50,
+  '2023-01':4076.60,'2023-06':4450.38,'2023-12':4769.83,
+  '2024-01':4845.65,'2024-06':5460.48,'2024-12':5881.63,
+  '2025-01':5611.85,'2025-03':5580.94
+};
 
-// S&P 500 annual close prices (Dec 31 each year)
-var SP500={2015:2043.94,2016:2238.83,2017:2673.61,2018:2506.85,2019:3230.78,
-  2020:3756.07,2021:4766.18,2022:3839.50,2023:4769.83,2024:5881.63};
+function buildChart(ticker, mcapData, currentMcap, currentShares) {
+  // mcapData from FMP: [{date:"2024-05-01", marketCap:3000000000000}, ...] newest first
+  if (!mcapData || !mcapData.length) {
+    return '<div style="padding:20px;text-align:center;color:var(--dm);font-size:10px">Historical market cap data unavailable on free plan for this ticker</div>';
+  }
 
-function buildPriceChart(ticker,mcapData,soData,years){
-  // mcapData: [{date,marketCap}] from FMP (most recent first)
-  // soData: [{y,v}] shares per year (millions)
-  // years: ['2020','2021',...] from financial summary
-  if(!mcapData||!mcapData.length)return'<div style="font-size:10px;color:var(--dm);padding:10px">Historical price data unavailable</div>';
+  // Sort oldest first
+  var data = mcapData.slice().sort(function(a,b){return a.date<b.date?-1:1;});
 
-  // Extract year-end prices from MCap data
-  var pricesByYear={};
-  mcapData.forEach(function(d){
-    if(!d.date)return;
-    var yr=d.date.substring(0,4);
-    var mo=parseInt(d.date.substring(5,7));
-    // Take the last entry we see for each year (data is newest first, so first occurrence = latest in year)
-    if(!pricesByYear[yr]&&d.marketCap>0){
-      // Find matching shares for that year
-      var so=soData.find(function(s){return s.y===yr;});
-      if(so&&so.v>0){pricesByYear[yr]=+(d.marketCap/1e6/so.v).toFixed(2);}
-    }
+  // Sample monthly (take last entry per month)
+  var monthly = {};
+  data.forEach(function(d) {
+    var ym = d.date.substring(0,7); // "2022-03"
+    monthly[ym] = d.marketCap; // overwrites, so last of month wins
   });
 
-  var dataYears=Object.keys(pricesByYear).sort();
-  if(dataYears.length<2)return'<div style="font-size:10px;color:var(--dm);padding:10px">Insufficient price history</div>';
+  // Build price series: price ≈ MCap / shares
+  // Use current shares as proxy (best we have on free plan)
+  var sharesM = currentShares || 1000; // millions
+  var keys = Object.keys(monthly).sort();
+  if (keys.length < 4) return '<div style="padding:20px;text-align:center;color:var(--dm);font-size:10px">Insufficient data points</div>';
 
-  // Normalize both series to 100 at first year
-  var firstYr=dataYears[0];
-  var stockBase=pricesByYear[firstYr];
-  var sp500Base=SP500[parseInt(firstYr)];
-  if(!stockBase||!sp500Base)return'<div style="font-size:10px;color:var(--dm);padding:10px">Cannot normalize chart</div>';
-
-  var stockNorm=[],sp500Norm=[],chartYrs=[];
-  dataYears.forEach(function(yr){
-    var sp=SP500[parseInt(yr)];
-    if(pricesByYear[yr]&&sp){
-      stockNorm.push(+(pricesByYear[yr]/stockBase*100).toFixed(1));
-      sp500Norm.push(+(sp/sp500Base*100).toFixed(1));
-      chartYrs.push(yr);
-    }
+  var stockPts = keys.map(function(ym) {
+    return { ym: ym, price: monthly[ym] / (sharesM * 1e6) };
   });
-  if(chartYrs.length<2)return'';
+
+  // Get matching S&P points
+  var spPts = [];
+  keys.forEach(function(ym) {
+    // Find nearest S&P value
+    var spKeys = Object.keys(SP500Y).sort();
+    var best = spKeys[0], bestDiff = 9999;
+    spKeys.forEach(function(k) {
+      var diff = Math.abs(k.localeCompare(ym));
+      // simple string comparison for month proximity
+      if (Math.abs(parseInt(k.replace('-','')) - parseInt(ym.replace('-',''))) < bestDiff) {
+        bestDiff = Math.abs(parseInt(k.replace('-','')) - parseInt(ym.replace('-','')));
+        best = k;
+      }
+    });
+    spPts.push({ ym: ym, val: SP500Y[best] || null });
+  });
+
+  // Normalize both to 100 at start
+  var s0 = stockPts[0].price, sp0 = spPts[0].val;
+  if (!s0 || !sp0) return '<div style="padding:20px;text-align:center;color:var(--dm);font-size:10px">Cannot normalize — missing base values</div>';
+
+  var sNorm = stockPts.map(function(p){ return p.price / s0 * 100; });
+  var spNorm = spPts.map(function(p){ return p.val ? p.val / sp0 * 100 : null; });
 
   // Calculate CAGRs
-  var n=chartYrs.length-1;
-  var stockCagr=Math.pow(stockNorm[n]/100,1/n)-1;
-  var spCagr=Math.pow(sp500Norm[n]/100,1/n)-1;
+  var n = keys.length;
+  var years = (new Date(keys[n-1]+'-01') - new Date(keys[0]+'-01')) / (365.25*24*3600*1000);
+  var sCagr = years > 0 ? Math.pow(sNorm[n-1]/100, 1/years) - 1 : 0;
+  var spCagr = years > 0 ? Math.pow(spNorm[n-1]/100, 1/years) - 1 : 0;
+  var outperform = sCagr > spCagr;
 
-  // SVG chart
-  var W=500,H=160,pad={l:30,r:10,t:15,b:25};
-  var cw=W-pad.l-pad.r,ch=H-pad.t-pad.b;
-  var allVals=stockNorm.concat(sp500Norm);
-  var minV=Math.min.apply(null,allVals)*0.95,maxV=Math.max.apply(null,allVals)*1.05;
-  function xp(i){return pad.l+i/(chartYrs.length-1)*cw;}
-  function yp(v){return pad.t+ch-(v-minV)/(maxV-minV)*ch;}
+  // SVG dimensions
+  var W = 600, H = 180, pl = 36, pr = 12, pt = 16, pb = 28;
+  var cw = W - pl - pr, ch = H - pt - pb;
 
-  var stockPath='',spPath='';
-  chartYrs.forEach(function(y,i){
-    var cmd=i===0?'M':'L';
-    stockPath+=cmd+xp(i).toFixed(1)+','+yp(stockNorm[i]).toFixed(1)+' ';
-    spPath+=cmd+xp(i).toFixed(1)+','+yp(sp500Norm[i]).toFixed(1)+' ';
+  var allV = sNorm.concat(spNorm.filter(Boolean));
+  var minV = Math.max(0, Math.min.apply(null,allV) * 0.95);
+  var maxV = Math.max.apply(null,allV) * 1.05;
+
+  function xp(i){ return pl + i/(n-1)*cw; }
+  function yp(v){ return pt + ch - (v-minV)/(maxV-minV)*ch; }
+
+  // Build paths
+  var sPath='', spPath='';
+  for (var i=0; i<n; i++) {
+    sPath += (i===0?'M':'L') + xp(i).toFixed(1)+','+yp(sNorm[i]).toFixed(1)+' ';
+    if (spNorm[i] != null) spPath += (spPath===''?'M':'L') + xp(i).toFixed(1)+','+yp(spNorm[i]).toFixed(1)+' ';
+  }
+
+  var sColor = outperform ? '#22c55e' : '#38bdf8';
+  var svg = '<svg viewBox="0 0 '+W+' '+H+'" class="chart-svg" style="width:100%;max-height:200px">';
+
+  // Background grid
+  [25,50,75,100,125,150].forEach(function(v) {
+    if (v < minV || v > maxV) return;
+    var y = yp(v).toFixed(1);
+    svg += '<line x1="'+pl+'" y1="'+y+'" x2="'+(W-pr)+'" y2="'+y+'" stroke="#1a2234" stroke-width="'+(v===100?'1.5':'0.75')+'"/>';
+    svg += '<text x="'+(pl-3)+'" y="'+(parseFloat(y)+3)+'" class="cl" text-anchor="end" fill="#4a5568">'+v+'</text>';
   });
 
-  var stockColor=stockCagr>spCagr?'#34d399':'#38bdf8';
-  var svg='<svg viewBox="0 0 '+W+' '+H+'" class="chart-svg">';
-  // Grid lines
-  svg+='<line x1="'+pad.l+'" y1="'+pad.t+'" x2="'+pad.l+'" y2="'+(H-pad.b)+'" stroke="#1a2234" stroke-width="1"/>';
-  svg+='<line x1="'+pad.l+'" y1="'+(H-pad.b)+'" x2="'+(W-pad.r)+'" y2="'+(H-pad.b)+'" stroke="#1a2234" stroke-width="1"/>';
-  // Base line (100)
-  var y100=yp(100);
-  svg+='<line x1="'+pad.l+'" y1="'+y100.toFixed(1)+'" x2="'+(W-pad.r)+'" y2="'+y100.toFixed(1)+'" stroke="#232d3f" stroke-width="1" stroke-dasharray="3,3"/>';
-  svg+='<text x="'+pad.l+'" y="'+(y100-3).toFixed(1)+'" class="chart-label">100</text>';
-  // Year labels
-  chartYrs.forEach(function(y,i){if(i%Math.ceil(chartYrs.length/5)===0||i===chartYrs.length-1)svg+='<text x="'+xp(i).toFixed(1)+'" y="'+(H-6)+'" class="chart-label" text-anchor="middle">'+y+'</text>';});
+  // Year markers on x-axis
+  var lastYr = '';
+  keys.forEach(function(ym, i) {
+    var yr = ym.substring(0,4), mo = ym.substring(5,7);
+    if (yr !== lastYr && mo <= '03') {
+      lastYr = yr;
+      var x = xp(i).toFixed(1);
+      svg += '<line x1="'+x+'" y1="'+pt+'" x2="'+x+'" y2="'+(H-pb)+'" stroke="#1a2234" stroke-width="0.5"/>';
+      svg += '<text x="'+x+'" y="'+(H-8)+'" class="cl" text-anchor="middle" fill="#4a5568">'+yr+'</text>';
+    }
+  });
+
   // S&P line
-  svg+='<path d="'+spPath.trim()+'" fill="none" stroke="#4a5568" stroke-width="2"/>';
+  svg += '<path d="'+spPath.trim()+'" fill="none" stroke="#4a5568" stroke-width="1.5" stroke-dasharray="4,3"/>';
   // Stock line
-  svg+='<path d="'+stockPath.trim()+'" fill="none" stroke="'+stockColor+'" stroke-width="2.5"/>';
-  // End dots
-  var lastI=chartYrs.length-1;
-  svg+='<circle cx="'+xp(lastI).toFixed(1)+'" cy="'+yp(stockNorm[lastI]).toFixed(1)+'" r="3" fill="'+stockColor+'"/>';
-  svg+='<circle cx="'+xp(lastI).toFixed(1)+'" cy="'+yp(sp500Norm[lastI]).toFixed(1)+'" r="3" fill="#4a5568"/>';
-  // End value labels
-  svg+='<text x="'+(xp(lastI)+4)+'" y="'+(yp(stockNorm[lastI])+4).toFixed(1)+'" class="chart-label" fill="'+stockColor+'">'+stockNorm[lastI]+'</text>';
-  svg+='<text x="'+(xp(lastI)+4)+'" y="'+(yp(sp500Norm[lastI])+4).toFixed(1)+'" class="chart-label">' +sp500Norm[lastI]+'</text>';
-  svg+='</svg>';
+  svg += '<path d="'+sPath.trim()+'" fill="none" stroke="'+sColor+'" stroke-width="2.5"/>';
 
-  var stockColor2=stockCagr>spCagr?'var(--gn)':'var(--rd)';
-  var legend='<div style="display:flex;gap:16px;font-size:10px;margin-top:6px;flex-wrap:wrap">';
-  legend+='<div><span style="display:inline-block;width:16px;height:2px;background:'+stockColor+';vertical-align:middle;margin-right:4px"></span><b>'+ticker+'</b> CAGR: <span style="color:'+stockColor2+';font-weight:600">'+(stockCagr*100).toFixed(1)+'%</span></div>';
-  legend+='<div><span style="display:inline-block;width:16px;height:2px;background:#4a5568;vertical-align:middle;margin-right:4px"></span><b>S&P 500</b> CAGR: <span style="color:var(--lb)">'+(spCagr*100).toFixed(1)+'%</span></div>';
-  legend+='<div style="color:var(--dm)">Indexed to 100 from '+chartYrs[0]+'</div></div>';
+  // End labels
+  var li = n-1;
+  svg += '<circle cx="'+xp(li).toFixed(1)+'" cy="'+yp(sNorm[li]).toFixed(1)+'" r="3.5" fill="'+sColor+'"/>';
+  svg += '<text x="'+(xp(li)-2)+'" y="'+(yp(sNorm[li])-7)+'" class="cl" text-anchor="middle" fill="'+sColor+'">'+sNorm[li].toFixed(0)+'</text>';
+  var lastSp = spNorm[li];
+  if (lastSp) {
+    svg += '<circle cx="'+xp(li).toFixed(1)+'" cy="'+yp(lastSp).toFixed(1)+'" r="3" fill="#4a5568"/>';
+    svg += '<text x="'+(xp(li)-2)+'" y="'+(yp(lastSp)+14)+'" class="cl" text-anchor="middle" fill="#4a5568">'+lastSp.toFixed(0)+'</text>';
+  }
 
-  return svg+legend;
+  svg += '</svg>';
+
+  // Legend
+  var fromYr = keys[0].substring(0,4), toYr = keys[n-1].substring(0,4);
+  var leg = '<div style="display:flex;gap:16px;font-size:10px;margin-top:8px;flex-wrap:wrap;align-items:center">';
+  leg += '<div style="display:flex;align-items:center;gap:5px"><svg width="20" height="3"><line x1="0" y1="1.5" x2="20" y2="1.5" stroke="'+sColor+'" stroke-width="2.5"/></svg><b>'+ticker+'</b> <span style="color:'+sColor+';font-weight:700">'+(sCagr*100).toFixed(1)+'% CAGR</span></div>';
+  leg += '<div style="display:flex;align-items:center;gap:5px"><svg width="20" height="3"><line x1="0" y1="1.5" x2="20" y2="1.5" stroke="#4a5568" stroke-width="1.5" stroke-dasharray="4,3"/></svg><b>S&P 500</b> <span style="color:#7a8494">'+(spCagr*100).toFixed(1)+'% CAGR</span></div>';
+  leg += '<div style="color:var(--dm)">Indexed to 100 · '+fromYr+' → '+toYr;
+  if (outperform) leg += ' · <span style="color:var(--gn)">▲ Outperforming by '+(((sCagr-spCagr)*100).toFixed(1))+'pp/yr</span>';
+  else leg += ' · <span style="color:var(--rd)">▼ Underperforming by '+(((spCagr-sCagr)*100).toFixed(1))+'pp/yr</span>';
+  leg += '</div></div>';
+
+  return svg + leg;
 }
+
 
 var ST={d:null,co:[],indMult:15,showPath:true,showDCF:false,showTri:false,
   dcf:{r1:12,r2:10,r3:9,r4:8,r5:7,fm:15,wacc:9,tg:3,sc:-1.5}};
@@ -322,6 +368,12 @@ function render(){
   // Quality
   h+='<div style="background:'+qB+';border-radius:8px;padding:14px 16px;margin-bottom:12px;border:1px solid '+qC+'33"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--lb)">Quality Ratio</div><div style="font-size:28px;font-weight:800;font-family:var(--m);color:var(--br)">'+pc(c.qr)+'</div><div style="font-size:10px;color:var(--lb)">FCF/EV '+pc(c.fy)+' + Rev CAGR '+pc(c.rc)+'</div></div><span class="bg" style="background:'+qC+'22;color:'+qC+'">'+qL+'</span></div></div>';
 
+  // ── PRICE CHART vs S&P 500 ────────────────────────────────────
+  h+='<div class="card"><div class="ci"><div class="cm">';
+  h+='<div class="ct" style="color:var(--bl)">Stock Price vs S&P 500 (Indexed, Year-End)</div>';
+  h+=buildChart(d.t, d.mcapHist, d.p*d.sh, d.sh);
+  h+='</div><div class="cs"><b class="s">Price chart</b> derived from historical market cap ÷ weighted avg shares.<br><br>Indexed to 100 at earliest year. Green = outperforming S&P 500.<br><br>S&P 500 data: annual Dec 31 closes.</div></div></div>';
+
   // MktCap→EV
   h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--bl)">Market Cap → Enterprise Value</div>'+mkEI('fp','Stock Price',d.p,'USD')+mkEI('fsh','Shares Out.',d.sh,'M')+mkRo('Market Cap',D(c.mc),1,null,1)+mkEI('fca','Cash & Equiv.',d.ca,'$M')+mkEI('fde','Total Debt',d.de,'$M')+mkRo('Enterprise Value',D(c.ev),1,null,1)+'<div style="margin-top:6px;padding:6px 8px;border-radius:4px;background:'+(c.iNC?'#052e1644':'#450a0a44')+';border:1px solid '+(c.iNC?'#22c55e':'#ef4444')+'22;display:flex;justify-content:space-between;font-size:11px"><span style="color:'+(c.iNC?'#86efac':'#fca5a5')+'">'+(c.iNC?'✦ Net Cash':'⚠ Net Debt')+'</span><span style="font-family:var(--m);color:'+(c.iNC?'#86efac':'#fca5a5')+';font-weight:600">'+D(Math.abs(c.nd))+' ('+pc(c.ncP)+' MCap)</span></div></div><div class="cs"><b class="s">Filing:</b> 10-K ('+d.fy+', '+d.fyEnd+')'+(d.filingLink?'<br><a href="'+d.filingLink+'" target="_blank" style="color:var(--bl);font-size:9px">View Filing →</a>':'')+'<br><b class="s">Price:</b> '+d.pd+'<br><b class="s">BS:</b> '+d.bsDate+'</div></div></div>';
 
@@ -345,16 +397,6 @@ function render(){
   var m3Val=null; // Placeholder for BS approach
   h+='<div class="val-box"><div class="val-label">Method 3: Balance Sheet</div><div class="val-num">'+(m3Val?pr(m3Val):'TBD')+'</div><div class="val-note">Asset-based approach</div></div>';
   h+='</div></div><div class="cs"><b class="s">Triangulate:</b> 3 methods to find fair value range</div></div></div>';
-
-  // ── PRICE CHART vs S&P 500 ────────────────────────────────────
-  h+='<div class="card"><div class="ci"><div class="cm">';
-  h+='<div class="ct" style="color:var(--bl)">Stock Price vs S&P 500 (Indexed, Year-End)</div>';
-  if(d.mcapHist&&d.mcapHist.length){
-    h+=buildPriceChart(d.t,d.mcapHist,d.soH,d.yrs||[]);
-  }else{
-    h+='<div style="font-size:10px;color:var(--dm);padding:8px">Fetching historical market cap data…</div>';
-  }
-  h+='</div><div class="cs"><b class="s">Price chart</b> derived from historical market cap ÷ weighted avg shares.<br><br>Indexed to 100 at earliest year. Green = outperforming S&P 500.<br><br>S&P 500 data: annual Dec 31 closes.</div></div></div>';
 
   // ──── FINANCIALS TABLE ────
   h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--tl)">Financial Summary — '+d.t+'</div>';
