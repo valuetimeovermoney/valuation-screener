@@ -73,6 +73,19 @@ b.s{color:var(--lb)}
 <script>
 var AK='zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J',BASE='https://financialmodelingprep.com/stable/';
 async function fmp(ep,req){var u=BASE+ep+(ep.includes('?')?'&':'?')+'apikey='+AK;var r=await fetch(u);if(r.status===402||r.status===403){if(req)throw new Error('FMP '+r.status);return null;}if(!r.ok)throw new Error('FMP '+r.status);return r.json();}
+async function fmpSearch(q){
+  // Try stable API first, then v3
+  var urls=[
+    BASE+'search?query='+encodeURIComponent(q)+'&limit=15&apikey='+AK,
+    'https://financialmodelingprep.com/api/v3/search?query='+encodeURIComponent(q)+'&limit=15&apikey='+AK,
+    BASE+'search-name?name='+encodeURIComponent(q)+'&limit=15&apikey='+AK,
+    'https://financialmodelingprep.com/api/v3/search-name?name='+encodeURIComponent(q)+'&limit=15&apikey='+AK
+  ];
+  for(var i=0;i<urls.length;i++){
+    try{var r=await fetch(urls[i]);if(r.ok){var d=await r.json();if(Array.isArray(d)&&d.length>0)return d;}}catch(e){}
+  }
+  return[];
+}
 
 function getYr(o){return o.calendarYear?''+o.calendarYear:o.date?o.date.substring(0,4):'';}
 function cm(x){return(''+x).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
@@ -1012,7 +1025,20 @@ function render(){
 
 }
 
-document.getElementById('qi').addEventListener('keydown',function(e){if(e.key==='Enter')go();});
+document.getElementById('qi').addEventListener('keydown',function(e){if(e.key==='Enter'){document.getElementById('sr').style.display='none';go();}});
+var _acTimer=null;
+document.getElementById('qi').addEventListener('input',function(e){
+  var v=this.value.trim();
+  if(_acTimer)clearTimeout(_acTimer);
+  if(v.length<2){document.getElementById('sr').style.display='none';return;}
+  _acTimer=setTimeout(function(){
+    fmpSearch(v).then(function(sr){
+      var m=(sr||[]).filter(function(x){return x.symbol&&x.name;});
+      if(m.length>0)showSearchResults(m);
+      else document.getElementById('sr').style.display='none';
+    }).catch(function(){});
+  },350);
+});
 document.addEventListener('click',function(e){if(!e.target.closest('#sr')&&!e.target.closest('.sb'))document.getElementById('sr').style.display='none';});
 document.getElementById('ci2').addEventListener('keydown',function(e){if(e.key==='Enter')addComps();});
 function showSearchResults(results){
@@ -1032,26 +1058,22 @@ function showSearchResults(results){
 async function go(forceSymbol){
   var raw=forceSymbol||document.getElementById('qi').value.trim();if(!raw)return;
   var t=raw.toUpperCase();
-  // Always search FMP to resolve ambiguity (multiple exchanges, name→ticker)
-  try{
-    var sr=await fmp('search?query='+encodeURIComponent(raw)+'&limit=15');
-    if(sr&&sr.length>0){
-      // Filter to stocks only (exclude funds, etfs if possible)
+  if(forceSymbol){
+    t=forceSymbol;
+  }else{
+    // Search FMP for ticker/name matches
+    try{
+      var sr=await fmpSearch(raw);
       var matches=(sr||[]).filter(function(x){return x.symbol&&x.name;});
-      if(forceSymbol){
-        t=forceSymbol;
-      }else if(matches.length>1){
-        // Multiple matches — always show dropdown so user can pick
+      if(matches.length>1){
         showSearchResults(matches);
         return;
       }else if(matches.length===1){
         t=matches[0].symbol;
-      }else{
-        document.getElementById('er').textContent='No results for "'+raw+'". Try a different name or ticker.';
-        document.getElementById('er').style.display='block';return;
       }
-    }
-  }catch(e){}
+      // If no results from search, try raw input as direct ticker
+    }catch(e){}
+  }
   document.getElementById('qi').value=t;
   document.getElementById('sr').style.display='none';
   document.getElementById('gb').disabled=true;document.getElementById('gb').textContent='…';
