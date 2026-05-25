@@ -178,131 +178,140 @@ async function buildCo(tk){
   };
 }
 
-// ── Stock chart: MCap history (FMP free) + embedded S&P ────────────
+// ── Stock chart: daily MCap (FMP free) + embedded S&P ─────────────
 
-// S&P 500 annual adjusted closes (year-end, Dec 31) — embedded, no API needed
-var SP500Y={
-  '2000':1320.28,'2001':1148.08,'2002':879.82,'2003':1111.92,'2004':1211.92,
-  '2005':1248.29,'2006':1418.30,'2007':1468.36,'2008':903.25,'2009':1115.10,
-  '2010':1257.64,'2011':1257.60,'2012':1426.19,'2013':1848.36,'2014':2058.90,
-  '2015':2043.94,'2016':2238.83,'2017':2673.61,'2018':2506.85,'2019':3230.78,
-  '2020':3756.07,'2021':4766.18,'2022':3839.50,'2023':4769.83,'2024':5881.63
-};
+// S&P 500 year-end closes (embedded — no API)
+var SP500Y={'2000':1320,'2001':1148,'2002':880,'2003':1112,'2004':1212,'2005':1248,'2006':1418,'2007':1468,'2008':903,'2009':1115,'2010':1258,'2011':1258,'2012':1426,'2013':1848,'2014':2059,'2015':2044,'2016':2239,'2017':2674,'2018':2507,'2019':3231,'2020':3756,'2021':4766,'2022':3840,'2023':4770,'2024':5882,'2025':5880};
 
-function buildGrowthChart(ticker, stockPts, cagrs, ipoYr) {
-  if (!stockPts || stockPts.length < 3) {
-    return '<div style="font-size:10px;color:var(--dm);padding:20px;text-align:center">Price history unavailable (requires FMP paid plan)</div>';
-  }
+function renderStockChart(ticker, pts, ipoYear) {
+  // pts = [{date:'2021-05-12', close:128.3}, ...] — daily/weekly price data
+  if (!pts || pts.length < 20) return '';
 
-  // Build S&P series aligned to stock years
-  var spPts = [];
-  (stockPts||[]).forEach(function(p) {
-    var yr = p.year.toString();
-    if (SP500Y[yr]) spPts.push({year: p.year, close: SP500Y[yr]});
+  // Build S&P daily series: interpolate linearly between annual closes
+  var spPts = pts.map(function(p) {
+    var yr = parseInt(p.date.slice(0,4));
+    var mo = parseInt(p.date.slice(5,7));
+    var da = parseInt(p.date.slice(8,10));
+    var frac = ((mo-1)*30 + da) / 365;
+    var y0 = SP500Y[yr] || SP500Y[yr-1] || null;
+    var y1 = SP500Y[yr+1] || SP500Y[yr] || y0;
+    return y0 ? y0 + (y1-y0)*frac : null;
   });
 
-  // Normalize both to $100 at first year
-  var s0 = stockPts[0].close, sp0 = spPts.length ? spPts[0].close : null;
-  var sN = (stockPts||[]).map(function(p) { return p.close / s0 * 100; });
-  var spN = sp0 ? (spPts||[]).map(function(p) { return p.close / sp0 * 100; }) : [];
+  // Normalize both to $100 at start
+  var s0 = pts[0].close;
+  var sp0 = spPts[0] || 1;
+  var sN = pts.map(function(p) { return (p.close / s0) * 100; });
+  var spN = spPts.map(function(v) { return v ? (v / sp0) * 100 : null; });
+  // Fill nulls forward
+  for (var fi=1; fi<spN.length; fi++) { if (!spN[fi]) spN[fi] = spN[fi-1]; }
 
-  var W=540, H=190, pl=40, pr2=14, pt=12, pb=26;
-  var cw=W-pl-pr2, ch=H-pt-pb, n=sN.length;
+  var n = sN.length;
+  var lastS = sN[n-1], lastSP = spN[n-1] || 100;
+  var outperforming = lastS > lastSP;
+  var stockCol = outperforming ? '#22c55e' : '#38bdf8';
 
-  var allV = sN.concat(spN).filter(function(v){return v>0;});
-  var minV = Math.max(0, Math.min.apply(null,allV) * 0.93);
-  var maxV = Math.max.apply(null,allV) * 1.07;
-  if (maxV === minV) { maxV = minV + 50; }
-
-  function xp(i,tot) { return pl + i / Math.max(tot-1,1) * cw; }
-  function yp(v) { return pt + ch - (v-minV)/(maxV-minV)*ch; }
-
-  var svg = '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;display:block;overflow:visible">';
-
-  // Horizontal grid lines
-  var ticks = [100];
-  var rng = maxV - minV;
-  var step = rng > 400 ? 100 : rng > 150 ? 50 : 25;
-  for (var g = Math.ceil(minV/step)*step; g <= maxV; g += step) {
-    if (!ticks.includes(g)) ticks.push(g);
+  // CAGRs
+  function _cagr(startVal, endVal, years) {
+    return (startVal > 0 && endVal > 0 && years > 0) ? Math.pow(endVal/startVal, 1/years) - 1 : null;
   }
-  (ticks||[]).forEach(function(v) {
-    if (v < minV || v > maxV) return;
-    var y2 = yp(v).toFixed(1);
-    var is100 = v === 100;
-    svg += '<line x1="'+pl+'" y1="'+y2+'" x2="'+(W-pr2)+'" y2="'+y2+'" stroke="'+(is100?'#2a3a52':'#181f2e')+'" stroke-width="'+(is100?'1':'0.5')+'"'+(is100?' stroke-dasharray="4,3"':'')+'/>';
-    svg += '<text x="'+(pl-3)+'" y="'+(parseFloat(y2)+3)+'" fill="#3a4a5a" font-size="8" font-family="monospace" text-anchor="end">'+Math.round(v)+'</text>';
-  });
+  var totalYrs = (new Date(pts[n-1].date) - new Date(pts[0].date)) / (365.25*24*3600*1000);
+  var cagrIPO = _cagr(pts[0].close, pts[n-1].close, totalYrs);
+  var spIPO = _cagr(spPts[0]||1, spPts[n-1]||1, totalYrs);
 
-  // X-axis year labels
-  (stockPts||[]).forEach(function(p, i) {
-    if (i === 0 || i === n-1 || p.year % 2 === 0) {
-      var x2 = xp(i,n).toFixed(1);
-      svg += '<text x="'+x2+'" y="'+(H-6)+'" fill="#3a4a5a" font-size="8" font-family="monospace" text-anchor="middle">'+p.year+'</text>';
+  // 5Y CAGR
+  var idx5 = 0;
+  var target5 = new Date(pts[n-1].date);target5.setFullYear(target5.getFullYear()-5);var t5s=target5.toISOString().slice(0,10);
+  for (var fi2=0; fi2<n; fi2++) { if (pts[fi2].date >= t5s) { idx5=fi2; break; } }
+  var cagr5 = idx5 < n-1 ? _cagr(pts[idx5].close, pts[n-1].close, 5) : null;
+  var sp5 = idx5 < n-1 ? _cagr(spPts[idx5]||1, spPts[n-1]||1, 5) : null;
+
+  // 10Y CAGR
+  var idx10 = 0;
+  var target10 = new Date(pts[n-1].date);target10.setFullYear(target10.getFullYear()-10);var t10s=target10.toISOString().slice(0,10);
+  for (var fi3=0; fi3<n; fi3++) { if (pts[fi3].date >= t10s) { idx10=fi3; break; } }
+  var cagr10 = (idx10 < n-10 && idx10 < n-1) ? _cagr(pts[idx10].close, pts[n-1].close, 10) : null;
+  var sp10 = (idx10 < n-10 && idx10 < n-1) ? _cagr(spPts[idx10]||1, spPts[n-1]||1, 10) : null;
+
+  // Downsample to ~300 points for SVG performance
+  var step2 = Math.max(1, Math.floor(n / 300));
+  var dS = [], dSP = [], dL = [];
+  for (var di=0; di<n; di+=step2) { dS.push(sN[di]); dSP.push(spN[di]); dL.push(pts[di].date); }
+  if (di-step2 !== n-1) { dS.push(sN[n-1]); dSP.push(spN[n-1]); dL.push(pts[n-1].date); }
+  var dn = dS.length;
+
+  // SVG dimensions
+  var W=600, H=210, pl=40, pr2=10, pt=30, pb=24;
+  var cw=W-pl-pr2, ch=H-pt-pb;
+
+  var allV = dS.concat(dSP.filter(function(v){return v!=null;}));
+  var minV = Math.max(0, Math.min.apply(null, allV) * 0.92);
+  var maxV = Math.max.apply(null, allV) * 1.05;
+  if (maxV <= minV) maxV = minV + 50;
+
+  function xp(i) { return pl + (i / Math.max(dn-1,1)) * cw; }
+  function yp(v) { return pt + ch - ((v-minV)/(maxV-minV)) * ch; }
+
+  var svg = '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;display:block;overflow:visible" xmlns="http://www.w3.org/2000/svg">';
+
+  // Legend (top)
+  svg += '<line x1="'+pl+'" y1="14" x2="'+(pl+14)+'" y2="14" stroke="'+stockCol+'" stroke-width="2.5"/>';
+  svg += '<text x="'+(pl+18)+'" y="17" fill="'+stockCol+'" font-size="9" font-family="monospace" font-weight="bold">'+ticker+'</text>';
+  svg += '<line x1="'+(pl+70)+'" y1="14" x2="'+(pl+84)+'" y2="14" stroke="#555" stroke-width="1.5" stroke-dasharray="3,2"/>';
+  svg += '<text x="'+(pl+88)+'" y="17" fill="#555" font-size="9" font-family="monospace">S&P 500</text>';
+
+  // Horizontal grid + $100 baseline
+  var gridStep = maxV-minV > 300 ? 50 : maxV-minV > 100 ? 25 : 10;
+  for (var g=Math.ceil(minV/gridStep)*gridStep; g<=maxV; g+=gridStep) {
+    var gy = yp(g);
+    var is100 = Math.abs(g-100) < gridStep/2;
+    svg += '<line x1="'+pl+'" y1="'+gy.toFixed(1)+'" x2="'+(W-pr2)+'" y2="'+gy.toFixed(1)+'" stroke="'+(is100?'#2a3a52':'#151d2b')+'" stroke-width="'+(is100?'0.8':'0.4')+'"/>';
+    svg += '<text x="'+(pl-4)+'" y="'+(gy+3).toFixed(1)+'" fill="#3a4a5a" font-size="7.5" font-family="monospace" text-anchor="end">'+Math.round(g)+'</text>';
+  }
+
+  // X axis — year/month labels
+  var prevLabel = '';
+  dL.forEach(function(d2,i) {
+    var lbl = d2.slice(0,7); // YYYY-MM
+    var yr = d2.slice(0,4);
+    var mo = d2.slice(5,7);
+    // Show a label every ~6 months
+    if (i===0 || i===dn-1 || (mo==='01'||mo==='07') && yr+'-'+mo !== prevLabel) {
+      var x2 = xp(i);
+      svg += '<text x="'+x2.toFixed(1)+'" y="'+(H-4)+'" fill="#3a4a5a" font-size="7" font-family="monospace" text-anchor="middle">'+lbl+'</text>';
+      prevLabel = yr+'-'+mo;
     }
   });
 
-  // S&P line (dashed, behind)
-  if (spN.length >= 2) {
-    var spPath = (spN||[]).map(function(v,i){ return (i===0?'M':'L')+xp(i,n).toFixed(1)+','+yp(v).toFixed(1); }).join(' ');
-    svg += '<path d="'+spPath+'" fill="none" stroke="#3a4a5a" stroke-width="1.5" stroke-dasharray="5,3"/>';
-  }
+  // S&P path (dashed, behind)
+  var spPath = dSP.map(function(v,i) { return (i===0?'M':'L')+xp(i).toFixed(1)+','+yp(v).toFixed(1); }).join(' ');
+  svg += '<path d="'+spPath+'" fill="none" stroke="#555" stroke-width="1.2" stroke-dasharray="3,2" stroke-opacity="0.7"/>';
 
-  // Stock line — green if ahead of S&P, blue otherwise
-  var lastS = sN[n-1], lastSP = spN.length ? spN[Math.min(spN.length-1, n-1)] : null;
-  var stockCol = (lastSP && lastS > lastSP) ? '#22c55e' : '#38bdf8';
-  var sPath = (sN||[]).map(function(v,i){ return (i===0?'M':'L')+xp(i,n).toFixed(1)+','+yp(v).toFixed(1); }).join(' ');
-  svg += '<path d="'+sPath+'" fill="none" stroke="'+stockCol+'" stroke-width="2.5"/>';
+  // Stock path
+  var sPath = dS.map(function(v,i) { return (i===0?'M':'L')+xp(i).toFixed(1)+','+yp(v).toFixed(1); }).join(' ');
+  svg += '<path d="'+sPath+'" fill="none" stroke="'+stockCol+'" stroke-width="2"/>';
 
-  // End-point dots + labels
-  svg += '<circle cx="'+xp(n-1,n).toFixed(1)+'" cy="'+yp(lastS).toFixed(1)+'" r="3.5" fill="'+stockCol+'"/>';
-  svg += '<text x="'+(parseFloat(xp(n-1,n))+5)+'" y="'+(yp(lastS)+4).toFixed(1)+'" fill="'+stockCol+'" font-size="9" font-family="monospace" font-weight="bold">$'+Math.round(lastS)+'</text>';
-  if (lastSP) {
-    svg += '<circle cx="'+xp(spN.length-1,n).toFixed(1)+'" cy="'+yp(lastSP).toFixed(1)+'" r="2.5" fill="#3a4a5a"/>';
-    svg += '<text x="'+(parseFloat(xp(spN.length-1,n))+5)+'" y="'+(yp(lastSP)+4).toFixed(1)+'" fill="#3a4a5a" font-size="9" font-family="monospace">$'+Math.round(lastSP)+'</text>';
-  }
   svg += '</svg>';
 
-  // Legend + CAGR stats
-  var outperf = (cagrs.y5 != null && cagrs.sp5 != null) ? cagrs.y5 - cagrs.sp5 : null;
-  var leg = '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;font-size:10px;align-items:center">';
-  leg += '<span style="display:flex;align-items:center;gap:4px"><svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="'+stockCol+'" stroke-width="2.5"/></svg><b>'+ticker+'</b></span>';
-  leg += '<span style="display:flex;align-items:center;gap:4px"><svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="#3a4a5a" stroke-width="1.5" stroke-dasharray="4,2"/></svg><span style="color:var(--lb)">S&P 500</span></span>';
-  if (cagrs.y5 != null) leg += '<span style="color:var(--lb)">5Y CAGR: <b style="color:'+stockCol+'">'+pc(cagrs.y5)+'</b>'+(cagrs.sp5?' <span style="color:#3a4a5a">vs '+pc(cagrs.sp5)+'</span>':'')+'</span>';
-  if (cagrs.y10 != null) leg += '<span style="color:var(--lb)">10Y: <b style="color:'+stockCol+'">'+pc(cagrs.y10)+'</b>'+(cagrs.sp10?' <span style="color:#3a4a5a">vs '+pc(cagrs.sp10)+'</span>':'')+'</span>';
-  if (cagrs.ipo != null) leg += '<span style="color:var(--lb)">Since '+(ipoYr||'IPO')+': <b style="color:'+stockCol+'">'+pc(cagrs.ipo)+'</b>'+(cagrs.spiPO?' <span style="color:#3a4a5a">vs '+pc(cagrs.spiPO)+'</span>':'')+'</span>';
-  if (outperf != null) {
-    var op = outperf >= 0;
-    leg += '<span style="color:'+(op?'var(--gn)':'var(--rd)')+';font-weight:600">'+(op?'▲ +':'▼ ')+((Math.abs(outperf)*100).toFixed(1))+'pp/yr vs S&P (5Y)</span>';
+  // CAGR stats below chart
+  var stats = '<div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:6px;font-size:11px">';
+  if (cagr5 != null) stats += '<span style="color:var(--lb)">5Y <b style="color:'+stockCol+'">'+pc(cagr5)+'</b></span>';
+  if (cagr10 != null) stats += '<span style="color:var(--lb)">10Y <b style="color:'+stockCol+'">'+pc(cagr10)+'</b></span>';
+  if (cagrIPO != null) stats += '<span style="color:var(--lb)">IPO ('+(ipoYear||'')+') <b style="color:'+stockCol+'">'+pc(cagrIPO)+'</b></span>';
+
+  // Outperformance
+  if (cagr5 != null && sp5 != null) {
+    var diff = cagr5 - sp5;
+    var op = diff >= 0;
+    stats += '<b style="color:'+(op?'var(--gn)':'var(--rd)')+'">'+
+      (op?'▲ Outperforming':'▼ Underperforming')+' S&P by '+(Math.abs(diff)*100).toFixed(1)+'pp/yr</b>';
   }
-  leg += '</div>';
-  return svg + leg;
-}
+  stats += '</div>';
 
-// CAGR helpers using annual point arrays
-function cagrYrs(pts, yrs) {
-  if (!pts || pts.length < 2) return null;
-  var last = pts[pts.length-1];
-  var targetYr = last.year - yrs;
-  var found = null;
-  (pts||[]).forEach(function(p) { if (!found && p.year >= targetYr) found = p; });
-  if (!found || found === last) return null;
-  var n = last.year - found.year;
-  return n > 0 ? Math.pow(last.close / found.close, 1/n) - 1 : null;
-}
-function cagrAll(pts) {
-  if (!pts || pts.length < 2) return null;
-  var n = pts[pts.length-1].year - pts[0].year;
-  return n > 0 ? Math.pow(pts[pts.length-1].close / pts[0].close, 1/n) - 1 : null;
-}
-function sp500CAGR(fromYr, toYr) {
-  var s = SP500Y[fromYr], e = SP500Y[toYr];
-  if (!s || !e || toYr <= fromYr) return null;
-  return Math.pow(e/s, 1/(toYr-fromYr)) - 1;
+  return svg + stats;
 }
 
 
-var CC=0;
 var ST={d:null,co:[],stockPts:[],priceHist:[],indexHist:[],indMult:15,mpOver:null,showPath:true,showFS:false,showBS:false,
   dcf:{
     // Per-year revenue growth %
@@ -448,29 +457,14 @@ function render(){
 
   // ── PRICE CHART ───────────────────────────────────────────
   var _ph=ST.priceHist||[];
-  var _sp=ST.stockPts||[];
-  var _cid='pc'+(CC++);
   h+='<div class="card"><div class="ci"><div class="cm">';
-  h+='<div class="ct" style="color:var(--bl)">Stock Price vs S&P 500 — Growth of $100</div>';
-  if(_ph.length>10){
-    // Compute CAGRs from annual points
-    var _lastYr=_sp.length?_sp[_sp.length-1].year:0;
-    var _ipoYr=_sp.length?_sp[0].year:0;
-    var _c5=cagrYrs(_sp,5),_c10=cagrYrs(_sp,10),_cIPO=cagrAll(_sp);
-    var _s5=sp500CAGR(_lastYr-5,_lastYr),_s10=sp500CAGR(_lastYr-10,_lastYr),_sIPO=sp500CAGR(_ipoYr,_lastYr);
-    var _op=(_c5!=null&&_s5!=null)?_c5-_s5:null;
-    var _col=_op!=null&&_op>=0?'var(--gn)':'var(--bl)';
-    h+='<canvas id="'+_cid+'" style="height:180px;width:100%"></canvas>';
-    h+='<div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;font-size:11px;align-items:center">';
-    if(_c5!=null)h+='<span style="color:var(--lb)">5Y: <b style="color:'+_col+'">'+pc(_c5)+'</b>'+((_s5!=null)?' <span style="color:#4a5568">vs '+pc(_s5)+'</span>':'')+'</span>';
-    if(_c10!=null)h+='<span style="color:var(--lb)">10Y: <b style="color:'+_col+'">'+pc(_c10)+'</b>'+((_s10!=null)?' <span style="color:#4a5568">vs '+pc(_s10)+'</span>':'')+'</span>';
-    if(_cIPO!=null)h+='<span style="color:var(--lb)">Since '+_ipoYr+': <b style="color:'+_col+'">'+pc(_cIPO)+'</b>'+((_sIPO!=null)?' <span style="color:#4a5568">vs '+pc(_sIPO)+'</span>':'')+'</span>';
-    if(_op!=null)h+='<b style="color:'+(_op>=0?'var(--gn)':'var(--rd)')+'">'+(_op>=0?'▲ Outperforming':'▼ Underperforming')+' by '+Math.abs(_op*100).toFixed(1)+'pp/yr</b>';
-    h+='</div>';
+  h+='<div class="ct" style="color:var(--bl)">STOCK PRICE VS S&P 500 (GROWTH OF $100)</div>';
+  if(_ph.length>20){
+    h+=renderStockChart(d.t, _ph, (d.ipoDate||'').slice(0,4));
   }else{
-    h+='<div id="'+_cid+'_ph" style="font-size:10px;color:var(--dm);padding:20px;text-align:center">Loading price history…</div>';
+    h+='<div style="font-size:10px;color:var(--dm);padding:20px;text-align:center">Loading price history…</div>';
   }
-  h+='</div><div class="cs"><b class="s">Growth of $100</b> from start.<br><br>🟢 Outperforming S&P<br><br><b class="s">CAGR:</b> 5Y · 10Y · IPO<br>vs S&P 500.<br><br>Source: FMP market cap ÷ shares.</div></div></div>';
+  h+='</div><div class="cs"><b class="s">Growth of $100</b> from start.<br><br>🟢 Green = outperforming S&P 500<br><br>Source: FMP historical market cap ÷ shares.<br><br>S&P 500: interpolated from annual closes.</div></div></div>';
 
   // MktCap→EV
   h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--bl)">Market Cap → Enterprise Value</div>'+mkEI('fp','Stock Price',d.p,'USD')+mkEI('fsh','Shares Out.',d.sh,'M')+mkRo('Market Cap',D(c.mc),1,null,1)+mkEI('fca','Cash & Equiv.',d.ca,'$M')+mkEI('fde','Total Debt',d.de,'$M')+mkRo('Enterprise Value',D(c.ev),1,null,1)+'<div style="margin-top:6px;padding:6px 8px;border-radius:4px;background:'+(c.iNC?'#052e1644':'#450a0a44')+';border:1px solid '+(c.iNC?'#22c55e':'#ef4444')+'22;display:flex;justify-content:space-between;font-size:11px"><span style="color:'+(c.iNC?'#86efac':'#fca5a5')+'">'+(c.iNC?'✦ Net Cash':'⚠ Net Debt')+'</span><span style="font-family:var(--m);color:'+(c.iNC?'#86efac':'#fca5a5')+';font-weight:600">'+D(Math.abs(c.nd))+' ('+pc(c.ncP)+' MCap)</span></div></div><div class="cs"><b class="s">Filing:</b> 10-K ('+d.fy+', '+d.fyEnd+')'+(d.filingLink?'<br><a href="'+d.filingLink+'" target="_blank" style="color:var(--bl);font-size:9px">View Filing →</a>':'')+'<br><b class="s">Price:</b> '+d.pd+'<br><b class="s">BS:</b> '+d.bsDate+'</div></div></div>';
@@ -934,39 +928,7 @@ function render(){
   document.getElementById('out').innerHTML=h;
   }catch(renderErr){console.error('Render error:',renderErr);document.getElementById('out').innerHTML='<div style="color:#fca5a5;padding:20px;background:#450a0a;border-radius:8px;font-size:12px"><b>Render error:</b> '+renderErr.message+'<br><pre style="font-size:9px;margin-top:8px;white-space:pre-wrap">'+renderErr.stack+'</pre></div>';}
 
-  // Draw price chart after DOM update
-  var _ph2=ST.priceHist||[];
-  if(_ph2.length>10){
-    var _sp2=ST.stockPts||[];
-    var _phR=(_ph2||[]).slice().reverse();
-    var _base=_phR[0]?_phR[0].close:1;
-    var _ibase=1;
-    // Build S&P monthly from annual embedded data
-    var _spMap={};
-    Object.keys(SP500Y).forEach(function(yr){_spMap[yr]=SP500Y[yr];});
-    var _labels=(_phR||[]).map(function(x){return (x.date||[]).slice(0,7);});
-    var _pData=(_phR||[]).map(function(x){return(x.close/_base)*100;});
-    // S&P: interpolate monthly from annual closes
-    var _spData=(_phR||[]).map(function(x){
-      var yr=(x.date||[]).slice(0,4);var mo=parseInt((x.date||[]).slice(5,7));
-      var y0=SP500Y[yr]||SP500Y[parseInt(yr)-1]||null;
-      var y1=SP500Y[parseInt(yr)+1]||y0;
-      if(!y0)return null;
-      var frac=(mo-1)/12;
-      return y0+(y1-y0)*frac;
-    });
-    // Normalize S&P to base 100
-    var _spBase=_spData[0]||1;
-    _spData=(_spData||[]).map(function(v){return v?(v/_spBase)*100:null;});
-    for(var _fi=1;_fi<_spData.length;_fi++){if(_spData[_fi]==null)_spData[_fi]=_spData[_fi-1];}
-    var _pcEl=document.getElementById(_cid);
-    var _lastP=_pData[_pData.length-1],_lastS=_spData[_spData.length-1];
-    var _stockCol=(_lastP>_lastS)?'#22c55e':'#38bdf8';
-    if(_pcEl)drawChart(_cid,[
-      {label:d.t,data:_pData,color:_stockCol,width:2.5},
-      {label:'S&P 500',data:_spData,color:'#4a5568',width:1.5}
-    ],_labels);
-  }
+
 }
 
 document.getElementById('qi').addEventListener('keydown',function(e){if(e.key==='Enter')go();});
