@@ -158,6 +158,7 @@ async function buildCo(tk){
     _tbv:+(Math.max(0,(gf(bs0,'totalStockholdersEquity')-gf(bs0,'goodwillAndIntangibleAssets')-gf(bs0,'intangibleAssets')))/1e6).toFixed(1),
     _bvps:+(gf(bs0,'totalStockholdersEquity')/1e6).toFixed(1),
     _bsLoaded:true,
+    ipoDate:p.ipoDate||'',
     // 5yr arrays for BS health table
     bsH:(bsA||[]).filter(Boolean).slice(0,5).map(function(y){return{
       yr:yrOf(y),
@@ -295,9 +296,11 @@ function renderStockChart(ticker, pts, ipoYear) {
 
   // CAGR stats below chart
   var stats = '<div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:6px;font-size:11px">';
-  if (cagr5 != null) stats += '<span style="color:var(--lb)">5Y <b style="color:'+stockCol+'">'+pc(cagr5)+'</b></span>';
-  if (cagr10 != null) stats += '<span style="color:var(--lb)">10Y <b style="color:'+stockCol+'">'+pc(cagr10)+'</b></span>';
-  if (cagrIPO != null) stats += '<span style="color:var(--lb)">IPO ('+(ipoYear||'')+') <b style="color:'+stockCol+'">'+pc(cagrIPO)+'</b></span>';
+  if (cagr5 != null) stats += '<span style="color:var(--lb)">5Y <b style="color:'+stockCol+'">'+pc(cagr5)+'</b>'+(sp5!=null?' <span style="color:#555">vs '+pc(sp5)+'</span>':'')+'</span>';
+  if (cagr10 != null) stats += '<span style="color:var(--lb)">10Y <b style="color:'+stockCol+'">'+pc(cagr10)+'</b>'+(sp10!=null?' <span style="color:#555">vs '+pc(sp10)+'</span>':'')+'</span>';
+  var dataStartYr = pts[0].date.slice(0,4);
+  var ipoLabel = (ipoYear && parseInt(ipoYear) <= parseInt(dataStartYr)) ? 'IPO ('+ipoYear+')' : 'Since '+dataStartYr;
+  if (cagrIPO != null && totalYrs > 1) stats += '<span style="color:var(--lb)">'+ipoLabel+' <b style="color:'+stockCol+'">'+pc(cagrIPO)+'</b>'+(spIPO!=null?' <span style="color:#555">vs '+pc(spIPO)+'</span>':'')+'</span>';
 
   // Outperformance
   if (cagr5 != null && sp5 != null) {
