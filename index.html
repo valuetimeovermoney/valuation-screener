@@ -1038,28 +1038,18 @@ async function go(forceSymbol){
     if(sr&&sr.length>0){
       // Filter to stocks only (exclude funds, etfs if possible)
       var matches=(sr||[]).filter(function(x){return x.symbol&&x.name;});
-      if(!forceSymbol&&matches.length>1){
-        // Check if any exact ticker match
-        var exact=(matches||[]).filter(function(x){return x.symbol.toUpperCase()===t;});
-        if(exact.length>1||(exact.length===0&&matches.length>1)){
-          // Show dropdown for user to pick
-          showSearchResults(exact.length>1?exact:matches);
-          return;
-        }else if(exact.length===1){
-          t=exact[0].symbol;
-        }else{
-          // No exact match — show all results
-          showSearchResults(matches);
-          return;
-        }
+      if(forceSymbol){
+        t=forceSymbol;
+      }else if(matches.length>1){
+        // Multiple matches — always show dropdown so user can pick
+        showSearchResults(matches);
+        return;
       }else if(matches.length===1){
         t=matches[0].symbol;
-      }else if(matches.length===0){
+      }else{
         document.getElementById('er').textContent='No results for "'+raw+'". Try a different name or ticker.';
         document.getElementById('er').style.display='block';return;
       }
-      // If forceSymbol was passed, use it directly
-      if(forceSymbol)t=forceSymbol;
     }
   }catch(e){}
   document.getElementById('qi').value=t;
