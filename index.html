@@ -80,15 +80,20 @@ async function fmpFlex(ep){
 }
 async function fmp(ep,req){var u=BASE+ep+(ep.includes('?')?'&':'?')+'apikey='+AK;var r=await fetch(u);if(r.status===402||r.status===403){if(req)throw new Error('FMP '+r.status);return null;}if(!r.ok)throw new Error('FMP '+r.status);return r.json();}
 async function fmpSearch(q){
-  // Try stable API first, then v3
   var urls=[
     BASE+'search?query='+encodeURIComponent(q)+'&limit=15&apikey='+AK,
     'https://financialmodelingprep.com/api/v3/search?query='+encodeURIComponent(q)+'&limit=15&apikey='+AK,
     BASE+'search-name?name='+encodeURIComponent(q)+'&limit=15&apikey='+AK,
-    'https://financialmodelingprep.com/api/v3/search-name?name='+encodeURIComponent(q)+'&limit=15&apikey='+AK
+    'https://financialmodelingprep.com/api/v3/search-name?name='+encodeURIComponent(q)+'&limit=15&apikey='+AK,
+    'https://financialmodelingprep.com/api/v3/search-ticker?query='+encodeURIComponent(q)+'&limit=15&apikey='+AK
   ];
   for(var i=0;i<urls.length;i++){
-    try{var r=await fetch(urls[i]);if(r.ok){var d=await r.json();if(Array.isArray(d)&&d.length>0)return d;}}catch(e){}
+    try{
+      console.log('Search try:',urls[i].replace(/apikey=[^&]+/,'apikey=...'));
+      var r=await fetch(urls[i]);
+      console.log('Search response:',r.status);
+      if(r.ok){var d=await r.json();console.log('Search results:',d&&d.length);if(Array.isArray(d)&&d.length>0)return d;}
+    }catch(e){console.log('Search error:',e.message);}
   }
   return[];
 }
@@ -1108,7 +1113,7 @@ async function go(forceSymbol){
       ST.spHist=parsePx(res[1]);
       render();
     }).catch(function(){render();});
-  }catch(e){document.getElementById('er').textContent=e.message;document.getElementById('er').style.display='block';
+  }catch(e){document.getElementById('er').innerHTML=e.message+'<br><span style="font-size:9px;color:#888">Tip: Open browser console (F12) for details. Try the ticker with exchange suffix (e.g. AIM.TO for TSX)</span>';document.getElementById('er').style.display='block';
   }finally{document.getElementById('ld').style.display='none';document.getElementById('gb').disabled=false;document.getElementById('gb').textContent='Analyze';}
 }
 </script>
