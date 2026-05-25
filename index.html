@@ -89,7 +89,7 @@ function colS(v){return v==null?'—':'<span style="color:'+(v>0.15?'var(--rd)':
 function lk(arr,yr,f){var x=(arr||[]).find(function(a){return a.y===yr;});return x?(x[f||'v']):null;}
 
 function calcM(d){
-  if(!d)return{sp:0,sh:0,mc:0,ca:0,de:0,nd:0,ev:0,iNC:false,ncP:0,cfo:0,sbc:0,tc:0,mp:50,mce:0,af:0,fy:0,tp:null,pd:null,revs:[],rc:null,yrs:0,yoy:[],qr:0,gap:0.25,np:null,nr:null,sbcP:0,evF:null,evF3:null,evF5:null,evF10:null,a3f:0,a5f:0,a10f:0};
+  if(!d)return{sp:0,sh:0,mc:0,ca:0,de:0,nd:0,ev:0,iNC:false,ncP:0,cfo:0,sbc:0,tc:0,mp:50,mce:0,af:0,fy:0,tp:null,pd:null,revs:[],rc:null,yrs:0,yoy:[],qr:0,gap:0.25,np:null,nr:null,sbcP:0,evF:null,evF3:null,evF5:null,a3f:0,a5f:0};
   var sp=d.p||0,sh=d.sh||0,mc=sp*sh,ca=d.ca||0,de=d.de||0;
   var nd=de-ca,ev=mc+nd,iNC=nd<0,ncP=mc>0?Math.abs(nd)/mc:0;
   var cfo=d.cfo||0,sbc=d.sbc||0,tc=d.cx||0,mp=d.mp||50;
@@ -108,16 +108,15 @@ function calcM(d){
   var evF=af>0?ev/af:null;
   var a3f=av((fh||[]).slice(0,3).map(function(x){return x.v||0;}));
   var a5f=av((fh||[]).slice(0,5).map(function(x){return x.v||0;}));
-  var a10f=av((fh||[]).slice(0,10).map(function(x){return x.v||0;}));
-  var evF3=a3f>0?ev/a3f:null,evF5=a5f>0?ev/a5f:null,evF10=a10f>0?ev/a10f:null;
-  return{sp:sp,sh:sh,mc:mc,ca:ca,de:de,nd:nd,ev:ev,iNC:iNC,ncP:ncP,cfo:cfo,sbc:sbc,tc:tc,mp:mp,mce:mce,af:af,fy:fy,tp:tp,pdif:pdif,rc:rc,ny:ny,qr:qr,gap:gap,np:np,nr:nr,sbcP:sbcP,a3y:a3y,a5y:a5y,evF:evF,evF3:evF3,evF5:evF5,evF10:evF10,a3f:a3f,a5f:a5f,a10f:a10f};
+  var evF3=a3f>0?ev/a3f:null,evF5=a5f>0?ev/a5f:null;
+  return{sp:sp,sh:sh,mc:mc,ca:ca,de:de,nd:nd,ev:ev,iNC:iNC,ncP:ncP,cfo:cfo,sbc:sbc,tc:tc,mp:mp,mce:mce,af:af,fy:fy,tp:tp,pdif:pdif,rc:rc,ny:ny,qr:qr,gap:gap,np:np,nr:nr,sbcP:sbcP,a3y:a3y,a5y:a5y,evF:evF,evF3:evF3,evF5:evF5,a3f:a3f,a5f:a5f};
 }
 
 async function buildCo(tk){
   var[prof,cfs,bss,incs]=await Promise.all([
-    fmp('profile?symbol='+tk,true),fmp('cash-flow-statement?symbol='+tk+'&period=annual&limit=10',true),
+    fmp('profile?symbol='+tk,true),fmp('cash-flow-statement?symbol='+tk+'&period=annual&limit=5',true),
     fmp('balance-sheet-statement?symbol='+tk+'&period=annual&limit=5',true),
-    fmp('income-statement?symbol='+tk+'&period=annual&limit=10',true),
+    fmp('income-statement?symbol='+tk+'&period=annual&limit=5',true),
 ]);
   var p=(Array.isArray(prof)?prof[0]:prof)||{};
   var cfA=Array.isArray(cfs)?cfs:cfs?[cfs]:[];var cf0=cfA[0]||{};
@@ -954,7 +953,6 @@ function render(){
     h+='<tr><td>Current</td><td style="font-weight:600;color:var(--br)">'+fx(curMult)+'</td></tr>';
     h+='<tr><td>3Y Avg</td><td>'+fx(c.evF3)+'</td></tr>';
     h+='<tr><td>5Y Avg</td><td>'+fx(c.evF5)+'</td></tr>';
-    h+='<tr><td>10Y Avg</td><td>'+fx(c.evF10)+'</td></tr>';
     if(peerMult)h+='<tr><td>Peer Avg</td><td style="color:var(--yw)">'+fx(peerMult)+'</td></tr>';
     h+='</tbody></table></div>';
 
