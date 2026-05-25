@@ -899,71 +899,68 @@ function render(){
       h+='<div style="font-size:9px;color:var(--dm);margin-top:4px">Hold current price & FCF/EV yield, need this growth to reach 25%</div>';
       h+='</div></div>';
     }
-    // EV/FCF Multiples & Re-rating Calculator
+    // EV/FCF Multiples & Re-rating
     h+='<div style="border-top:1px solid var(--bd);padding-top:10px;margin-top:10px">';
-    h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:6px">EV/FCF Multiples & Re-Rating Scenario</div>';
+    h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:6px">Annual Return Breakdown</div>';
 
-    // Reference multiples table
+    // The framework: Total Annual Return = FCF Yield + Revenue Growth + Re-rating (if any)
+    // Re-rating = annualized % change from current EV/FCF multiple to exit multiple
+    // If multiple stays flat → re-rating = 0. If multiple expands → positive boost.
+
     var peerMult=co.length>0?av((co||[]).map(function(x){return calcM(x).evF;}).filter(Boolean)):null;
-    h+='<table class="t"><thead><tr><th>EV/FCF</th><th>Current</th><th>3Y Avg</th><th>5Y Avg</th>';
-    if(peerMult)h+='<th>Peer Avg</th>';
-    h+='</tr></thead><tbody><tr><td>Multiple</td>';
-    h+='<td style="font-weight:600;color:var(--br)">'+fx(c.evF)+'</td><td>'+fx(c.evF3)+'</td><td>'+fx(c.evF5)+'</td>';
-    if(peerMult)h+='<td>'+fx(peerMult)+'</td>';
-    h+='</tr></tbody></table>';
 
-    // Default exit multiple: use 5Y avg if available, else 3Y avg, else 15x
+    // Default exit multiple to 5Y avg (mean-reversion assumption)
     if(ST.reMult==null){
       ST.reMult=c.evF5?Math.round(c.evF5*10)/10:c.evF3?Math.round(c.evF3*10)/10:15;
     }
     var reYrs=ST.reYrs||5;
     var reMult=ST.reMult||15;
+    var curMult=c.evF||0;
 
-    // Project future FCF: grow current FCF by revenue CAGR
-    var baseFcf=c.af;
-    var growthR=c.rc||0;
-    var futFcf=baseFcf*Math.pow(1+growthR,reYrs);
+    // Re-rating annual return = (exitMult/currentMult)^(1/years) - 1
+    var reRateAnn=curMult>0&&reMult>0?Math.pow(reMult/curMult,1/reYrs)-1:0;
+    var fcfYield=c.fy||0;
+    var revGrowth=c.rc||0;
+    var totalAnn=fcfYield+revGrowth+reRateAnn;
 
-    // Calc fair value at exit
-    var futEV=futFcf*reMult;
-    var futMC=futEV-c.nd;
-    var futP=d.sh>0?futMC/d.sh:null;
-    var annRerate=futP&&futP>0&&d.p>0?Math.pow(futP/d.p,1/reYrs)-1:null;
-    var totalReturn=annRerate!=null?(annRerate+(c.fy||0)):null;
+    // Component display
+    h+='<div style="padding:10px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd);margin-bottom:10px">';
+    h+='<table class="t" style="margin-bottom:0"><tbody>';
+    h+='<tr><td style="font-weight:600;width:200px">FCF / EV Yield</td><td style="font-weight:600;color:var(--tl);width:80px;text-align:right">'+pc(fcfYield)+'</td><td style="font-size:9px;color:var(--dm)">Cash return on your EV — what you earn if nothing changes</td></tr>';
+    h+='<tr><td style="font-weight:600">+ Revenue Growth (CAGR)</td><td style="font-weight:600;color:var(--bl);text-align:right">'+pc(revGrowth)+'</td><td style="font-size:9px;color:var(--dm)">Organic business growth — FCF scales with revenue</td></tr>';
+    h+='<tr><td style="font-weight:600">+ Re-rating</td><td style="font-weight:600;color:'+(reRateAnn>0.005?'var(--gn)':reRateAnn<-0.005?'var(--rd)':'var(--dm)')+';text-align:right">'+pc(reRateAnn)+'</td><td style="font-size:9px;color:var(--dm)">Multiple expansion (or contraction) over '+reYrs+' years</td></tr>';
+    h+='<tr style="border-top:2px solid var(--bd)"><td style="font-weight:700;font-size:13px">= Total Annual Return</td><td style="font-weight:800;font-size:14px;text-align:right;color:'+(totalAnn>=0.25?'var(--gn)':totalAnn>=0.15?'var(--yw)':'var(--rd)')+'">'+pc(totalAnn)+'</td><td style="font-size:9px;color:var(--dm)">Target ≥25% for quality investment</td></tr>';
+    h+='</tbody></table></div>';
+
+    // Assumptions inputs + reference multiples
+    h+='<div style="display:flex;flex-wrap:wrap;gap:12px;font-size:11px;align-items:flex-start">';
 
     // Editable assumptions
-    h+='<div style="margin-top:10px;padding:10px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd)">';
-    h+='<div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:10px;font-size:11px;align-items:center">';
-    h+='<div><span style="color:var(--dm)">Exit Multiple:</span> <input id="reMult" type="number" step="0.5" value="'+reMult+'" oninput="ST.reMult=parseFloat(this.value)||15;render();" style="width:44px;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:2px 4px;color:var(--br);font-family:var(--m);font-size:11px;outline:none;text-align:right"/>x';
-    h+=' <span style="font-size:9px;color:var(--dm)">(default: 5Y avg '+fx(c.evF5)+')</span></div>';
-    h+='<div><span style="color:var(--dm)">Horizon:</span> <input id="reYrs" type="number" step="1" min="1" max="10" value="'+reYrs+'" oninput="ST.reYrs=parseInt(this.value)||5;render();" style="width:36px;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:2px 4px;color:var(--br);font-family:var(--m);font-size:11px;outline:none;text-align:right"/> years</div>';
-    h+='<div><span style="color:var(--dm)">FCF Growth:</span> <span style="font-family:var(--m);color:var(--tl)">'+pc(growthR)+'</span> <span style="font-size:9px;color:var(--dm)">(rev CAGR)</span></div>';
+    h+='<div style="flex:1;min-width:200px;padding:8px;background:var(--ib);border-radius:5px;border:1px solid var(--bd)">';
+    h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:6px">Assumptions</div>';
+    h+='<div style="margin-bottom:6px"><span style="color:var(--lb)">Current EV/FCF:</span> <span style="font-family:var(--m);font-weight:600;color:var(--br)">'+fx(curMult)+'</span></div>';
+    h+='<div style="margin-bottom:6px"><span style="color:var(--lb)">Exit EV/FCF:</span> <input id="reMult" type="number" step="0.5" value="'+reMult+'" oninput="ST.reMult=parseFloat(this.value)||15;render();" style="width:48px;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:2px 4px;color:var(--br);font-family:var(--m);font-size:11px;outline:none;text-align:right"/>x';
+    h+=' <span style="font-size:9px;color:var(--dm)">(default: 5Y avg)</span></div>';
+    h+='<div><span style="color:var(--lb)">Over:</span> <input id="reYrs" type="number" step="1" min="1" max="10" value="'+reYrs+'" oninput="ST.reYrs=parseInt(this.value)||5;render();" style="width:36px;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:2px 4px;color:var(--br);font-family:var(--m);font-size:11px;outline:none;text-align:right"/> years</div>';
     h+='</div>';
 
-    // Derivation table
-    h+='<table class="t" style="margin-bottom:8px"><tbody>';
-    h+='<tr><td>Current Adj FCF</td><td style="font-weight:600">'+D(baseFcf)+'</td><td style="color:var(--dm);font-size:9px">Latest FY</td></tr>';
-    h+='<tr><td>Projected FCF (Year '+reYrs+')</td><td style="font-weight:600;color:var(--tl)">'+D(futFcf)+'</td><td style="color:var(--dm);font-size:9px">'+D(baseFcf)+' × (1+'+pc(growthR)+')^'+reYrs+'</td></tr>';
-    h+='<tr><td>× Exit Multiple</td><td style="font-weight:600">'+fx(reMult)+'</td><td style="color:var(--dm);font-size:9px">Editable above</td></tr>';
-    h+='<tr style="border-top:1px solid var(--bd)"><td>Future EV</td><td style="font-weight:600">'+D(futEV)+'</td><td style="color:var(--dm);font-size:9px">FCF × multiple</td></tr>';
-    h+='<tr><td>− Net Debt</td><td>'+D(c.nd)+'</td><td style="color:var(--dm);font-size:9px">(held constant)</td></tr>';
-    h+='<tr><td>Future MCap</td><td style="font-weight:600">'+D(futMC)+'</td><td></td></tr>';
-    h+='<tr><td>÷ Shares</td><td>'+SH(d.sh)+'</td><td style="color:var(--dm);font-size:9px">(held constant)</td></tr>';
-    h+='<tr style="border-top:2px solid var(--bd)"><td style="font-weight:700;color:var(--pu)">Fair Value / Share</td><td style="font-weight:700;color:var(--pu);font-size:14px">'+pr(futP)+'</td><td style="color:var(--dm);font-size:9px">vs current '+pr(d.p)+'</td></tr>';
-    h+='</tbody></table>';
+    // Reference multiples
+    h+='<div style="flex:1;min-width:200px;padding:8px;background:var(--ib);border-radius:5px;border:1px solid var(--bd)">';
+    h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:6px">Multiple Reference</div>';
+    h+='<table class="t" style="margin-bottom:0"><tbody>';
+    h+='<tr><td>Current</td><td style="font-weight:600;color:var(--br)">'+fx(curMult)+'</td></tr>';
+    h+='<tr><td>3Y Avg</td><td>'+fx(c.evF3)+'</td></tr>';
+    h+='<tr><td>5Y Avg</td><td>'+fx(c.evF5)+'</td></tr>';
+    if(peerMult)h+='<tr><td>Peer Avg</td><td>'+fx(peerMult)+'</td></tr>';
+    h+='</tbody></table></div>';
 
-    // Results
-    if(futP&&futP>0&&d.p>0){
-      var upside=(futP-d.p)/d.p;
-      h+='<div style="display:flex;flex-wrap:wrap;gap:16px;font-size:12px;align-items:center">';
-      h+='<div><span style="color:var(--dm)">Upside:</span> <b style="color:'+(upside>0?'var(--gn)':'var(--rd)')+'">'+pc(upside)+'</b></div>';
-      h+='<div><span style="color:var(--dm)">Ann. Price Return:</span> <b style="font-family:var(--m)">'+pc(annRerate)+'</b></div>';
-      h+='<div><span style="color:var(--dm)">+ FCF Yield:</span> <b style="font-family:var(--m)">'+pc(c.fy)+'</b></div>';
-      h+='<div style="padding:4px 10px;border-radius:4px;background:'+(totalReturn>=0.25?'#052e1644':totalReturn>=0.15?'#42200644':'#450a0a44')+';border:1px solid '+(totalReturn>=0.25?'var(--gn)':totalReturn>=0.15?'var(--yw)':'var(--rd)')+'33"><span style="color:var(--dm)">Total Ann. Return:</span> <b style="color:'+(totalReturn>=0.25?'var(--gn)':totalReturn>=0.15?'var(--yw)':'var(--rd)')+'">'+pc(totalReturn)+'</b></div>';
-      h+='</div>';
-    }
-    h+='</div>';
-    h+='</div>';
+    // Interpretation
+    h+='<div style="flex:1;min-width:200px;padding:8px;background:var(--ib);border-radius:5px;border:1px solid var(--bd);font-size:10px;color:var(--lb);line-height:1.6">';
+    h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:4px">Reading</div>';
+    if(reRateAnn>0.01)h+='<span style="color:var(--gn)">▲</span> Multiple expanding from '+fx(curMult)+' → '+fx(reMult)+' adds <b>'+pc(reRateAnn)+'</b>/yr. Market is currently pricing below historical avg — potential tailwind.';
+    else if(reRateAnn<-0.01)h+='<span style="color:var(--rd)">▼</span> Multiple compressing from '+fx(curMult)+' → '+fx(reMult)+' costs <b>'+pc(Math.abs(reRateAnn))+'</b>/yr. Market is pricing above avg — expect headwind even if business executes.';
+    else h+='<span style="color:var(--dm)">—</span> Multiple roughly flat. No re-rating tailwind or headwind. Return driven entirely by yield + growth.';
+    h+='</div></div>';
   }
   h+='</div></div></div>';
 
