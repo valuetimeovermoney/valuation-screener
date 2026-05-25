@@ -64,6 +64,7 @@ b.s{color:var(--lb)}
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px"><div><div style="font-size:9px;font-weight:800;letter-spacing:3px;color:var(--bl)">VALUATION SCREENER</div><h1>Company Analysis</h1></div><button id="thbtn" onclick="toggleTheme()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--bd);background:var(--ib);color:var(--lb);font-size:11px;cursor:pointer;font-weight:600">Day Mode</button></div>
   <div class="sb"><input id="qi" placeholder="Ticker (e.g. AAPL, MSFT, GOOG)"/><button id="gb" onclick="go()">Analyze</button></div>
   <div class="cb"><label>Competitors:</label><input id="ci2" placeholder="e.g. MSFT, GOOG, META"/><button onclick="addComps()">Load Comps</button></div>
+  <div id="sr" style="display:none;background:var(--cd);border:1px solid var(--bd);border-radius:8px;margin-top:-14px;margin-bottom:12px;max-height:350px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4)"></div>
   <div id="ld" style="display:none;text-align:center;padding:50px 0;color:var(--dm)"><div class="sp"></div><div>Fetching…</div></div>
   <div id="er" style="display:none;background:#450a0a;border:1px solid #dc2626;border-radius:6px;padding:12px;color:#fca5a5;font-size:13px;margin-bottom:16px"></div>
   <div id="out"></div>
@@ -1012,26 +1013,57 @@ function render(){
 }
 
 document.getElementById('qi').addEventListener('keydown',function(e){if(e.key==='Enter')go();});
+document.addEventListener('click',function(e){if(!e.target.closest('#sr')&&!e.target.closest('.sb'))document.getElementById('sr').style.display='none';});
 document.getElementById('ci2').addEventListener('keydown',function(e){if(e.key==='Enter')addComps();});
-async function go(){
-  var raw=document.getElementById('qi').value.trim();if(!raw)return;
-  // If input looks like a name (has spaces or >5 chars lowercase), search for ticker
+function showSearchResults(results){
+  var el=document.getElementById('sr');
+  var h2='';
+  (results||[]).slice(0,10).forEach(function(r){
+    var sym=r.symbol||'';var name=r.name||'';var exch=r.exchangeShortName||r.stockExchange||r.exchange||'';
+    h2+='<div onclick="document.getElementById(\'sr\').style.display=\'none\';go(\''+sym+'\')" style="display:flex;justify-content:space-between;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--bd);transition:background 0.15s" onmouseover="this.style.background=\'var(--ib)\'" onmouseout="this.style.background=\'transparent\'">';
+    h2+='<div><span style="font-weight:700;color:var(--bl);font-family:var(--m)">'+sym+'</span> <span style="color:var(--lb);font-size:11px">'+name+'</span></div>';
+    h2+='<span style="font-size:10px;color:var(--dm);font-family:var(--m)">'+exch+'</span>';
+    h2+='</div>';
+  });
+  el.innerHTML=h2;
+  el.style.display='block';
+}
+
+async function go(forceSymbol){
+  var raw=forceSymbol||document.getElementById('qi').value.trim();if(!raw)return;
   var t=raw.toUpperCase();
-  if(raw.includes(' ')||(/[a-z]/.test(raw)&&raw.length>4)){
-    try{
-      var sr=await fmp('search?query='+encodeURIComponent(raw)+'&limit=10');
-      if(sr&&sr.length>0){
-        // Show results for user to pick
-        var best=sr[0];
-        t=best.symbol;
-        document.getElementById('qi').value=t;
-      }else{
-        document.getElementById('er').textContent='No results for "'+raw+'". Try a ticker symbol.';
+  // Always search FMP to resolve ambiguity (multiple exchanges, name→ticker)
+  try{
+    var sr=await fmp('search?query='+encodeURIComponent(raw)+'&limit=15');
+    if(sr&&sr.length>0){
+      // Filter to stocks only (exclude funds, etfs if possible)
+      var matches=(sr||[]).filter(function(x){return x.symbol&&x.name;});
+      if(!forceSymbol&&matches.length>1){
+        // Check if any exact ticker match
+        var exact=(matches||[]).filter(function(x){return x.symbol.toUpperCase()===t;});
+        if(exact.length>1||(exact.length===0&&matches.length>1)){
+          // Show dropdown for user to pick
+          showSearchResults(exact.length>1?exact:matches);
+          return;
+        }else if(exact.length===1){
+          t=exact[0].symbol;
+        }else{
+          // No exact match — show all results
+          showSearchResults(matches);
+          return;
+        }
+      }else if(matches.length===1){
+        t=matches[0].symbol;
+      }else if(matches.length===0){
+        document.getElementById('er').textContent='No results for "'+raw+'". Try a different name or ticker.';
         document.getElementById('er').style.display='block';return;
       }
-    }catch(e){}
-  }
-  t=t.toUpperCase();if(!t)return;
+      // If forceSymbol was passed, use it directly
+      if(forceSymbol)t=forceSymbol;
+    }
+  }catch(e){}
+  document.getElementById('qi').value=t;
+  document.getElementById('sr').style.display='none';
   document.getElementById('gb').disabled=true;document.getElementById('gb').textContent='…';
   document.getElementById('ld').style.display='block';document.getElementById('er').style.display='none';
   document.getElementById('out').innerHTML='';document.getElementById('es').style.display='none';
