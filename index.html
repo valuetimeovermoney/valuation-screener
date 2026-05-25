@@ -89,7 +89,7 @@ function colS(v){return v==null?'—':'<span style="color:'+(v>0.15?'var(--rd)':
 function lk(arr,yr,f){var x=(arr||[]).find(function(a){return a.y===yr;});return x?(x[f||'v']):null;}
 
 function calcM(d){
-  if(!d)return{sp:0,sh:0,mc:0,ca:0,de:0,nd:0,ev:0,iNC:false,ncP:0,cfo:0,sbc:0,tc:0,mp:50,mce:0,af:0,fy:0,tp:null,pd:null,revs:[],rc:null,yrs:0,yoy:[],qr:0,gap:0.25,np:null,nr:null,sbcP:0,evF:null,evF3:null,evF5:null,a3f:0,a5f:0};
+  if(!d)return{sp:0,sh:0,mc:0,ca:0,de:0,nd:0,ev:0,iNC:false,ncP:0,cfo:0,sbc:0,tc:0,mp:50,mce:0,af:0,fy:0,tp:null,pd:null,revs:[],rc:null,yrs:0,yoy:[],qr:0,gap:0.25,np:null,nr:null,sbcP:0,evF:null,evF3:null,evF5:null,evF10:null,a3f:0,a5f:0,a10f:0};
   var sp=d.p||0,sh=d.sh||0,mc=sp*sh,ca=d.ca||0,de=d.de||0;
   var nd=de-ca,ev=mc+nd,iNC=nd<0,ncP=mc>0?Math.abs(nd)/mc:0;
   var cfo=d.cfo||0,sbc=d.sbc||0,tc=d.cx||0,mp=d.mp||50;
@@ -97,7 +97,7 @@ function calcM(d){
   var tev=af/0.10,tmc=tev-nd,tp=sh>0?tmc/sh:null,pdif=tp!=null?tp-sp:null;
   var revs=d.rv||d.rev||[];var rc=null,ny=0;
   var _getR=function(x){return x?((x.r!=null?x.r:x.v)||0):0;};
-  if(revs.length>=2){ny=revs.length-1;rc=cagr(_getR(revs[0]),_getR(revs[revs.length-1]),ny);}
+  if(revs.length>=2){ny=revs.length-1;rc=cagr(_getR(revs[revs.length-1]),_getR(revs[0]),ny);}
   var qr=(fy||0)+(rc||0),gap=0.25-qr;
   var np=null,nr=null;
   if(gap>0){var nf=0.25-(rc||0);if(nf>0)np=sh>0?(af/nf-nd)/sh:null;nr=(0.25-fy)*100;}
@@ -108,15 +108,16 @@ function calcM(d){
   var evF=af>0?ev/af:null;
   var a3f=av((fh||[]).slice(0,3).map(function(x){return x.v||0;}));
   var a5f=av((fh||[]).slice(0,5).map(function(x){return x.v||0;}));
-  var evF3=a3f>0?ev/a3f:null,evF5=a5f>0?ev/a5f:null;
-  return{sp:sp,sh:sh,mc:mc,ca:ca,de:de,nd:nd,ev:ev,iNC:iNC,ncP:ncP,cfo:cfo,sbc:sbc,tc:tc,mp:mp,mce:mce,af:af,fy:fy,tp:tp,pdif:pdif,rc:rc,ny:ny,qr:qr,gap:gap,np:np,nr:nr,sbcP:sbcP,a3y:a3y,a5y:a5y,evF:evF,evF3:evF3,evF5:evF5,a3f:a3f,a5f:a5f};
+  var a10f=av((fh||[]).slice(0,10).map(function(x){return x.v||0;}));
+  var evF3=a3f>0?ev/a3f:null,evF5=a5f>0?ev/a5f:null,evF10=a10f>0?ev/a10f:null;
+  return{sp:sp,sh:sh,mc:mc,ca:ca,de:de,nd:nd,ev:ev,iNC:iNC,ncP:ncP,cfo:cfo,sbc:sbc,tc:tc,mp:mp,mce:mce,af:af,fy:fy,tp:tp,pdif:pdif,rc:rc,ny:ny,qr:qr,gap:gap,np:np,nr:nr,sbcP:sbcP,a3y:a3y,a5y:a5y,evF:evF,evF3:evF3,evF5:evF5,evF10:evF10,a3f:a3f,a5f:a5f,a10f:a10f};
 }
 
 async function buildCo(tk){
   var[prof,cfs,bss,incs]=await Promise.all([
-    fmp('profile?symbol='+tk,true),fmp('cash-flow-statement?symbol='+tk+'&period=annual&limit=5',true),
+    fmp('profile?symbol='+tk,true),fmp('cash-flow-statement?symbol='+tk+'&period=annual&limit=10',true),
     fmp('balance-sheet-statement?symbol='+tk+'&period=annual&limit=5',true),
-    fmp('income-statement?symbol='+tk+'&period=annual&limit=5',true),
+    fmp('income-statement?symbol='+tk+'&period=annual&limit=10',true),
 ]);
   var p=(Array.isArray(prof)?prof[0]:prof)||{};
   var cfA=Array.isArray(cfs)?cfs:cfs?[cfs]:[];var cf0=cfA[0]||{};
@@ -469,7 +470,7 @@ function render(){
   h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;background:var(--cd);border-radius:8px;padding:14px 16px;border:1px solid var(--bd);margin-bottom:12px"><div><div style="font-size:18px;font-weight:800;color:var(--br)">'+d.n+'</div><div style="font-size:11px;color:var(--dm)">'+d.t+' · '+d.exch+' · '+d.sec+' · '+d.industry+'</div><div style="font-size:10px;color:var(--dm);margin-top:2px">Fiscal year ends: '+d.fyEnd+' · Latest: '+d.fy+'</div></div><div style="text-align:right"><div style="font-size:24px;font-weight:800;font-family:var(--m);color:var(--bl)">'+pr(d.p)+'</div><div style="font-size:10px;color:var(--dm)">'+d.pd+'</div></div></div>';
 
   // Quality
-  h+='<div style="background:'+qB+';border-radius:8px;padding:14px 16px;margin-bottom:12px;border:1px solid '+qC+'33"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--lb)">Quality Ratio</div><div style="font-size:28px;font-weight:800;font-family:var(--m);color:var(--br)">'+pc(c.qr)+'</div><div style="font-size:10px;color:var(--lb)">FCF/EV '+pc(c.fy)+' + Rev CAGR '+pc(c.rc)+'</div></div><span class="bg" style="background:'+qC+'22;color:'+qC+'">'+qL+'</span></div></div>';
+  h+='<div style="background:'+qB+';border-radius:8px;padding:14px 16px;margin-bottom:12px;border:1px solid '+qC+'33"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--lb)">Quality Ratio</div><div style="font-size:28px;font-weight:800;font-family:var(--m);color:var(--br)">'+pc(c.qr)+'</div><div style="font-size:10px;color:var(--lb)">Adj FCF/EV '+pc(c.fy)+' + Rev CAGR '+pc(c.rc)+'</div></div><span class="bg" style="background:'+qC+'22;color:'+qC+'">'+qL+'</span></div></div>';
 
   // ── PRICE CHART ───────────────────────────────────────────
   var _ph=ST.priceHist||[];
@@ -489,7 +490,7 @@ function render(){
   h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--pu)">Adjusted FCF ('+d.fy+')</div>'+mkEI('fcfo','CFO',d.cfo,'$M')+mkEI('fsbc','SBC',d.sbc,'$M')+mkEI('fcx','Total CapEx',d.cx,'$M')+mkEI('fmp2','Maint %',d.mp,'%')+mkRo('Maint CapEx',D(c.mce),0,'−')+mkRo('Adjusted FCF',D(c.af),1,null,1)+'</div><div class="cs"><b class="s">Filing:</b> 10-K cash flow stmt<br><b class="s">Maint CapEx:</b> '+c.mp+'% of total. 40–60% SW, 60–80% ind, 80%+ util.</div></div></div>';
 
   // FCF/EV
-  h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--pu)">Adjusted FCF / EV Yield</div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:22px;font-weight:800;font-family:var(--m);color:'+(c.fy>=0.10?'var(--gn)':'var(--rd)')+'">'+pc(c.fy)+'</span><span class="bg" style="background:'+(c.fy>=0.10?'#052e1688':'#450a0a88')+';color:'+(c.fy>=0.10?'var(--gn)':'var(--rd)')+'">'+(c.fy>=0.10?'≥10%':'<10%')+'</span></div>';
+  h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--pu)">Adjusted Adj FCF / EV Yield</div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:22px;font-weight:800;font-family:var(--m);color:'+(c.fy>=0.10?'var(--gn)':'var(--rd)')+'">'+pc(c.fy)+'</span><span class="bg" style="background:'+(c.fy>=0.10?'#052e1688':'#450a0a88')+';color:'+(c.fy>=0.10?'var(--gn)':'var(--rd)')+'">'+(c.fy>=0.10?'≥10%':'<10%')+'</span></div>';
   h+='<div style="font-size:11px;color:var(--lb);margin-bottom:6px">'+D(c.af)+' ÷ '+D(c.ev)+' = '+pc(c.fy)+'</div>';
   h+='<div style="display:flex;gap:14px;margin-bottom:6px;font-size:11px"><div><span style="color:var(--dm)">3Y Avg:</span> <span style="font-family:var(--m);font-weight:600">'+pc(c.a3y)+'</span></div><div><span style="color:var(--dm)">5Y Avg:</span> <span style="font-family:var(--m);font-weight:600">'+pc(c.a5y)+'</span></div></div>';
   if(c.tp!=null)h+='<div class="mc"><div style="font-size:10px;color:var(--dm);margin-bottom:3px">Price for 10% yield:</div><span style="font-size:16px;font-weight:700;font-family:var(--m);color:var(--pu)">'+pr(c.tp)+'</span></div>';
@@ -566,7 +567,7 @@ function render(){
     hlRow('Adj FCF',fsFcf,'v',true,'var(--tl)');yoyHL(fsFcf,'v');
 
     // Adj FCF / EV — color coded at 10%
-    h+='<tr><td style="font-weight:600">Adj FCF / EV Yield</td>';
+    h+='<tr><td style="font-weight:600">Adj Adj FCF / EV Yield</td>';
     (fsFcf||[]).forEach(function(x){var yld=c.ev>0&&x&&x.v!=null?x.v/c.ev:null;
       var col=yld!=null&&yld>=0.10?'var(--gn)':yld!=null&&yld>=0.05?'var(--yw)':'var(--rd)';
       h+='<td style="font-weight:600;color:'+col+'">'+pc(yld)+'</td>';});
@@ -628,8 +629,8 @@ function render(){
     h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:10px">= MCap + Debt − Cash</td>';
     (fsSo||[]).forEach(function(){h+='<td></td>';});h+='<td></td><td></td></tr>';
 
-    // Adj FCF / EV Yield — per year
-    h+='<tr><td style="font-weight:600">Adj FCF / EV Yield</td>';
+    // Adj Adj FCF / EV Yield — per year
+    h+='<tr><td style="font-weight:600">Adj Adj FCF / EV Yield</td>';
     (fsSo||[]).forEach(function(x,i){
       var mc2=mcapVals[i];var bs3=(_bsHR||[])[i];
       var ca2=bs3?bs3.cash:d.ca;var de2=bs3?bs3.debt:d.de;
@@ -895,7 +896,7 @@ function render(){
   h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="ct" style="color:var(--yw);margin-bottom:0">Path to 25% Annual Return</div><span class="tog'+(ST.showPath?' on':'')+'" onclick="togSection(\'Path\')">'+(ST.showPath?'▼ Hide':'▶ Expand')+'</span></div>';
   if(ST.showPath){
     h+='<div style="font-size:11px;color:var(--lb);margin-bottom:10px;padding:8px;background:#0a0e18;border-radius:5px;border:1px solid var(--bd)">';
-    h+='Quality Ratio = <b>FCF/EV '+pc(c.fy)+'</b> + <b>Rev CAGR '+pc(c.rc)+'</b> = <span style="font-family:var(--m);font-weight:700;color:'+(c.qr>=0.25?'var(--gn)':c.qr>=0.20?'var(--yw)':'var(--rd)')+'">'+pc(c.qr)+'</span> (target ≥25%)';
+    h+='Quality Ratio = <b>Adj FCF/EV '+pc(c.fy)+'</b> + <b>Rev CAGR '+pc(c.rc)+'</b> = <span style="font-family:var(--m);font-weight:700;color:'+(c.qr>=0.25?'var(--gn)':c.qr>=0.20?'var(--yw)':'var(--rd)')+'">'+pc(c.qr)+'</span> (target ≥25%)';
     h+='</div>';
     if(c.gap<=0){
       h+='<div style="color:var(--gn);font-size:12px;padding:8px;border-radius:4px;background:#052e1644;border:1px solid var(--gn)44">✦ Already meets the 25% threshold — passes the quality screen.</div>';
@@ -953,7 +954,7 @@ function render(){
     // Component display
     h+='<div style="padding:10px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd);margin-bottom:10px">';
     h+='<table class="t" style="margin-bottom:0"><tbody>';
-    h+='<tr><td style="font-weight:600;width:200px">FCF / EV Yield</td><td style="font-weight:600;color:var(--tl);width:80px;text-align:right">'+pc(fcfYield)+'</td><td style="font-size:9px;color:var(--dm)">Cash return on your EV — what you earn if nothing changes</td></tr>';
+    h+='<tr><td style="font-weight:600;width:200px">Adj FCF / EV Yield</td><td style="font-weight:600;color:var(--tl);width:80px;text-align:right">'+pc(fcfYield)+'</td><td style="font-size:9px;color:var(--dm)">Cash return on your EV — what you earn if nothing changes</td></tr>';
     h+='<tr><td style="font-weight:600">+ Revenue Growth</td><td style="font-weight:600;color:var(--bl);text-align:right">'+pc(revGrowth)+'</td><td style="font-size:9px;color:var(--dm)">';
     h+='<select id="cagrSel" onchange="ST.cagrMethod=this.value;render();" style="background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:1px 4px;color:var(--br);font-size:9px;font-family:var(--m);outline:none">';
     ['1y','3y','5y','wtd','custom'].forEach(function(k){
@@ -974,9 +975,9 @@ function render(){
     h+='<div style="flex:1;min-width:200px;padding:8px;background:var(--ib);border-radius:5px;border:1px solid var(--bd)">';
     h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:6px">Assumptions</div>';
     h+='<div style="margin-bottom:6px"><span style="color:var(--lb)">Current EV/FCF:</span> <span style="font-family:var(--m);font-weight:600;color:var(--br)">'+fx(curMult)+'</span></div>';
-    h+='<div style="margin-bottom:6px"><span style="color:var(--lb)">Exit EV/FCF:</span> <input id="reMult" type="number" step="0.5" value="'+reMult+'" oninput="ST.reMult=parseFloat(this.value)||15;render();" style="width:48px;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:2px 4px;color:var(--br);font-family:var(--m);font-size:11px;outline:none;text-align:right"/>x';
+    h+='<div style="margin-bottom:6px"><span style="color:var(--lb)">Exit EV/FCF:</span> <input id="reMult" type="number" step="0.5" value="'+reMult+'" onchange="ST.reMult=parseFloat(this.value)||15;render();" oninput="ST.reMult=parseFloat(this.value)||15;" style="width:48px;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:2px 4px;color:var(--br);font-family:var(--m);font-size:11px;outline:none;text-align:right"/>x';
     h+=' <span style="font-size:9px;color:var(--dm)">(default: '+reMultSrc+')</span></div>';
-    h+='<div><span style="color:var(--lb)">Over:</span> <input id="reYrs" type="number" step="1" min="1" max="10" value="'+reYrs+'" oninput="ST.reYrs=parseInt(this.value)||5;render();" style="width:36px;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:2px 4px;color:var(--br);font-family:var(--m);font-size:11px;outline:none;text-align:right"/> years</div>';
+    h+='<div><span style="color:var(--lb)">Over:</span> <input id="reYrs" type="number" step="1" min="1" max="10" value="'+reYrs+'" onchange="ST.reYrs=parseInt(this.value)||5;render();" oninput="ST.reYrs=parseInt(this.value)||5;" style="width:36px;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:2px 4px;color:var(--br);font-family:var(--m);font-size:11px;outline:none;text-align:right"/> years</div>';
     h+='</div>';
 
     // Reference multiples
@@ -986,6 +987,7 @@ function render(){
     h+='<tr><td>Current</td><td style="font-weight:600;color:var(--br)">'+fx(curMult)+'</td></tr>';
     h+='<tr><td>3Y Avg</td><td>'+fx(c.evF3)+'</td></tr>';
     h+='<tr><td>5Y Avg</td><td>'+fx(c.evF5)+'</td></tr>';
+    h+='<tr><td>10Y Avg</td><td>'+fx(c.evF10)+'</td></tr>';
     if(peerMult)h+='<tr><td>Peer Avg</td><td style="color:var(--yw)">'+fx(peerMult)+'</td></tr>';
     h+='</tbody></table></div>';
 
