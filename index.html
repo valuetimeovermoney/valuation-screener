@@ -72,6 +72,12 @@ b.s{color:var(--lb)}
 </div>
 <script>
 var AK='zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J',BASE='https://financialmodelingprep.com/stable/';
+async function fmpFlex(ep){
+  // Try stable API, then v3 for international coverage
+  try{var r1=await fmp(ep);if(r1&&(Array.isArray(r1)?r1.length>0:Object.keys(r1).length>0))return r1;}catch(e){}
+  try{var u2='https://financialmodelingprep.com/api/v3/'+ep.replace(/\?.*/,'')+'?'+ep.split('?')[1]+'&apikey='+AK;var r2=await fetch(u2);if(r2.ok){var d2=await r2.json();if(d2&&(Array.isArray(d2)?d2.length>0:true))return d2;}}catch(e){}
+  return null;
+}
 async function fmp(ep,req){var u=BASE+ep+(ep.includes('?')?'&':'?')+'apikey='+AK;var r=await fetch(u);if(r.status===402||r.status===403){if(req)throw new Error('FMP '+r.status);return null;}if(!r.ok)throw new Error('FMP '+r.status);return r.json();}
 async function fmpSearch(q){
   // Try stable API first, then v3
@@ -129,10 +135,11 @@ function calcM(d){
 
 async function buildCo(tk){
   var[prof,cfs,bss,incs]=await Promise.all([
-    fmp('profile?symbol='+tk,true),fmp('cash-flow-statement?symbol='+tk+'&period=annual&limit=10',true),
-    fmp('balance-sheet-statement?symbol='+tk+'&period=annual&limit=5',true),
-    fmp('income-statement?symbol='+tk+'&period=annual&limit=10',true),
+    fmpFlex('profile?symbol='+tk),fmpFlex('cash-flow-statement?symbol='+tk+'&period=annual&limit=10'),
+    fmpFlex('balance-sheet-statement?symbol='+tk+'&period=annual&limit=5'),
+    fmpFlex('income-statement?symbol='+tk+'&period=annual&limit=10'),
 ]);
+  if(!prof||(!Array.isArray(prof)&&!prof.symbol)){throw new Error('No data found for '+tk+'. Check if the ticker is correct.');}
   var p=(Array.isArray(prof)?prof[0]:prof)||{};
   var cfA=Array.isArray(cfs)?cfs:cfs?[cfs]:[];var cf0=cfA[0]||{};
   var bsA=Array.isArray(bss)?bss:bss?[bss]:[];var bs0=bsA[0]||{};
@@ -1088,7 +1095,7 @@ async function go(forceSymbol){
     if(!ST.co.length)document.getElementById('ci2').placeholder='Type competitors: MSFT, GOOG';
     // Fetch daily prices: stock + S&P 500 (^GSPC)
     Promise.all([
-      fmp('historical-price-eod/full?symbol='+t).catch(function(){return null;}),
+      fmpFlex('historical-price-eod/full?symbol='+t).catch(function(){return null;}),
       fmp('historical-price-eod/full?symbol=%5EGSPC').catch(function(){return null;})
     ]).then(function(res){
       function parsePx(raw){
