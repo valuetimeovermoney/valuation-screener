@@ -325,7 +325,7 @@ function renderStockChart(ticker, pts, spPts, ipoYear) {
 
 
 
-var ST={d:null,co:[],priceHist:[],spHist:[],indMult:15,reYrs:5,reMult:null,mpOver:null,showPath:true,showFS:false,showBS:false,
+var ST={d:null,co:[],priceHist:[],spHist:[],indMult:15,reYrs:5,reMult:null,cagrMethod:null,cagrCustom:null,mpOver:null,showPath:true,showFS:false,showBS:false,
   dcf:{
     // Per-year revenue growth %
     r1:12,r2:10,r3:9,r4:8,r5:7,
@@ -421,6 +421,9 @@ async function addComps(){
 
 function render(){
  try{
+  var _focId=document.activeElement?document.activeElement.id:null;
+  var _focVal=document.activeElement?document.activeElement.value:null;
+  var _focPos=document.activeElement&&document.activeElement.selectionStart!=null?document.activeElement.selectionStart:null;
   var d=ST.d,co=ST.co;if(!d)return;
   var c=calcM(d);
   // Seed DCF from historical data on first load
@@ -576,13 +579,12 @@ function render(){
     // ── CAPITAL ALLOCATION ─────────────────────────────────────
     h+='<tr style="border-top:2px solid var(--bd)"><td colspan="'+(fsN+3)+'" style="font-size:9px;font-weight:700;color:var(--dm);letter-spacing:1px;padding:5px 5px 3px;text-transform:uppercase">Capital Allocation & Valuation</td></tr>';
 
-    // Price Close — use historical MCap/shares for historical years
-    h+='<tr><td>Price Close</td>';
+    // Price Close — derive year-end prices from priceHist
     var _bsHR=(d.bsH||[]).slice(0,5).reverse();
-    (fsSo||[]).forEach(function(x,i){
-      if(i===fsSo.length-1){h+='<td style="font-weight:600">'+pr(d.p)+'</td>';}
-      else{h+='<td style="color:var(--dm)">—</td>';}
-    });
+    var _yrPrices={};
+    (ST.priceHist||[]).forEach(function(p){var yr=p.date.slice(0,4);_yrPrices[yr]=p.close;});
+    h+='<tr><td>Price Close</td>';
+    (fsRv||[]).forEach(function(r){var px=_yrPrices[r.y];h+='<td style="font-weight:600">'+(px?pr(px):'—')+'</td>';});
     h+='<td style="font-weight:600">'+pr(d.p)+'</td><td></td></tr>';
 
     // Shares
@@ -593,8 +595,12 @@ function render(){
     if(sopos.length>=2){var scagr2=cagr(sopos[0],sopos[sopos.length-1],sopos.length-1);h+='<td style="color:'+(scagr2>0.005?'var(--rd)':'var(--gn)')+'">'+pc(scagr2)+'</td>';}else h+='<td></td>';
     h+='</tr>';
 
-    // Market Cap (est = shares × latest price)
-    var mcapVals=(fsSo||[]).map(function(x){return x&&x.v?+(x.v*d.p).toFixed(1):null;});
+    // Market Cap = shares × year-end price (or latest if no hist price)
+    var mcapVals=(fsSo||[]).map(function(x,i){
+      var yr=fsRv[i]?fsRv[i].y:null;
+      var px=yr&&_yrPrices[yr]?_yrPrices[yr]:d.p;
+      return x&&x.v?+(x.v*px).toFixed(1):null;
+    });
     h+='<tr><td style="font-weight:600;color:var(--bl)">Market Cap (est.)</td>';
     (mcapVals||[]).forEach(function(v){h+='<td style="font-weight:600">'+D(v)+'</td>';});
     var mcpos=(mcapVals||[]).filter(Boolean);
@@ -932,14 +938,31 @@ function render(){
     // Re-rating annual return = (exitMult/currentMult)^(1/years) - 1
     var reRateAnn=curMult>0&&reMult>0?Math.pow(reMult/curMult,1/reYrs)-1:0;
     var fcfYield=c.fy||0;
-    var revGrowth=c.rc||0;
+    // Revenue growth options: most recent YoY, 3Y CAGR, 5Y CAGR, or custom
+    if(ST.cagrMethod==null)ST.cagrMethod='5y';
+    var _rvArr=(d.rv||[]).slice(0,5);
+    var _yoy1=_rvArr.length>=2&&_rvArr[1].r>0?(_rvArr[0].r/_rvArr[1].r-1):0;
+    var _c3=_rvArr.length>=3?cagr(_rvArr[_rvArr.length>3?2:_rvArr.length-1].r,_rvArr[0].r,Math.min(3,_rvArr.length-1)):_yoy1;
+    var _c5=c.rc||0;
+    var _wt=(_yoy1*0.4+(_c3||0)*0.35+(_c5||0)*0.25); // weighted avg
+    var _cagrOpts={'1y':_yoy1,'3y':_c3,'5y':_c5,'wtd':_wt};
+    if(ST.cagrMethod==='custom'&&ST.cagrCustom!=null)_cagrOpts['custom']=ST.cagrCustom/100;
+    var revGrowth=_cagrOpts[ST.cagrMethod]||_c5;
     var totalAnn=fcfYield+revGrowth+reRateAnn;
 
     // Component display
     h+='<div style="padding:10px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd);margin-bottom:10px">';
     h+='<table class="t" style="margin-bottom:0"><tbody>';
     h+='<tr><td style="font-weight:600;width:200px">FCF / EV Yield</td><td style="font-weight:600;color:var(--tl);width:80px;text-align:right">'+pc(fcfYield)+'</td><td style="font-size:9px;color:var(--dm)">Cash return on your EV — what you earn if nothing changes</td></tr>';
-    h+='<tr><td style="font-weight:600">+ Revenue Growth (CAGR)</td><td style="font-weight:600;color:var(--bl);text-align:right">'+pc(revGrowth)+'</td><td style="font-size:9px;color:var(--dm)">Organic business growth — FCF scales with revenue</td></tr>';
+    h+='<tr><td style="font-weight:600">+ Revenue Growth</td><td style="font-weight:600;color:var(--bl);text-align:right">'+pc(revGrowth)+'</td><td style="font-size:9px;color:var(--dm)">';
+    h+='<select id="cagrSel" onchange="ST.cagrMethod=this.value;render();" style="background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:1px 4px;color:var(--br);font-size:9px;font-family:var(--m);outline:none">';
+    ['1y','3y','5y','wtd','custom'].forEach(function(k){
+      var lbl=k==='1y'?'Latest YoY '+pc(_yoy1):k==='3y'?'3Y CAGR '+pc(_c3):k==='5y'?'5Y CAGR '+pc(_c5):k==='wtd'?'Weighted '+pc(_wt):'Custom';
+      h+='<option value="'+k+'"'+(ST.cagrMethod===k?' selected':'')+'>'+lbl+'</option>';
+    });
+    h+='</select>';
+    if(ST.cagrMethod==='custom')h+=' <input id="cagrCust" type="number" step="0.5" value="'+(ST.cagrCustom||10)+'" oninput="ST.cagrCustom=parseFloat(this.value)||10;render();" style="width:40px;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:1px 3px;color:var(--br);font-size:9px;font-family:var(--m);outline:none;text-align:right"/>%';
+    h+='</td></tr>';
     h+='<tr><td style="font-weight:600">+ Re-rating</td><td style="font-weight:600;color:'+(reRateAnn>0.005?'var(--gn)':reRateAnn<-0.005?'var(--rd)':'var(--dm)')+';text-align:right">'+pc(reRateAnn)+'</td><td style="font-size:9px;color:var(--dm)">Multiple expansion (or contraction) over '+reYrs+' years</td></tr>';
     h+='<tr style="border-top:2px solid var(--bd)"><td style="font-weight:700;font-size:13px">= Total Annual Return</td><td style="font-weight:800;font-size:14px;text-align:right;color:'+(totalAnn>=0.25?'var(--gn)':totalAnn>=0.15?'var(--yw)':'var(--rd)')+'">'+pc(totalAnn)+'</td><td style="font-size:9px;color:var(--dm)">Target ≥25% for quality investment</td></tr>';
     h+='</tbody></table></div>';
@@ -979,6 +1002,8 @@ function render(){
   
   h+='<div style="font-size:9px;color:#2a3040;padding-top:8px;border-top:1px solid var(--bd)">Quality ≥25% 🟢 | Adj FCF = CFO − SBC − Maint CapEx | Data: FMP (SEC 10-K) | <a href="/valuation-screener/valuation/" style="color:#4a5568">DCF & Valuation Model →</a></div>';
   document.getElementById('out').innerHTML=h;
+  // Restore focus to prevent scroll jump
+  if(_focId){var _el=document.getElementById(_focId);if(_el){_el.focus({preventScroll:true});if(_focVal!=null)_el.value=_focVal;if(_focPos!=null)try{_el.setSelectionRange(_focPos,_focPos);}catch(e){}}}
   }catch(renderErr){console.error('Render error:',renderErr);document.getElementById('out').innerHTML='<div style="color:#fca5a5;padding:20px;background:#450a0a;border-radius:8px;font-size:12px"><b>Render error:</b> '+renderErr.message+'<br><pre style="font-size:9px;margin-top:8px;white-space:pre-wrap">'+renderErr.stack+'</pre></div>';}
 
 
@@ -987,7 +1012,24 @@ function render(){
 document.getElementById('qi').addEventListener('keydown',function(e){if(e.key==='Enter')go();});
 document.getElementById('ci2').addEventListener('keydown',function(e){if(e.key==='Enter')addComps();});
 async function go(){
-  var t=document.getElementById('qi').value.trim().toUpperCase();if(!t)return;
+  var raw=document.getElementById('qi').value.trim();if(!raw)return;
+  // If input looks like a name (has spaces or >5 chars lowercase), search for ticker
+  var t=raw.toUpperCase();
+  if(raw.includes(' ')||(/[a-z]/.test(raw)&&raw.length>4)){
+    try{
+      var sr=await fmp('search?query='+encodeURIComponent(raw)+'&limit=10');
+      if(sr&&sr.length>0){
+        // Show results for user to pick
+        var best=sr[0];
+        t=best.symbol;
+        document.getElementById('qi').value=t;
+      }else{
+        document.getElementById('er').textContent='No results for "'+raw+'". Try a ticker symbol.';
+        document.getElementById('er').style.display='block';return;
+      }
+    }catch(e){}
+  }
+  t=t.toUpperCase();if(!t)return;
   document.getElementById('gb').disabled=true;document.getElementById('gb').textContent='…';
   document.getElementById('ld').style.display='block';document.getElementById('er').style.display='none';
   document.getElementById('out').innerHTML='';document.getElementById('es').style.display='none';
