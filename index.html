@@ -80,22 +80,42 @@ async function fmpFlex(ep){
 }
 async function fmp(ep,req){var u=BASE+ep+(ep.includes('?')?'&':'?')+'apikey='+AK;var r=await fetch(u);if(r.status===402||r.status===403){if(req)throw new Error('FMP '+r.status);return null;}if(!r.ok)throw new Error('FMP '+r.status);return r.json();}
 async function fmpSearch(q){
-  var urls=[
-    BASE+'search?query='+encodeURIComponent(q)+'&limit=15&apikey='+AK,
-    'https://financialmodelingprep.com/api/v3/search?query='+encodeURIComponent(q)+'&limit=15&apikey='+AK,
-    BASE+'search-name?name='+encodeURIComponent(q)+'&limit=15&apikey='+AK,
-    'https://financialmodelingprep.com/api/v3/search-name?name='+encodeURIComponent(q)+'&limit=15&apikey='+AK,
-    'https://financialmodelingprep.com/api/v3/search-ticker?query='+encodeURIComponent(q)+'&limit=15&apikey='+AK
-  ];
-  for(var i=0;i<urls.length;i++){
+  // Search not available on all plans — try available-traded-list to find tickers
+  // This endpoint returns all traded symbols, we filter client-side
+  if(!window._tickerCache){
     try{
-      console.log('Search try:',urls[i].replace(/apikey=[^&]+/,'apikey=...'));
-      var r=await fetch(urls[i]);
-      console.log('Search response:',r.status);
-      if(r.ok){var d=await r.json();console.log('Search results:',d&&d.length);if(Array.isArray(d)&&d.length>0)return d;}
-    }catch(e){console.log('Search error:',e.message);}
+      var r=await fetch(BASE+'available-traded-list?apikey='+AK);
+      if(r.ok){window._tickerCache=await r.json();}
+    }catch(e){}
+    if(!window._tickerCache){
+      try{
+        var r2=await fetch('https://financialmodelingprep.com/api/v3/available-traded/list?apikey='+AK);
+        if(r2.ok){window._tickerCache=await r2.json();}
+      }catch(e){}
+    }
+    if(!window._tickerCache)window._tickerCache=[];
   }
-  return[];
+  var list=window._tickerCache;
+  var ql=q.toLowerCase();
+  var qu=q.toUpperCase();
+  // Match by symbol or name
+  var results=(list||[]).filter(function(x){
+    if(!x.symbol||!x.name)return false;
+    if(x.symbol.toUpperCase()===qu)return true;
+    if(x.symbol.toUpperCase().startsWith(qu))return true;
+    if(x.name.toLowerCase().indexOf(ql)>=0)return true;
+    return false;
+  }).slice(0,15);
+  // Sort: exact symbol match first, then starts-with, then name match
+  results.sort(function(a,b){
+    var aExact=a.symbol.toUpperCase()===qu?0:1;
+    var bExact=b.symbol.toUpperCase()===qu?0:1;
+    if(aExact!==bExact)return aExact-bExact;
+    var aStarts=a.symbol.toUpperCase().startsWith(qu)?0:1;
+    var bStarts=b.symbol.toUpperCase().startsWith(qu)?0:1;
+    return aStarts-bStarts;
+  });
+  return results;
 }
 
 function getYr(o){return o.calendarYear?''+o.calendarYear:o.date?o.date.substring(0,4):'';}
@@ -1044,12 +1064,15 @@ document.getElementById('qi').addEventListener('input',function(e){
   if(_acTimer)clearTimeout(_acTimer);
   if(v.length<2){document.getElementById('sr').style.display='none';return;}
   _acTimer=setTimeout(function(){
+    var sr2=document.getElementById('sr');
+    sr2.innerHTML='<div style="padding:10px;color:var(--dm);font-size:10px;text-align:center">Searching...</div>';
+    sr2.style.display='block';
     fmpSearch(v).then(function(sr){
       var m=(sr||[]).filter(function(x){return x.symbol&&x.name;});
       if(m.length>0)showSearchResults(m);
-      else document.getElementById('sr').style.display='none';
-    }).catch(function(){});
-  },350);
+      else{sr2.innerHTML='<div style="padding:12px;color:var(--dm);font-size:11px;text-align:center">No matches. Try ticker with exchange (e.g. AIM.TO, SHOP.TO)</div>';}
+    }).catch(function(){sr2.style.display='none';});
+  },400);
 });
 document.addEventListener('click',function(e){if(!e.target.closest('#sr')&&!e.target.closest('.sb'))document.getElementById('sr').style.display='none';});
 document.getElementById('ci2').addEventListener('keydown',function(e){if(e.key==='Enter')addComps();});
