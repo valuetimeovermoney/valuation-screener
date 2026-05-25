@@ -1,0 +1,39 @@
+<!DOCTYPE html><html><body style="background:#111;color:#eee;font-family:monospace;padding:20px">
+<h3>FMP API Debug</h3>
+<input id="q" value="aimia" style="padding:8px;width:300px;font-size:14px"/>
+<button onclick="test()">Test All Endpoints</button>
+<pre id="out" style="white-space:pre-wrap;margin-top:20px"></pre>
+<script>
+var AK='zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J';
+async function test(){
+  var q=document.getElementById('q').value.trim();
+  var out=document.getElementById('out');
+  out.textContent='Testing...\n';
+  var endpoints=[
+    'https://financialmodelingprep.com/stable/search?query='+q+'&limit=5&apikey='+AK,
+    'https://financialmodelingprep.com/api/v3/search?query='+q+'&limit=5&apikey='+AK,
+    'https://financialmodelingprep.com/stable/search-name?name='+q+'&limit=5&apikey='+AK,
+    'https://financialmodelingprep.com/api/v3/search-name?name='+q+'&limit=5&apikey='+AK,
+    'https://financialmodelingprep.com/api/v3/search-ticker?query='+q+'&limit=5&apikey='+AK,
+    'https://financialmodelingprep.com/stable/profile?symbol='+q+'&apikey='+AK,
+    'https://financialmodelingprep.com/api/v3/profile/'+q+'?apikey='+AK,
+    'https://financialmodelingprep.com/stable/profile?symbol='+q+'.TO&apikey='+AK,
+    'https://financialmodelingprep.com/api/v3/profile/'+q+'.TO?apikey='+AK,
+    'https://financialmodelingprep.com/stable/profile?symbol='+q+'.V&apikey='+AK,
+  ];
+  for(var i=0;i<endpoints.length;i++){
+    var url=endpoints[i];
+    var label=url.replace(/apikey=[^&]+/,'apikey=...').replace('https://financialmodelingprep.com/','');
+    try{
+      var r=await fetch(url);
+      var txt=await r.text();
+      var short=txt.length>200?txt.slice(0,200)+'...':txt;
+      out.textContent+='\n'+r.status+' | '+label+'\n  '+short+'\n';
+    }catch(e){
+      out.textContent+='\nERR | '+label+'\n  '+e.message+'\n';
+    }
+  }
+  out.textContent+='\nDone.';
+}
+</script>
+</body></html>
