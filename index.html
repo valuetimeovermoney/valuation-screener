@@ -395,7 +395,35 @@ function renderStockChart(ticker, pts, spPts, ipoYear) {
   }
   stats += '</div>';
 
-  return svg + stats;
+  // ── Baggers + 52W row ──────────────────────────────────────────
+  var curPx = pts[n-1].close;
+  var ipoPx  = pts[0].close;
+  var baggers = ipoPx > 0 ? curPx / ipoPx : null;
+
+  // 52-week window: last 252 trading days (or all data if less)
+  var w52 = pts.slice(Math.max(0, n - 252));
+  var hi52 = Math.max.apply(null, w52.map(function(p){return p.close;}));
+  var lo52 = Math.min.apply(null, w52.map(function(p){return p.close;}));
+  var w52pct = (hi52 - lo52) / lo52;
+  var fromHi = (curPx - hi52) / hi52;   // negative = below 52W high
+  var fromLo = (curPx - lo52) / lo52;   // positive = above 52W low
+
+  var row2 = '<div style="display:flex;flex-wrap:wrap;gap:20px;margin-top:8px;padding:8px 10px;background:#0a0e18;border-radius:5px;border:1px solid var(--bd);font-size:11px;align-items:center">';
+
+  // Baggers
+  if (baggers != null) {
+    var bCol = baggers >= 5 ? 'var(--gn)' : baggers >= 2 ? 'var(--tl)' : baggers >= 1 ? 'var(--yw)' : 'var(--rd)';
+    row2 += '<span style="color:var(--lb)">Since IPO: <b style="color:'+bCol+';font-size:13px;font-family:var(--m)">'+baggers.toFixed(2)+'x</b> <span style="color:var(--dm);font-size:9px">('+baggers.toFixed(2)+'-bagger)</span></span>';
+  }
+
+  // 52W high / low
+  row2 += '<span style="color:var(--lb)">52W High: <b style="font-family:var(--m)">'+pr(hi52)+'</b> <span style="color:'+(fromHi<-0.2?'var(--rd)':fromHi<-0.1?'var(--yw)':'var(--gn)')+'">'+((fromHi*100).toFixed(1))+'%</span></span>';
+  row2 += '<span style="color:var(--lb)">52W Low: <b style="font-family:var(--m)">'+pr(lo52)+'</b> <span style="color:var(--gn)">+'+((fromLo*100).toFixed(1))+'%</span></span>';
+  row2 += '<span style="color:var(--lb)">52W Range: <b style="font-family:var(--m)">'+((w52pct*100).toFixed(1))+'%</b> <span style="color:var(--dm);font-size:9px">high−low spread</span></span>';
+
+  row2 += '</div>';
+
+  return svg + stats + row2;
 }
 
 
