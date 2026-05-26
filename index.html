@@ -108,42 +108,55 @@ async function fmpFlex(ep){
 
 async function fmp(ep,req){var u=BASE+ep+(ep.includes('?')?'&':'?')+'apikey='+AK;var r=await fetch(u);if(r.status===402||r.status===403){if(req)throw new Error('FMP '+r.status);return null;}if(!r.ok)throw new Error('FMP '+r.status);return r.json();}
 async function fmpSearch(q){
-  // Search not available on all plans — try available-traded-list to find tickers
-  // This endpoint returns all traded symbols, we filter client-side
-  if(!window._tickerCache){
+  var qu=q.toUpperCase().trim();
+  var ql=q.toLowerCase().trim();
+  var results=[];
+
+  // Try every available FMP search/quote endpoint
+  var endpoints=[
+    BASE+'search?query='+encodeURIComponent(q)+'&limit=15',
+    BASE+'search-name?name='+encodeURIComponent(q)+'&limit=15',
+    BASE+'symbol-search?query='+encodeURIComponent(q)+'&limit=15',
+    BASE+'quote-search?query='+encodeURIComponent(q)+'&limit=15',
+    'https://financialmodelingprep.com/api/v3/search?query='+encodeURIComponent(q)+'&limit=15',
+    'https://financialmodelingprep.com/api/v3/search-name?name='+encodeURIComponent(q)+'&limit=15',
+    'https://financialmodelingprep.com/api/v3/symbol_search?query='+encodeURIComponent(q)+'&limit=15',
+  ];
+  for(var i=0;i<endpoints.length;i++){
     try{
-      var r=await fetch(BASE+'available-traded-list?apikey='+AK);
-      if(r.ok){window._tickerCache=await r.json();}
+      var r=await fetch(endpoints[i]+'&apikey='+AK);
+      if(r.ok){
+        var d=await r.json();
+        if(Array.isArray(d)&&d.length>0){
+          results=d.map(function(x){return{symbol:x.symbol||'',name:x.name||x.companyName||'',exchangeShortName:x.exchangeShortName||x.exchange||x.stockExchange||''};}).filter(function(x){return x.symbol&&x.name;});
+          if(results.length>0)break;
+        }
+      }
     }catch(e){}
-    if(!window._tickerCache){
-      try{
-        var r2=await fetch('https://financialmodelingprep.com/api/v3/available-traded/list?apikey='+AK);
-        if(r2.ok){window._tickerCache=await r2.json();}
-      }catch(e){}
-    }
-    if(!window._tickerCache)window._tickerCache=[];
   }
-  var list=window._tickerCache;
-  var ql=q.toLowerCase();
-  var qu=q.toUpperCase();
-  // Match by symbol or name
-  var results=(list||[]).filter(function(x){
-    if(!x.symbol||!x.name)return false;
-    if(x.symbol.toUpperCase()===qu)return true;
-    if(x.symbol.toUpperCase().startsWith(qu))return true;
-    if(x.name.toLowerCase().indexOf(ql)>=0)return true;
-    return false;
-  }).slice(0,15);
-  // Sort: exact symbol match first, then starts-with, then name match
+
+  // If no search results, try probing ticker with exchange suffixes in parallel
+  if(!results.length){
+    var suffixes=['','.TO','.V','.L','.MI','.AS','.PA','.DE','.F','.SW','.HK','.T','.SI','.ST','.OL','.CO','.HE','.BR','.LS','.MC','.WA','.JK','.AX','.NZ','.SA','.NS','.BO','.KQ','.KS'];
+    var hits=await Promise.all(suffixes.map(function(sfx){
+      var sym=qu+sfx;
+      return fetch(BASE+'profile?symbol='+encodeURIComponent(sym)+'&apikey='+AK)
+        .then(function(r){return r.ok?r.json():null;})
+        .then(function(d){
+          var p=Array.isArray(d)?d[0]:d;
+          if(p&&p.symbol&&p.companyName)return{symbol:p.symbol,name:p.companyName,exchangeShortName:p.exchangeShortName||p.exchange||''};
+          return null;
+        }).catch(function(){return null;});
+    }));
+    results=hits.filter(Boolean);
+  }
+
+  // Sort: exact symbol match first
   results.sort(function(a,b){
-    var aExact=a.symbol.toUpperCase()===qu?0:1;
-    var bExact=b.symbol.toUpperCase()===qu?0:1;
-    if(aExact!==bExact)return aExact-bExact;
-    var aStarts=a.symbol.toUpperCase().startsWith(qu)?0:1;
-    var bStarts=b.symbol.toUpperCase().startsWith(qu)?0:1;
-    return aStarts-bStarts;
+    var aE=a.symbol.toUpperCase()===qu?0:1,bE=b.symbol.toUpperCase()===qu?0:1;
+    return aE-bE;
   });
-  return results;
+  return results.slice(0,15);
 }
 
 function getYr(o){return o.calendarYear?''+o.calendarYear:o.date?o.date.substring(0,4):'';}
@@ -1168,27 +1181,9 @@ async function go(forceSymbol){
       }else if(matches.length===1){
         t=matches[0].symbol;
       }else{
-        // No matches in cache — try ticker directly, then with common exchange suffixes
-        var suffixes=['','.TO','.V','.L','.MI','.AS','.DE','.PA','.SW','.HK','.T','.SI','.ST','.OL','.CO','.HE','.BR','.LS','.MC','.WA','.JK','.AX','.NZ','.SA','.NS','.BO'];
-        var found=null;
-        // Try in parallel batches for speed
-        for(var si2=0;si2<suffixes.length&&!found;si2+=6){
-          var batch=suffixes.slice(si2,si2+6);
-          var probes=await Promise.all(batch.map(function(sfx){
-            var sym=t+sfx;
-            return fmp('profile?symbol='+sym).then(function(r){
-              var p2=Array.isArray(r)?r[0]:r;
-              return p2&&p2.symbol?{symbol:p2.symbol,name:p2.companyName||p2.name||sym,exchangeShortName:p2.exchangeShortName||p2.exchange||sfx}:null;
-            }).catch(function(){return null;});
-          }));
-          var hits=probes.filter(Boolean);
-          if(hits.length===1){found=hits[0];t=found.symbol;}
-          else if(hits.length>1){showSearchResults(hits);return;}
-        }
-        if(!found){
-          document.getElementById('er').innerHTML='No data found for <b>'+raw+'</b>. Try with exchange suffix:<br><span style="font-size:10px;color:#888">.TO (TSX) · .V (TSXV) · .L (London) · .MI (Milan) · .AS (Amsterdam) · .DE (Frankfurt) · .PA (Paris) · .HK (Hong Kong) · .T (Tokyo) · .AX (ASX)</span>';
-          document.getElementById('er').style.display='block';return;
-        }
+        // No match from search — show the suffix hint
+        document.getElementById('er').innerHTML='No match for <b>'+raw+'</b>. Try searching with exchange suffix:<br><span style="font-size:10px;color:#aaa">.TO (TSX) &middot; .V (TSXV) &middot; .L (LSE) &middot; .MI (Milan) &middot; .AS (Amsterdam) &middot; .PA (Paris) &middot; .DE (Frankfurt) &middot; .HK (Hong Kong) &middot; .T (Tokyo) &middot; .AX (ASX)</span>';
+        document.getElementById('er').style.display='block';return;
       }
     }catch(e){}
   }
