@@ -398,7 +398,12 @@ function renderStockChart(ticker, pts, spPts, ipoYear) {
   // ── Baggers + 52W row ──────────────────────────────────────────
   var curPx = pts[n-1].close;
   var ipoPx  = pts[0].close;
+  var dataStartYr2 = pts[0].date.slice(0,4);
   var baggers = ipoPx > 0 ? curPx / ipoPx : null;
+  // Label accurately: only say "IPO" if data starts within 1 year of actual IPO
+  var ipoYrNum = parseInt(ipoYear)||0;
+  var dataYrNum = parseInt(dataStartYr2)||0;
+  var baggerLabel = (ipoYrNum>0 && dataYrNum>0 && Math.abs(dataYrNum-ipoYrNum)<=2) ? 'IPO ('+ipoYear+')' : 'Since '+dataStartYr2;
 
   // 52-week window: last 252 trading days (or all data if less)
   var w52 = pts.slice(Math.max(0, n - 252));
@@ -412,8 +417,9 @@ function renderStockChart(ticker, pts, spPts, ipoYear) {
 
   // Baggers
   if (baggers != null) {
-    var bCol = baggers >= 5 ? 'var(--gn)' : baggers >= 2 ? 'var(--tl)' : baggers >= 1 ? 'var(--yw)' : 'var(--rd)';
-    row2 += '<span style="color:var(--lb)">Since IPO: <b style="color:'+bCol+';font-size:13px;font-family:var(--m)">'+baggers.toFixed(2)+'x</b> <span style="color:var(--dm);font-size:9px">('+baggers.toFixed(2)+'-bagger)</span></span>';
+    var bCol = baggers >= 10 ? 'var(--gn)' : baggers >= 3 ? 'var(--tl)' : baggers >= 1 ? 'var(--yw)' : 'var(--rd)';
+    var bStr = baggers >= 1000 ? (baggers/1000).toFixed(1)+'K' : baggers >= 100 ? Math.round(baggers)+'x' : baggers.toFixed(1)+'x';
+    row2 += '<span style="color:var(--lb)">'+baggerLabel+': <b style="color:'+bCol+';font-size:13px;font-family:var(--m)">'+bStr+'</b> <span style="color:var(--dm);font-size:9px">('+bStr+'-bagger)</span></span>';
   }
 
   // 52W high / low
@@ -1198,10 +1204,11 @@ async function go(forceSymbol){
       if(pL.length>0){var pd=await Promise.all((pL||[]).map(function(x){return buildCo(x).catch(function(){return null;});}));ST.co=(pd||[]).filter(Boolean);}}
     render();
     if(!ST.co.length)document.getElementById('ci2').placeholder='Type competitors: MSFT, GOOG';
-    // Fetch daily prices: stock + S&P 500 (^GSPC)
+    // Fetch daily prices from IPO date for full bagger calculation
+    var _ipoDate=(ST.d&&ST.d.ipoDate)?ST.d.ipoDate.slice(0,10):'1980-01-01';
     Promise.all([
-      fmpFlex('historical-price-eod/full?symbol='+t).catch(function(){return null;}),
-      fmp('historical-price-eod/full?symbol=%5EGSPC').catch(function(){return null;})
+      fmpFlex('historical-price-eod/full?symbol='+t+'&from='+_ipoDate).catch(function(){return null;}),
+      fmp('historical-price-eod/full?symbol=%5EGSPC&from='+_ipoDate).catch(function(){return null;})
     ]).then(function(res){
       function parsePx(raw){
         if(!raw)return[];
