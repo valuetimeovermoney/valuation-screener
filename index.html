@@ -556,7 +556,6 @@ function mkRo(lb,val,bold,op,bt){var oH=op?'<span style="margin-right:4px;font-w
 
 
 function render(){
- try{
   var _focId=document.activeElement?document.activeElement.id:null;
   var _focVal=document.activeElement?document.activeElement.value:null;
   var _focPos=document.activeElement&&document.activeElement.selectionStart!=null?document.activeElement.selectionStart:null;
@@ -966,10 +965,6 @@ function render(){
   }
   h+='</div><div class="cs"><b class="s">Buffett-style checks:</b><br><br><b>Net Cash:</b> Can the company survive without banks?<br><br><b>Debt/FCF:</b> How many years to pay off all debt?<br><br><b>Interest Coverage:</b> EBIT ÷ Interest Expense. >8x = fortress.<br><br><b>ROIC:</b> NI ÷ (Equity + Debt − Cash). >25% = moat.<br><br><b>ROE:</b> Only meaningful at low leverage.<br><br><b>CFO/NI:</b> >1x = earnings backed by cash.<br><br><b>SBC/Rev:</b> Hidden dilution cost.</div></div></div>';
 
-  // ── COMPETITIVE LANDSCAPE ────────────────────────────────────
-
-  }
-
   // ── PATH TO 25% ──────────────────────────────────────────────
   h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="ct" style="color:var(--yw);margin-bottom:0">Path to 25% Annual Return</div><span class="tog'+(ST.showPath?' on':'')+'" onclick="togSection(\'Path\')">'+(ST.showPath?'▼ Hide':'▶ Expand')+'</span></div>';
   if(ST.showPath){
@@ -1084,7 +1079,7 @@ function render(){
   document.getElementById('out').innerHTML=h;
   // Restore focus to prevent scroll jump
   if(_focId){var _el=document.getElementById(_focId);if(_el){_el.focus({preventScroll:true});if(_focVal!=null)_el.value=_focVal;if(_focPos!=null)try{_el.setSelectionRange(_focPos,_focPos);}catch(e){}}}
-  }catch(renderErr){console.error('Render error:',renderErr);document.getElementById('out').innerHTML='<div style="color:#fca5a5;padding:20px;background:#450a0a;border-radius:8px;font-size:12px"><b>Render error:</b> '+renderErr.message+'<br><pre style="font-size:9px;margin-top:8px;white-space:pre-wrap">'+renderErr.stack+'</pre></div>';}
+}
 
 document.getElementById('qi').addEventListener('keydown',function(e){if(e.key==='Enter'){document.getElementById('sr').style.display='none';go();}});
 var _acTimer=null;
