@@ -138,16 +138,25 @@ async function fmpSearch(q){
   // If no search results, try probing ticker with exchange suffixes in parallel
   if(!results.length){
     var suffixes=['','.TO','.V','.L','.MI','.AS','.PA','.DE','.F','.SW','.HK','.T','.SI','.ST','.OL','.CO','.HE','.BR','.LS','.MC','.WA','.JK','.AX','.NZ','.SA','.NS','.BO','.KQ','.KS'];
-    var hits=await Promise.all(suffixes.map(function(sfx){
-      var sym=qu+sfx;
-      return fetch(BASE+'profile?symbol='+encodeURIComponent(sym)+'&apikey='+AK)
-        .then(function(r){return r.ok?r.json():null;})
-        .then(function(d){
-          var p=Array.isArray(d)?d[0]:d;
-          if(p&&p.symbol&&p.companyName)return{symbol:p.symbol,name:p.companyName,exchangeShortName:p.exchangeShortName||p.exchange||''};
-          return null;
-        }).catch(function(){return null;});
-    }));
+    async function probeOne(sym){
+      // Try stable then v3
+      var urls=[
+        BASE+'profile?symbol='+encodeURIComponent(sym)+'&apikey='+AK,
+        'https://financialmodelingprep.com/api/v3/profile/'+encodeURIComponent(sym)+'?apikey='+AK
+      ];
+      for(var ui=0;ui<urls.length;ui++){
+        try{
+          var r=await fetch(urls[ui]);
+          if(r.ok){
+            var d=await r.json();
+            var p=Array.isArray(d)?d[0]:d;
+            if(p&&p.symbol&&(p.companyName||p.name))return{symbol:p.symbol,name:p.companyName||p.name,exchangeShortName:p.exchangeShortName||p.exchange||''};
+          }
+        }catch(e){}
+      }
+      return null;
+    }
+    var hits=await Promise.all(suffixes.map(function(sfx){return probeOne(qu+sfx);}));
     results=hits.filter(Boolean);
   }
 
@@ -1077,28 +1086,28 @@ function render(){
     h+='<table class="t" style="margin-bottom:0"><tbody>';
     h+='<tr><td style="font-weight:600;width:200px">Adj FCF / EV Yield</td><td style="font-weight:600;color:var(--tl);width:80px;text-align:right">'+pc(fcfYield)+'</td><td style="font-size:9px;color:var(--dm)">Cash return on your EV — what you earn if nothing changes</td></tr>';
     h+='<tr><td style="font-weight:600">+ Revenue Growth</td><td style="font-weight:600;color:var(--bl);text-align:right">'+pc(revGrowth)+'</td><td style="font-size:9px;color:var(--dm)">';
-    h+='<select id="cagrSel" onchange="ST.cagrMethod=this.value;render();" style="background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:1px 4px;color:var(--br);font-size:9px;font-family:var(--m);outline:none">';
+    h+='<select id="cagrSel" onchange="ST.cagrMethod=this.value;render();" style="background:var(--ib);border:1px solid var(--ibd);border-radius:4px;padding:4px 6px;color:var(--br);font-size:11px;font-family:var(--f);outline:none;max-width:180px;margin-top:4px">';
     ['1y','3y','5y','wtd','custom'].forEach(function(k){
       var lbl=k==='1y'?'Latest YoY '+pc(_yoy1):k==='3y'?'3Y CAGR '+pc(_c3):k==='5y'?'5Y CAGR '+pc(_c5):k==='wtd'?'Weighted '+pc(_wt):'Custom';
       h+='<option value="'+k+'"'+(ST.cagrMethod===k?' selected':'')+'>'+lbl+'</option>';
     });
     h+='</select>';
-    if(ST.cagrMethod==='custom')h+=' <input id="cagrCust" type="number" step="0.5" value="'+(ST.cagrCustom||10)+'" oninput="ST.cagrCustom=parseFloat(this.value)||10;render();" style="width:40px;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:1px 3px;color:var(--br);font-size:9px;font-family:var(--m);outline:none;text-align:right"/>%';
+    if(ST.cagrMethod==='custom')h+=' <input id="cagrCust" type="number" step="0.5" value="'+(ST.cagrCustom||10)+'" onchange="ST.cagrCustom=parseFloat(this.value)||10;render();" oninput="ST.cagrCustom=parseFloat(this.value)||10;" style="width:52px;background:var(--ib);border:1px solid var(--ibd);border-radius:4px;padding:4px;color:var(--br);font-size:13px;font-family:var(--m);outline:none;text-align:right"/>%';
     h+='</td></tr>';
     h+='<tr><td style="font-weight:600">+ Re-rating</td><td style="font-weight:600;color:'+(reRateAnn>0.005?'var(--gn)':reRateAnn<-0.005?'var(--rd)':'var(--dm)')+';text-align:right">'+pc(reRateAnn)+'</td><td style="font-size:9px;color:var(--dm)">Multiple expansion (or contraction) over '+reYrs+' years</td></tr>';
     h+='<tr style="border-top:2px solid var(--bd)"><td style="font-weight:700;font-size:13px">= Total Annual Return</td><td style="font-weight:800;font-size:14px;text-align:right;color:'+(totalAnn>=0.25?'var(--gn)':totalAnn>=0.15?'var(--yw)':'var(--rd)')+'">'+pc(totalAnn)+'</td><td style="font-size:9px;color:var(--dm)">Target ≥25% for quality investment</td></tr>';
     h+='</tbody></table></div>';
 
     // Assumptions inputs + reference multiples
-    h+='<div style="display:flex;flex-wrap:wrap;gap:12px;font-size:11px;align-items:flex-start">';
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;font-size:11px">';
 
     // Editable assumptions
     h+='<div style="flex:1;min-width:200px;padding:8px;background:var(--ib);border-radius:5px;border:1px solid var(--bd)">';
     h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:6px">Assumptions</div>';
     h+='<div style="margin-bottom:6px"><span style="color:var(--lb)">Current EV/FCF:</span> <span style="font-family:var(--m);font-weight:600;color:var(--br)">'+fx(curMult)+'</span></div>';
-    h+='<div style="margin-bottom:6px"><span style="color:var(--lb)">Exit EV/FCF:</span> <input id="reMult" type="number" step="0.5" value="'+reMult+'" onchange="ST.reMult=parseFloat(this.value)||15;render();" oninput="ST.reMult=parseFloat(this.value)||15;" style="width:48px;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:2px 4px;color:var(--br);font-family:var(--m);font-size:11px;outline:none;text-align:right"/>x';
+    h+='<div style="margin-bottom:8px"><span style="color:var(--lb)">Exit EV/FCF:</span><br><input id="reMult" type="number" step="0.5" value="'+reMult+'" onchange="ST.reMult=parseFloat(this.value)||15;render();" oninput="ST.reMult=parseFloat(this.value)||15;" style="width:80px;background:var(--cd);border:1px solid var(--ibd);border-radius:4px;padding:6px 8px;color:var(--br);font-family:var(--m);font-size:16px;outline:none;text-align:right;margin-top:4px;-webkit-appearance:none"/>x';
     h+=' <span style="font-size:9px;color:var(--dm)">(default: '+reMultSrc+')</span></div>';
-    h+='<div><span style="color:var(--lb)">Over:</span> <input id="reYrs" type="number" step="1" min="1" max="10" value="'+reYrs+'" onchange="ST.reYrs=parseInt(this.value)||5;render();" oninput="ST.reYrs=parseInt(this.value)||5;" style="width:36px;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:2px 4px;color:var(--br);font-family:var(--m);font-size:11px;outline:none;text-align:right"/> years</div>';
+    h+='<div><span style="color:var(--lb)">Over:</span><br><input id="reYrs" type="number" step="1" min="1" max="10" value="'+reYrs+'" onchange="ST.reYrs=parseInt(this.value)||5;render();" oninput="ST.reYrs=parseInt(this.value)||5;" style="width:70px;background:var(--cd);border:1px solid var(--ibd);border-radius:4px;padding:6px 8px;color:var(--br);font-family:var(--m);font-size:16px;outline:none;text-align:right;margin-top:4px;-webkit-appearance:none"/> years</div>';
     h+='</div>';
 
     // Reference multiples
