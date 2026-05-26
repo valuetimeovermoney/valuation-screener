@@ -1124,7 +1124,7 @@ async function go(forceSymbol){
   if(forceSymbol){
     t=forceSymbol;
   }else{
-    // Search FMP for ticker/name matches
+    // Search from cached ticker list (available-traded-list)
     try{
       var sr=await fmpSearch(raw);
       var matches=(sr||[]).filter(function(x){return x.symbol&&x.name;});
@@ -1133,8 +1133,29 @@ async function go(forceSymbol){
         return;
       }else if(matches.length===1){
         t=matches[0].symbol;
+      }else{
+        // No matches in cache — try ticker directly, then with common exchange suffixes
+        var suffixes=['','.TO','.V','.L','.MI','.AS','.DE','.PA','.SW','.HK','.T','.SI','.ST','.OL','.CO','.HE','.BR','.LS','.MC','.WA','.JK','.AX','.NZ','.SA','.NS','.BO'];
+        var found=null;
+        // Try in parallel batches for speed
+        for(var si2=0;si2<suffixes.length&&!found;si2+=6){
+          var batch=suffixes.slice(si2,si2+6);
+          var probes=await Promise.all(batch.map(function(sfx){
+            var sym=t+sfx;
+            return fmp('profile?symbol='+sym).then(function(r){
+              var p2=Array.isArray(r)?r[0]:r;
+              return p2&&p2.symbol?{symbol:p2.symbol,name:p2.companyName||p2.name||sym,exchangeShortName:p2.exchangeShortName||p2.exchange||sfx}:null;
+            }).catch(function(){return null;});
+          }));
+          var hits=probes.filter(Boolean);
+          if(hits.length===1){found=hits[0];t=found.symbol;}
+          else if(hits.length>1){showSearchResults(hits);return;}
+        }
+        if(!found){
+          document.getElementById('er').innerHTML='No data found for <b>'+raw+'</b>. Try with exchange suffix:<br><span style="font-size:10px;color:#888">.TO (TSX) · .V (TSXV) · .L (London) · .MI (Milan) · .AS (Amsterdam) · .DE (Frankfurt) · .PA (Paris) · .HK (Hong Kong) · .T (Tokyo) · .AX (ASX)</span>';
+          document.getElementById('er').style.display='block';return;
+        }
       }
-      // If no results from search, try raw input as direct ticker
     }catch(e){}
   }
   document.getElementById('qi').value=t;
