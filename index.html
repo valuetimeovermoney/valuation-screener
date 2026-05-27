@@ -239,6 +239,9 @@ async function buildCo(tk){
   var ni=(incA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+((gf(y,'netIncome'))/1e6).toFixed(1)};});
   var gm=(incA||[]).filter(Boolean).slice(0,5).map(function(y){var r=gf(y,'revenue');var gp=gf(y,'grossProfit');return{y:yrOf(y),v:r>0?gp/r:0};});
   var cfoH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+((gf(y,'operatingCashFlow','netCashProvidedByOperatingActivities'))/1e6).toFixed(1)};});
+  var cfiH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+((gf(y,'netCashUsedForInvestingActivites')||gf(y,'netCashUsedForInvestingActivities'))/1e6).toFixed(1)};});
+  var cffH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+((gf(y,'netCashUsedProvidedByFinancingActivities')||gf(y,'netCashProvidedByFinancingActivities'))/1e6).toFixed(1)};});
+  var ncH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+((gf(y,'netChangeInCash'))/1e6).toFixed(1)};});
   var fcfH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){var c2=gf(y,'operatingCashFlow','netCashProvidedByOperatingActivities');var s2=gf(y,'stockBasedCompensation');var cx2=Math.abs(gf(y,'capitalExpenditure'));return{y:yrOf(y),v:+((c2-s2-cx2*(isL?0.5:0.7))/1e6).toFixed(1)};});
   var sbcH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+((gf(y,'stockBasedCompensation'))/1e6).toFixed(1)};});
   var capexH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+(Math.abs(gf(y,'capitalExpenditure'))/1e6).toFixed(1)};});
