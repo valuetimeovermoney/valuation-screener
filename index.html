@@ -612,6 +612,21 @@ function render(){
   // Quality
   h+='<div style="background:'+qB+';border-radius:8px;padding:14px 16px;margin-bottom:12px;border:1px solid '+qC+'33"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--lb)">Quality Ratio</div><div style="font-size:28px;font-weight:800;font-family:var(--m);color:var(--br)">'+pc(c.qr)+'</div><div style="font-size:10px;color:var(--lb)">Adj FCF/EV '+pc(c.fy)+' + Rev CAGR '+pc(c.rc)+'</div></div><span class="bg" style="background:'+qC+'22;color:'+qC+'">'+qL+'</span></div></div>';
 
+  // ── NET-NET & NEGATIVE EV DETECTION ──────────────────────
+  var _latBs0=(d.bsH||[])[0]||{};
+  var _ncav=(+_latBs0.tca||0)-(+_latBs0.tl||0);
+  var _isNetNet=_ncav>0&&c.mc>0&&_ncav>c.mc;
+  var _negEV=c.ev<0;
+  var _cashGtMcap=d.ca>0&&c.mc>0&&d.ca>c.mc;
+  if(_isNetNet||_negEV||_cashGtMcap){
+    h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">';
+    if(_isNetNet)h+='<div style="background:#052e16;color:var(--gn);padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;border:1px solid #22c55e44">🏷️ NET-NET — NCAV '+D(_ncav)+' exceeds MCap '+D(c.mc)+'</div>';
+    if(_negEV)h+='<div style="background:#052e16;color:var(--gn);padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;border:1px solid #22c55e44">💎 NEGATIVE EV — trading below net cash</div>';
+    if(_cashGtMcap&&!_negEV)h+='<div style="background:#052e16;color:var(--gn);padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;border:1px solid #22c55e44">💰 CASH > MARKET CAP — cash '+D(d.ca)+' vs MCap '+D(c.mc)+'</div>';
+    h+='<div style="font-size:9px;color:var(--yw);padding:4px 0">⚠ Quality Ratio less meaningful for deep value / special situations. Focus on asset value vs price.</div>';
+    h+='</div>';
+  }
+
   // ── PRICE CHART ───────────────────────────────────────────
   var _ph=ST.priceHist||[];
   h+='<div class="card"><div class="ci"><div class="cm">';
@@ -730,8 +745,8 @@ function render(){
 
     // Adj FCF / CFO conversion
     h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:10px">Adj FCF / CFO</td>';
-    fsFcf.forEach(function(x,i){var cfo2=fsCfo[i];var r2=cfo2&&cfo2.v>0&&x&&x.v!=null?x.v/cfo2.v:null;h+='<td>'+fx(r2)+'</td>';});
-    if(hasTTM)h+='<td style="color:var(--bl)">'+fx(ttmCFO>0?ttmFcf/ttmCFO:null)+'</td>';
+    fsFcf.forEach(function(x,i){var cfo2=fsCfo[i];var r2=cfo2&&cfo2.v>0&&x&&x.v!=null?x.v/cfo2.v:null;h+='<td>'+pc(r2)+'</td>';});
+    if(hasTTM)h+='<td style="color:var(--bl)">'+pc(ttmCFO>0?ttmFcf/ttmCFO:null)+'</td>';
     h+='<td></td><td></td></tr>';
 
     // ── CAPITAL ALLOCATION ─────────────
@@ -932,9 +947,9 @@ function render(){
 
     // FCF/CFO
     h+='<tr><td>Adj FCF / CFO</td>';
-    fsF2.forEach(function(x,i){var cf=fsCfo4[i];var r2=cf&&cf.v>0&&x?x.v/cf.v:null;h+='<td style="color:'+(r2>0.8?'var(--gn)':r2>0.5?'var(--yw)':'var(--rd)')+'">'+fx(r2)+'</td>';});
+    fsF2.forEach(function(x,i){var cf=fsCfo4[i];var r2=cf&&cf.v>0&&x?x.v/cf.v:null;h+='<td style="color:'+(r2>0.8?'var(--gn)':r2>0.5?'var(--yw)':'var(--rd)')+'">'+pc(r2)+'</td>';});
     var _lFCR=fsCfo4.length&&fsCfo4[fsCfo4.length-1]&&fsCfo4[fsCfo4.length-1].v>0&&fsF2.length&&fsF2[fsF2.length-1]?fsF2[fsF2.length-1].v/fsCfo4[fsCfo4.length-1].v:null;
-    h+='<td>'+(_lFCR!=null?(_lFCR>0.8?'✓ High':'◐ Watch SBC/CapEx'):'—')+'</td></tr>';
+    h+='<td>'+(_lFCR!=null?(_lFCR>0.8?'✓ '+pc(_lFCR):'◐ '+pc(_lFCR)):'—')+'</td></tr>';
 
     // Dividends
     var _hasDiv2=(fsDiv4||[]).some(function(x){return x&&x.v>0;});
@@ -954,7 +969,7 @@ function render(){
     else cfFlags.push('⚠ Negative CFO in some years — check if operational or one-off.');
     if(_cffNeg)cfFlags.push('✓ CFF negative — company returns capital, not diluting.');
     else cfFlags.push('ℹ CFF positive — raising debt or equity (check why).');
-    if(_lFCR!=null&&_lFCR>0.8)cfFlags.push('✓ FCF/CFO '+fx(_lFCR)+' — SBC and CapEx well-controlled.');
+    if(_lFCR!=null&&_lFCR>0.8)cfFlags.push('✓ FCF/CFO '+pc(_lFCR)+' — SBC and CapEx well-controlled.');
     if(_lFM!=null&&_lFM>0.15)cfFlags.push('✓ FCF margin '+pc(_lFM)+' — strong cash generation.');
     if(_hasDiv2){
       var divGrow=(fsDiv4||[]).filter(function(x){return x&&x.v>0;});
