@@ -794,82 +794,140 @@ function render(){
   h+='</div><div class="cs"><b class="s">Adj FCF/EV:</b><br>🟢 ≥10% · 🟡 5-10% · 🔴 &lt;5%<br><br><b class="s">ROIC:</b> NI÷Invested Capital<br>🟢 &gt;25% · 🟡 15-25%<br><br><b class="s">SBC/Rev:</b><br>🟢 &lt;8% · 🟡 8-15% · 🔴 &gt;15%</div></div></div>';
 
   // ── BALANCE SHEET STRENGTH ───────────────────────────────────
-  h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="ct" style="color:var(--pu);margin-bottom:0">Balance Sheet Strength</div><span class="tog'+(ST.showFS?' on':'')+'" onclick="togSection(\'FS\')">'+(ST.showFS?'▼ Hide':'▶ Expand')+'</span></div>';
+  h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="ct" style="color:var(--pu);margin-bottom:0">Balance Sheet & Cash Flow Strength</div><span class="tog'+(ST.showFS?' on':'')+'" onclick="togSection(\'FS\')">'+(ST.showFS?'▼ Hide':'▶ Expand')+'</span></div>';
   if(ST.showFS){
     var bsH2=(d.bsH||[]).slice(0,5).reverse();
     var incH2=(d.incH||[]).slice(0,5).reverse();
     var fsF2=(d.fcf||[]).slice(0,5).reverse();
+    var fsCfo4=(d.cfoH||[]).slice(0,5).reverse();
+    var fsSo4=(d.soH||[]).slice(0,5).reverse();
+    var fsSbc4=(d.sbcH||[]).slice(0,5).reverse();
+    var fsCx4=(d.capexH||[]).slice(0,5).reverse();
     var hn3=bsH2.length;
     var latBs=bsH2[hn3-1]||{};
     var latInc=incH2[incH2.length-1]||{};
-    var latFV=fsF2.length?fsF2[fsF2.length-1]:null;
-    var latFcfV2=latFV?latFV.v:c.af;
+    var latFcfV2=fsF2.length&&fsF2[fsF2.length-1]?fsF2[fsF2.length-1].v:c.af;
 
     h+='<div style="overflow-x:auto"><table class="t"><thead><tr><th style="min-width:170px"></th>';
     bsH2.forEach(function(y){h+='<th>'+y.yr+'</th>';});
     h+='<th style="color:var(--tl)">Signal</th></tr></thead><tbody>';
 
-    // ── BALANCE SHEET ITEMS ──────────────
-    h+='<tr style="border-top:2px solid var(--bd)"><td colspan="'+(hn3+2)+'" style="font-size:9px;font-weight:700;color:var(--dm);letter-spacing:1px;padding:5px 5px 3px;text-transform:uppercase">Balance Sheet</td></tr>';
+    var cs3=hn3+2;
+    function secH(t2){h+='<tr style="border-top:2px solid var(--bd)"><td colspan="'+cs3+'" style="font-size:9px;font-weight:700;color:var(--dm);letter-spacing:1px;padding:5px 5px 3px;text-transform:uppercase">'+t2+'</td></tr>';}
+    function bRow(l,fn,sig){h+='<tr><td'+(sig?' style="font-weight:600"':'')+'>'+l+'</td>';bsH2.forEach(function(y,i){h+='<td'+(sig?' style="font-weight:600"':'')+'>'+fn(y,i)+'</td>';});h+='<td>'+(sig||'')+'</td></tr>';}
 
-    h+='<tr><td>Total Assets</td>';bsH2.forEach(function(y){h+='<td>'+D(y.ta)+'</td>';});h+='<td></td></tr>';
-    h+='<tr><td>Cash & Equivalents</td>';bsH2.forEach(function(y){h+='<td>'+D(y.cash)+'</td>';});h+='<td></td></tr>';
-    h+='<tr><td>Total Debt</td>';bsH2.forEach(function(y){h+='<td>'+D(y.debt)+'</td>';});h+='<td></td></tr>';
+    // ── ASSETS ────────────────────────────
+    secH('Assets');
+    bRow('Cash & Short-Term Inv.',function(y){return D(y.cash);},'');
+    bRow('Receivables',function(y){return D(y.recv);},'');
+    bRow('Inventory',function(y){return D(y.inv);},'');
+    bRow('Total Current Assets',function(y){return D(y.tca);},'');
+    bRow('PP&E (net)',function(y){return D(y.ppe);},'');
+    bRow('Goodwill',function(y){return D(y.gw);},'');
+    bRow('Intangibles',function(y){return D(y.intang);},'');
+    bRow('Total Non-Current Assets',function(y){return D(y.tnca);},'');
+    h+='<tr style="border-top:1px solid var(--bd)"><td style="font-weight:700">Total Assets</td>';
+    bsH2.forEach(function(y){h+='<td style="font-weight:700">'+D(y.ta)+'</td>';});h+='<td></td></tr>';
+
+    // ── LIABILITIES ───────────────────────
+    secH('Liabilities');
+    bRow('Accounts Payable',function(y){return D(y.ap);},'');
+    bRow('Short-Term Debt',function(y){return D(y.std);},'');
+    bRow('Total Current Liabilities',function(y){return D(y.tcl);},'');
+    bRow('Long-Term Debt',function(y){return D(y.ltd);},'');
+    bRow('Total Non-Current Liabilities',function(y){return D(y.tncl);},'');
+    h+='<tr style="border-top:1px solid var(--bd)"><td style="font-weight:700">Total Liabilities</td>';
+    bsH2.forEach(function(y){h+='<td style="font-weight:700">'+D(y.tl)+'</td>';});h+='<td></td></tr>';
+
+    // ── EQUITY ────────────────────────────
+    secH('Equity');
+    bRow('Retained Earnings',function(y){return D(y.re);},'');
+    h+='<tr><td style="font-weight:700">Total Equity</td>';
+    bsH2.forEach(function(y){h+='<td style="font-weight:700">'+D(y.te)+'</td>';});h+='<td></td></tr>';
+    // TBV
+    h+='<tr><td>Tangible Book Value</td>';
+    bsH2.forEach(function(y){var t2=+y.te-(+y.intang||0);h+='<td style="color:'+(t2>0?'':'var(--rd)')+'">'+D(t2)+'</td>';});
+    h+='<td>'+(d._tbv>0?'✓ Positive':'ℹ Negative')+'</td></tr>';
+    // BVPS
+    h+='<tr><td>Book Value / Share</td>';
+    bsH2.forEach(function(y,i){var so=(fsSo4||[])[i];h+='<td>'+pr(so&&so.v>0?y.te/so.v:null)+'</td>';});
+    h+='<td></td></tr>';
+
+    // ── KEY RATIOS ────────────────────────
+    secH('Balance Sheet Strength');
     // Net Cash/Debt
     var ndArr=[];
     h+='<tr><td style="font-weight:600">Net Cash / (Debt)</td>';
-    bsH2.forEach(function(y){var nd2=y.cash-y.debt;ndArr.push(nd2);h+='<td style="font-weight:600;color:'+(nd2>0?'var(--gn)':'var(--rd)')+'">'+D(nd2)+'</td>';});
+    bsH2.forEach(function(y){var nd2=+y.cash-(+y.debt);ndArr.push(nd2);h+='<td style="font-weight:600;color:'+(nd2>0?'var(--gn)':'var(--rd)')+'">'+D(nd2)+'</td>';});
     var ndUp=ndArr.length>=2&&ndArr[ndArr.length-1]>ndArr[0];
-    h+='<td style="color:'+(ndArr[ndArr.length-1]>0?'var(--gn)':'var(--rd)')+'">'+((ndArr[ndArr.length-1]||0)>0?'✓ Net Cash':'⚠ Net Debt')+(ndUp?' ↑':ndArr.length>=2?' ↓':'')+'</td></tr>';
-    // Equity
-    h+='<tr><td>Shareholders\' Equity</td>';bsH2.forEach(function(y){h+='<td>'+D(y.te)+'</td>';});h+='<td></td></tr>';
-    // Intangibles
-    h+='<tr><td>Goodwill & Intangibles</td>';bsH2.forEach(function(y){h+='<td>'+D(y.intang||0)+'</td>';});h+='<td></td></tr>';
-    // TBV
-    h+='<tr><td>Tangible Book Value</td>';
-    bsH2.forEach(function(y){var t2=y.te-(y.intang||0);h+='<td style="color:'+(t2>0?'':'var(--rd)')+'">'+D(t2)+'</td>';});
-    h+='<td>'+(d._tbv>0?'✓ Positive':'ℹ Neg — typical for asset-light/buybacks')+'</td></tr>';
-    // BVPS
-    var fsSo4=(d.soH||[]).slice(0,5).reverse();
-    h+='<tr><td>Book Value / Share</td>';
-    bsH2.forEach(function(y,i){var so2=(fsSo4||[])[i];h+='<td>'+pr(so2&&so2.v>0?y.te/so2.v:null)+'</td>';});
-    h+='<td></td></tr>';
-
-    // ── DEBT COVERAGE & SAFETY ───────────
-    h+='<tr style="border-top:2px solid var(--bd)"><td colspan="'+(hn3+2)+'" style="font-size:9px;font-weight:700;color:var(--dm);letter-spacing:1px;padding:5px 5px 3px;text-transform:uppercase">Debt Coverage & Safety</td></tr>';
+    h+='<td style="color:'+(ndArr[ndArr.length-1]>0?'var(--gn)':'var(--rd)')+'">'+((ndArr[ndArr.length-1]||0)>0?'✓ Net Cash':'⚠ Net Debt')+(ndUp?' ↑':' ↓')+'</td></tr>';
+    // Current Ratio
+    h+='<tr><td>Current Ratio</td>';
+    bsH2.forEach(function(y){var cr=+y.tcl>0?+y.tca/+y.tcl:null;h+='<td style="color:'+(cr>1.5?'var(--gn)':cr>1?'var(--yw)':'var(--rd)')+'">'+fx(cr)+'</td>';});
+    var _lCR=+latBs.tcl>0?+latBs.tca/+latBs.tcl:null;
+    h+='<td>'+(_lCR!=null?(_lCR>1.5?'✓ Healthy':_lCR>1?'◐ Adequate':'⚠ Tight'):'—')+'</td></tr>';
     // D/E
     h+='<tr><td>Debt / Equity</td>';
-    bsH2.forEach(function(y){var r2=y.te>0?y.debt/y.te:null;h+='<td style="color:'+(r2!=null&&r2<0.5?'var(--gn)':r2!=null&&r2<1.5?'var(--yw)':'var(--rd)')+'">'+fx(r2)+'</td>';});
-    var _lDE=latBs.te>0?latBs.debt/latBs.te:null;
+    bsH2.forEach(function(y){var r2=+y.te>0?+y.debt/+y.te:null;h+='<td style="color:'+(r2!=null&&r2<0.5?'var(--gn)':r2!=null&&r2<1.5?'var(--yw)':'var(--rd)')+'">'+fx(r2)+'</td>';});
+    var _lDE=+latBs.te>0?+latBs.debt/+latBs.te:null;
     h+='<td>'+(_lDE!=null?(_lDE<0.5?'✓ Conservative':_lDE<1.5?'◐ Moderate':'⚠ Leveraged'):'—')+'</td></tr>';
     // D/FCF
-    h+='<tr><td>Debt / Adj FCF (payoff yrs)</td>';
-    bsH2.forEach(function(y,i){var f3=(fsF2||[])[i];var r2=f3&&f3.v>0?y.debt/f3.v:null;h+='<td style="color:'+(r2!=null&&r2<2?'var(--gn)':r2!=null&&r2<4?'var(--yw)':'var(--rd)')+'">'+fx(r2)+'</td>';});
-    var _lDAF=latFcfV2>0?(latBs.debt||d.de)/latFcfV2:null;
+    h+='<tr><td>Debt / Adj FCF</td>';
+    bsH2.forEach(function(y,i){var f3=(fsF2||[])[i];var r2=f3&&f3.v>0?+y.debt/f3.v:null;h+='<td style="color:'+(r2!=null&&r2<2?'var(--gn)':r2!=null&&r2<4?'var(--yw)':'var(--rd)')+'">'+fx(r2)+'</td>';});
+    var _lDAF=latFcfV2>0?(+latBs.debt||d.de)/latFcfV2:null;
     h+='<td>'+(_lDAF!=null?(_lDAF<2?'✓ <2yr payoff':_lDAF<4?'◐ 2–4yr':'⚠ >4yr'):'—')+'</td></tr>';
     // Interest Coverage
     h+='<tr><td style="font-weight:600">Interest Coverage</td>';
-    var _icLat=null;
-    incH2.forEach(function(y){var ic=y.intEx>0?y.ebit/y.intEx:null;_icLat=ic;h+='<td style="font-weight:600;color:'+(ic!=null&&ic>8?'var(--gn)':ic!=null&&ic>3?'var(--yw)':'var(--rd)')+'">'+fx(ic)+'</td>';});
-    h+='<td style="font-weight:600">'+(_icLat!=null?(_icLat>8?'✓ Fortress (>8x)':_icLat>3?'◐ OK (3–8x)':'⚠ Thin (<3x)'):'N/A')+'</td></tr>';
+    var _icL=null;
+    incH2.forEach(function(y){var ic=+y.intEx>0?+y.ebit/+y.intEx:null;_icL=ic;h+='<td style="font-weight:600;color:'+(ic!=null&&ic>8?'var(--gn)':ic!=null&&ic>3?'var(--yw)':'var(--rd)')+'">'+fx(ic)+'</td>';});
+    h+='<td style="font-weight:600">'+(_icL!=null?(_icL>8?'✓ Fortress':_icL>3?'◐ OK':'⚠ Thin'):'N/A')+'</td></tr>';
     // Solvency
-    h+='<tr><td>Solvency (Assets/Liabilities)</td>';
-    bsH2.forEach(function(y){var li=y.ta-y.te;var s2=li>0?y.ta/li:null;h+='<td style="color:'+(s2!=null&&s2>2?'var(--gn)':s2!=null&&s2>1.5?'var(--yw)':'var(--rd)')+'">'+fx(s2)+'</td>';});
-    var _lLi=(latBs.ta||0)-(latBs.te||0);var _lSol=_lLi>0?(latBs.ta||0)/_lLi:null;
+    h+='<tr><td>Solvency (A/L)</td>';
+    bsH2.forEach(function(y){var s2=+y.tl>0?+y.ta/+y.tl:null;h+='<td style="color:'+(s2!=null&&s2>2?'var(--gn)':s2!=null&&s2>1.5?'var(--yw)':'var(--rd)')+'">'+fx(s2)+'</td>';});
+    var _lSol=+latBs.tl>0?+latBs.ta/+latBs.tl:null;
     h+='<td>'+(_lSol!=null?(_lSol>2?'✓ Solid':_lSol>1.5?'◐ Adequate':'⚠ Tight'):'—')+'</td></tr>';
+
+    // ── CASH FLOW ─────────────────────────
+    secH('Cash Flow');
+    // CFO
+    h+='<tr><td style="font-weight:600">CFO</td>';
+    fsCfo4.forEach(function(x){h+='<td style="font-weight:600">'+D(x?x.v:null)+'</td>';});h+='<td></td></tr>';
+    // SBC
+    h+='<tr><td>− SBC</td>';fsSbc4.forEach(function(x){h+='<td>'+D(x?x.v:null)+'</td>';});h+='<td></td></tr>';
+    // CapEx
+    h+='<tr><td>− CapEx</td>';fsCx4.forEach(function(x){h+='<td>'+D(x?x.v:null)+'</td>';});h+='<td></td></tr>';
+    // Adj FCF
+    h+='<tr><td style="font-weight:600;color:var(--tl)">Adj FCF</td>';
+    fsF2.forEach(function(x){h+='<td style="font-weight:600;color:var(--tl)">'+D(x?x.v:null)+'</td>';});h+='<td></td></tr>';
+    // FCF/CFO
+    h+='<tr><td>Adj FCF / CFO</td>';
+    fsF2.forEach(function(x,i){var cf=fsCfo4[i];var r2=cf&&cf.v>0&&x?x.v/cf.v:null;h+='<td style="color:'+(r2>0.8?'var(--gn)':r2>0.5?'var(--yw)':'var(--rd)')+'">'+fx(r2)+'</td>';});
+    var _lFCR=fsCfo4.length&&fsCfo4[fsCfo4.length-1]&&fsF2.length&&fsF2[fsF2.length-1]?fsF2[fsF2.length-1].v/fsCfo4[fsCfo4.length-1].v:null;
+    h+='<td>'+(_lFCR!=null?(_lFCR>0.8?'✓ High conversion':'◐ Watch SBC/CapEx'):'—')+'</td></tr>';
+    // FCF Margin
+    h+='<tr><td>FCF Margin (FCF/Rev)</td>';
+    var fsRv4=(d.rv||[]).slice(0,5).reverse();
+    fsF2.forEach(function(x,i){var rv=(fsRv4||[])[i];var r2=rv&&rv.r>0&&x?x.v/rv.r:null;h+='<td style="color:'+(r2>0.15?'var(--gn)':r2>0.08?'var(--yw)':'var(--rd)')+'">'+pc(r2)+'</td>';});
+    var _lFM=fsRv4.length&&fsRv4[fsRv4.length-1]&&latFcfV2?latFcfV2/fsRv4[fsRv4.length-1].r:null;
+    h+='<td>'+(_lFM!=null?(_lFM>0.15?'✓ Strong':_lFM>0.08?'◐ Moderate':'⚠ Thin'):'—')+'</td></tr>';
+    // D&A
+    h+='<tr><td>D&A</td>';incH2.forEach(function(y){h+='<td>'+D(y.da)+'</td>';});h+='<td></td></tr>';
 
     h+='</tbody></table></div>';
 
-    // Commentary — succinct Buffett-style
+    // Commentary
     var cm2=[];
     if((ndArr[ndArr.length-1]||0)>0)cm2.push('✓ Net cash — self-funded, recession-proof.');
     else if(_lDAF!=null&&_lDAF<2)cm2.push('✓ Debt manageable — <2yr FCF payoff.');
-    else if(_lDAF!=null&&_lDAF>4)cm2.push('⚠ Heavy debt ('+fx(_lDAF)+' yrs). Refinancing risk.');
-    if(_icLat!=null&&_icLat>8)cm2.push('✓ Interest coverage '+fx(_icLat)+' — comfortably services debt.');
-    else if(_icLat!=null&&_icLat<3)cm2.push('⚠ Thin interest coverage ('+fx(_icLat)+'x). Earnings drop = debt stress.');
-    if(ndUp)cm2.push('✓ Deleveraging trend over 5 years.');
-    else if(ndArr.length>=3&&ndArr[ndArr.length-1]<ndArr[0])cm2.push('⚠ Taking on more debt over time.');
-    if(d._tbv<=0)cm2.push('ℹ Negative TBV — common for asset-light cos with buybacks. Not a red flag if FCF is strong.');
+    else if(_lDAF!=null&&_lDAF>4)cm2.push('⚠ Heavy debt ('+fx(_lDAF)+'yr). Refinancing risk.');
+    if(_icL!=null&&_icL>8)cm2.push('✓ Interest coverage '+fx(_icL)+' — fortress.');
+    else if(_icL!=null&&_icL<3)cm2.push('⚠ Thin coverage ('+fx(_icL)+'x). Earnings drop = stress.');
+    if(_lCR!=null&&_lCR<1)cm2.push('⚠ Current ratio below 1 — short-term liquidity risk.');
+    if(_lFCR!=null&&_lFCR>0.8)cm2.push('✓ FCF/CFO '+fx(_lFCR)+' — strong cash conversion.');
+    else if(_lFCR!=null&&_lFCR<0.5)cm2.push('⚠ Low FCF/CFO — SBC or CapEx consuming cash.');
+    if(ndUp)cm2.push('✓ Deleveraging trend.');
+    else if(ndArr.length>=3&&ndArr[ndArr.length-1]<ndArr[0])cm2.push('⚠ Rising debt trend.');
+    if(d._tbv<=0)cm2.push('ℹ Negative TBV — common for asset-light / heavy buybacks.');
 
     if(cm2.length){
       h+='<div style="margin-top:8px;padding:8px 10px;background:#0a0e18;border-radius:5px;border:1px solid var(--bd);font-size:10px;color:var(--lb);line-height:1.7">';
@@ -877,7 +935,7 @@ function render(){
       h+='</div>';
     }
   }
-  h+='</div><div class="cs"><b class="s">Durability checks:</b><br>Can it survive a recession?<br>Can it service debt?<br>Is the balance sheet improving?<br><br>🟢 <0.5 D/E<br>🟢 <2yr debt payoff<br>🟢 >8x interest coverage<br>🟢 >2x solvency</div></div></div>';
+  h+='</div><div class="cs"><b class="s">All items from SEC filings.</b><br><br><b>Strength:</b><br>🟢 Net Cash<br>🟢 Current Ratio >1.5<br>🟢 D/E <0.5<br>🟢 Debt payoff <2yr<br>🟢 Coverage >8x<br><br><b>Cash Flow:</b><br>🟢 FCF/CFO >80%<br>🟢 FCF margin >15%</div></div></div>';
 
   // ── PATH TO 25% ──────────────────────────────────────────────
   h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="ct" style="color:var(--yw);margin-bottom:0">Path to 25% Annual Return</div><span class="tog'+(ST.showPath?' on':'')+'" onclick="togSection(\'Path\')">'+(ST.showPath?'▼ Hide':'▶ Expand')+'</span></div>';
