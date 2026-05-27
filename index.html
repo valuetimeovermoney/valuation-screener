@@ -609,23 +609,55 @@ function render(){
   // Header
   h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;background:var(--cd);border-radius:8px;padding:14px 16px;border:1px solid var(--bd);margin-bottom:12px"><div><div style="font-size:18px;font-weight:800;color:var(--br)">'+d.n+'</div><div style="font-size:11px;color:var(--dm)">'+d.t+' · '+d.exch+' · '+d.sec+' · '+d.industry+'</div><div style="font-size:10px;color:var(--dm);margin-top:2px">Fiscal year ends: '+d.fyEnd+' · Latest: '+d.fy+'</div></div><div style="text-align:right"><div style="font-size:24px;font-weight:800;font-family:var(--m);color:var(--bl)">'+pr(d.p)+'</div><div style="font-size:10px;color:var(--dm)">'+d.pd+'</div></div></div>';
 
-  // Quality
-  h+='<div style="background:'+qB+';border-radius:8px;padding:14px 16px;margin-bottom:12px;border:1px solid '+qC+'33"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--lb)">Quality Ratio</div><div style="font-size:28px;font-weight:800;font-family:var(--m);color:var(--br)">'+pc(c.qr)+'</div><div style="font-size:10px;color:var(--lb)">Adj FCF/EV '+pc(c.fy)+' + Rev CAGR '+pc(c.rc)+'</div></div><span class="bg" style="background:'+qC+'22;color:'+qC+'">'+qL+'</span></div></div>';
-
-  // ── NET-NET & NEGATIVE EV DETECTION ──────────────────────
+  // ── NET-NET & DEEP VALUE DETECTION ──────────────────────
   var _latBs0=(d.bsH||[])[0]||{};
   var _ncav=(+_latBs0.tca||0)-(+_latBs0.tl||0);
   var _isNetNet=_ncav>0&&c.mc>0&&_ncav>c.mc;
   var _negEV=c.ev<0;
   var _cashGtMcap=d.ca>0&&c.mc>0&&d.ca>c.mc;
+  var _netCash=d.ca-d.de;
   if(_isNetNet||_negEV||_cashGtMcap){
-    h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">';
-    if(_isNetNet)h+='<div style="background:#052e16;color:var(--gn);padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;border:1px solid #22c55e44">🏷️ NET-NET — NCAV '+D(_ncav)+' exceeds MCap '+D(c.mc)+'</div>';
-    if(_negEV)h+='<div style="background:#052e16;color:var(--gn);padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;border:1px solid #22c55e44">💎 NEGATIVE EV — trading below net cash</div>';
-    if(_cashGtMcap&&!_negEV)h+='<div style="background:#052e16;color:var(--gn);padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;border:1px solid #22c55e44">💰 CASH > MARKET CAP — cash '+D(d.ca)+' vs MCap '+D(c.mc)+'</div>';
-    h+='<div style="font-size:9px;color:var(--yw);padding:4px 0">⚠ Quality Ratio less meaningful for deep value / special situations. Focus on asset value vs price.</div>';
+    h+='<div style="background:#052e16;border:2px solid #22c55e55;border-radius:10px;padding:16px;margin-bottom:12px">';
+    h+='<div style="font-size:20px;font-weight:800;color:var(--gn);margin-bottom:8px">';
+    if(_negEV)h+='💎 NEGATIVE EV — Below Net Cash';
+    else if(_isNetNet)h+='🏷️ NET-NET — Below Liquidation Value';
+    else h+='💰 Cash Exceeds Market Cap';
+    h+='</div>';
+
+    // Margin of Safety calc
+    if(_negEV||_cashGtMcap){
+      var _assetVal=_netCash; // net cash as floor value
+      var _mos=c.mc>0?(_assetVal-c.mc)/c.mc:0;
+      var _mosPs=d.sh>0?_assetVal/d.sh:0;
+      h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">';
+      h+='<div style="background:#0a1a0a;border-radius:6px;padding:10px;border:1px solid #22c55e33">';
+      h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:4px">Net Cash Value</div>';
+      h+='<div style="font-size:9px;color:var(--lb);line-height:1.7">Cash: '+D(d.ca)+'<br>− Debt: '+D(d.de)+'<br><b style="color:var(--gn)">= Net Cash: '+D(_netCash)+'</b></div>';
+      h+='</div>';
+      h+='<div style="background:#0a1a0a;border-radius:6px;padding:10px;border:1px solid #22c55e33">';
+      h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:4px">Margin of Safety</div>';
+      h+='<div style="font-size:9px;color:var(--lb);line-height:1.7">Net Cash/share: <b>'+pr(_mosPs)+'</b><br>Price: <b>'+pr(d.p)+'</b><br><b style="color:var(--gn);font-size:14px">MOS: '+pc(_mos)+'</b></div>';
+      h+='</div></div>';
+    }
+    if(_isNetNet){
+      var _ncavPs=d.sh>0?_ncav/d.sh:0;
+      var _ncavMos=c.mc>0?(_ncav-c.mc)/c.mc:0;
+      h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">';
+      h+='<div style="background:#0a1a0a;border-radius:6px;padding:10px;border:1px solid #22c55e33">';
+      h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:4px">NCAV (Net Current Asset Value)</div>';
+      h+='<div style="font-size:9px;color:var(--lb);line-height:1.7">Current Assets: '+D(+_latBs0.tca)+'<br>− Total Liabilities: '+D(+_latBs0.tl)+'<br><b style="color:var(--gn)">= NCAV: '+D(_ncav)+'</b></div>';
+      h+='</div>';
+      h+='<div style="background:#0a1a0a;border-radius:6px;padding:10px;border:1px solid #22c55e33">';
+      h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:4px">NCAV Margin of Safety</div>';
+      h+='<div style="font-size:9px;color:var(--lb);line-height:1.7">NCAV/share: <b>'+pr(_ncavPs)+'</b><br>Price: <b>'+pr(d.p)+'</b><br><b style="color:var(--gn);font-size:14px">MOS: '+pc(_ncavMos)+'</b></div>';
+      h+='</div></div>';
+    }
+    h+='<div style="font-size:10px;color:var(--yw)">⚠ Quality Ratio less meaningful — deep value / special situation. Focus on asset value vs price.</div>';
     h+='</div>';
   }
+
+  // Quality
+  h+='<div style="background:'+qB+';border-radius:8px;padding:14px 16px;margin-bottom:12px;border:1px solid '+qC+'33"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--lb)">Quality Ratio</div><div style="font-size:28px;font-weight:800;font-family:var(--m);color:var(--br)">'+pc(c.qr)+'</div><div style="font-size:10px;color:var(--lb)">Adj FCF/EV '+pc(c.fy)+' + Rev CAGR '+pc(c.rc)+'</div></div><span class="bg" style="background:'+qC+'22;color:'+qC+'">'+qL+'</span></div></div>';
 
   // ── PRICE CHART ───────────────────────────────────────────
   var _ph=ST.priceHist||[];
