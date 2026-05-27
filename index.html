@@ -616,11 +616,15 @@ function render(){
   var _negEV=c.ev<0;
   var _cashGtMcap=d.ca>0&&c.mc>0&&d.ca>c.mc;
   var _netCash=d.ca-d.de;
-  if(_isNetNet||_negEV||_cashGtMcap){
+  // Replacement value = PP&E + Inventory + Cash (tangible hard assets)
+  var _replVal=(+_latBs0.ppe||0)+(+_latBs0.inv||0)+(+_latBs0.cash||0);
+  var _belowRepl=_replVal>0&&c.mc>0&&c.mc<_replVal;
+  if(_isNetNet||_negEV||_cashGtMcap||_belowRepl){
     h+='<div style="background:#052e16;border:2px solid #22c55e55;border-radius:10px;padding:16px;margin-bottom:12px">';
     h+='<div style="font-size:20px;font-weight:800;color:var(--gn);margin-bottom:8px">';
     if(_negEV)h+='💎 NEGATIVE EV — Below Net Cash';
     else if(_isNetNet)h+='🏷️ NET-NET — Below Liquidation Value';
+    else if(_belowRepl)h+='🏭 BELOW REPLACEMENT VALUE — Hard Assets '+D(_replVal)+' > MCap '+D(c.mc);
     else h+='💰 Cash Exceeds Market Cap';
     h+='</div>';
 
@@ -637,6 +641,19 @@ function render(){
       h+='<div style="background:#0a1a0a;border-radius:6px;padding:10px;border:1px solid #22c55e33">';
       h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:4px">Margin of Safety</div>';
       h+='<div style="font-size:9px;color:var(--lb);line-height:1.7">Net Cash/share: <b>'+pr(_mosPs)+'</b><br>Price: <b>'+pr(d.p)+'</b><br><b style="color:var(--gn);font-size:14px">MOS: '+pc(_mos)+'</b></div>';
+      h+='</div></div>';
+    }
+    if(_belowRepl){
+      var _replPs=d.sh>0?_replVal/d.sh:0;
+      var _replMos=c.mc>0?(_replVal-c.mc)/c.mc:0;
+      h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">';
+      h+='<div style="background:#0a1a0a;border-radius:6px;padding:10px;border:1px solid #22c55e33">';
+      h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:4px">Replacement Value</div>';
+      h+='<div style="font-size:9px;color:var(--lb);line-height:1.7">PP&E: '+D(+_latBs0.ppe||0)+'<br>Inventory: '+D(+_latBs0.inv||0)+'<br>Cash: '+D(+_latBs0.cash||0)+'<br><b style="color:var(--gn)">= Replacement: '+D(_replVal)+'</b></div>';
+      h+='</div>';
+      h+='<div style="background:#0a1a0a;border-radius:6px;padding:10px;border:1px solid #22c55e33">';
+      h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:4px">Replacement MOS</div>';
+      h+='<div style="font-size:9px;color:var(--lb);line-height:1.7">Repl/share: <b>'+pr(_replPs)+'</b><br>Price: <b>'+pr(d.p)+'</b><br><b style="color:var(--gn);font-size:14px">MOS: '+pc(_replMos)+'</b></div>';
       h+='</div></div>';
     }
     if(_isNetNet){
@@ -913,27 +930,27 @@ function render(){
     h+='<td style="color:'+(ndArr[ndArr.length-1]>0?'var(--gn)':'var(--rd)')+'">'+((ndArr[ndArr.length-1]||0)>0?'✓ Net Cash':'⚠ Net Debt')+(ndUp?' ↑':' ↓')+'</td></tr>';
     // Current Ratio
     h+='<tr><td>Current Ratio</td>';
-    bsH2.forEach(function(y){var cr=+y.tcl>0?+y.tca/+y.tcl:null;h+='<td style="color:'+(cr>1.5?'var(--gn)':cr>1?'var(--yw)':'var(--rd)')+'">'+fx(cr)+'</td>';});
+    bsH2.forEach(function(y){var cr=+y.tcl>0?+y.tca/+y.tcl:null;h+='<td style="color:'+(cr>1.5?'var(--gn)':cr>1?'var(--yw)':'var(--rd)')+'">'+pc(cr)+'</td>';});
     var _lCR=+latBs.tcl>0?+latBs.tca/+latBs.tcl:null;
     h+='<td>'+(_lCR!=null?(_lCR>1.5?'✓ Healthy':_lCR>1?'◐ Adequate':'⚠ Tight'):'—')+'</td></tr>';
     // D/E
     h+='<tr><td>Debt / Equity</td>';
-    bsH2.forEach(function(y){var r2=+y.te>0?+y.debt/+y.te:null;h+='<td style="color:'+(r2!=null&&r2<0.5?'var(--gn)':r2!=null&&r2<1.5?'var(--yw)':'var(--rd)')+'">'+fx(r2)+'</td>';});
+    bsH2.forEach(function(y){var r2=+y.te>0?+y.debt/+y.te:null;h+='<td style="color:'+(r2!=null&&r2<0.5?'var(--gn)':r2!=null&&r2<1.5?'var(--yw)':'var(--rd)')+'">'+pc(r2)+'</td>';});
     var _lDE=+latBs.te>0?+latBs.debt/+latBs.te:null;
     h+='<td>'+(_lDE!=null?(_lDE<0.5?'✓ Conservative':_lDE<1.5?'◐ Moderate':'⚠ Leveraged'):'—')+'</td></tr>';
     // D/FCF
     h+='<tr><td>Debt / Adj FCF</td>';
-    bsH2.forEach(function(y,i){var f3=(fsF2||[])[i];var r2=f3&&f3.v>0?+y.debt/f3.v:null;h+='<td style="color:'+(r2!=null&&r2<2?'var(--gn)':r2!=null&&r2<4?'var(--yw)':'var(--rd)')+'">'+fx(r2)+'</td>';});
+    bsH2.forEach(function(y,i){var f3=(fsF2||[])[i];var r2=f3&&f3.v>0?+y.debt/f3.v:null;h+='<td style="color:'+(r2!=null&&r2<2?'var(--gn)':r2!=null&&r2<4?'var(--yw)':'var(--rd)')+'">'+pc(r2)+'</td>';});
     var _lDAF=latFcfV2>0?(+latBs.debt||d.de)/latFcfV2:null;
     h+='<td>'+(_lDAF!=null?(_lDAF<2?'✓ <2yr payoff':_lDAF<4?'◐ 2–4yr':'⚠ >4yr'):'—')+'</td></tr>';
     // Interest Coverage
     h+='<tr><td style="font-weight:600">Interest Coverage</td>';
     var _icL=null;
-    incH2.forEach(function(y){var ic=+y.intEx>0?+y.ebit/+y.intEx:null;_icL=ic;h+='<td style="font-weight:600;color:'+(ic!=null&&ic>8?'var(--gn)':ic!=null&&ic>3?'var(--yw)':'var(--rd)')+'">'+fx(ic)+'</td>';});
+    incH2.forEach(function(y){var ic=+y.intEx>0?+y.ebit/+y.intEx:null;_icL=ic;h+='<td style="font-weight:600;color:'+(ic!=null&&ic>8?'var(--gn)':ic!=null&&ic>3?'var(--yw)':'var(--rd)')+'">'+pc(ic)+'</td>';});
     h+='<td style="font-weight:600">'+(_icL!=null?(_icL>8?'✓ Fortress':_icL>3?'◐ OK':'⚠ Thin'):'N/A')+'</td></tr>';
     // Solvency
     h+='<tr><td>Solvency (A/L)</td>';
-    bsH2.forEach(function(y){var s2=+y.tl>0?+y.ta/+y.tl:null;h+='<td style="color:'+(s2!=null&&s2>2?'var(--gn)':s2!=null&&s2>1.5?'var(--yw)':'var(--rd)')+'">'+fx(s2)+'</td>';});
+    bsH2.forEach(function(y){var s2=+y.tl>0?+y.ta/+y.tl:null;h+='<td style="color:'+(s2!=null&&s2>2?'var(--gn)':s2!=null&&s2>1.5?'var(--yw)':'var(--rd)')+'">'+pc(s2)+'</td>';});
     var _lSol=+latBs.tl>0?+latBs.ta/+latBs.tl:null;
     h+='<td>'+(_lSol!=null?(_lSol>2?'✓ Solid':_lSol>1.5?'◐ Adequate':'⚠ Tight'):'—')+'</td></tr>';
 
