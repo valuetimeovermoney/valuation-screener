@@ -618,7 +618,6 @@ function bvG(o){for(var i=1;i<arguments.length;i++){var v=o[arguments[i]];if(v!=
 function bmG(o){return bvG.apply(null,arguments)/1e6;}
 function render(){
   var _scrollY=window.scrollY||0;
-  try{
   var _focId=document.activeElement?document.activeElement.id:null;
   var _focVal=document.activeElement?document.activeElement.value:null;
   var _focPos=document.activeElement&&document.activeElement.selectionStart!=null?document.activeElement.selectionStart:null;
@@ -1524,10 +1523,11 @@ function render(){
 
   
   h+='<div style="font-size:9px;color:#2a3040;padding-top:8px;border-top:1px solid var(--bd)">Quality ≥25% 🟢 | Adj FCF = CFO − SBC − Maint CapEx | Data: FMP (SEC 10-K) | <a href="/valuation-screener/valuation/" style="color:#4a5568">DCF & Valuation Model →</a></div>';
-  document.getElementById('out').innerHTML=h;
-  window.scrollTo(0,_scrollY);
-  // Restore focus to prevent scroll jump
-  if(_focId){var _el=document.getElementById(_focId);if(_el){_el.focus({preventScroll:true});if(_focVal!=null)_el.value=_focVal;if(_focPos!=null)try{_el.setSelectionRange(_focPos,_focPos);}catch(e){}}}
+  try{
+    document.getElementById('out').innerHTML=h;
+    window.scrollTo(0,_scrollY);
+    if(_focId){var _el=document.getElementById(_focId);if(_el){_el.focus({preventScroll:true});if(_focVal!=null)_el.value=_focVal;if(_focPos!=null)try{_el.setSelectionRange(_focPos,_focPos);}catch(e){}}}
+  }catch(_ue){}
 }
 
 document.getElementById('qi').addEventListener('keydown',function(e){if(e.key==='Enter'){document.getElementById('sr').style.display='none';go();}});
@@ -1546,7 +1546,6 @@ document.getElementById('qi').addEventListener('input',function(e){
       else{sr2.innerHTML='<div style="padding:12px;color:var(--dm);font-size:11px;text-align:center">No matches. Try ticker with exchange (e.g. AIM.TO, SHOP.TO)</div>';}
     }).catch(function(){sr2.style.display='none';});
   },400);
-  }catch(_re){document.getElementById('out').innerHTML='<div style="color:#fca5a5;padding:20px;background:#450a0a;border-radius:8px;font-size:11px"><b>Error:</b> '+_re.message+'<br><pre style="font-size:9px;margin-top:6px">'+(_re.stack||'').split('\n').slice(0,4).join('\n')+'</pre></div>';}
 }
 function showSearchResults(results){
   var el=document.getElementById('sr');
