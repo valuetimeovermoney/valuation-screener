@@ -179,7 +179,7 @@ function getYr(o){return o.calendarYear?''+o.calendarYear:o.date?o.date.substrin
 function cm(x){return(''+x).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
 function cs(){return(ST.d&&ST.d.cur&&ST.d.cur!=='USD')?ST.d.cur+' ':'$';}
 function D(n){if(n==null||isNaN(n))return'—';var a=Math.abs(n),s=n<0?'-':'',c2=cs();if(a>=1000000)return s+c2+cm((a/1000000).toFixed(2))+'T';if(a>=1000)return s+c2+cm((a/1000).toFixed(1))+'B';if(a>=1)return s+c2+cm(Math.round(a))+'M';return s+c2+a.toFixed(1)+'M';}
-function SH(n){if(n==null||isNaN(n)||n===0)return'—';var a=Math.abs(n);if(a>=1000)return cm((a/1000).toFixed(2))+'B';return cm(Math.round(a))+'M';}
+function SH(n){if(n==null||isNaN(n)||n===0)return'—';var a=Math.abs(n);if(a>=1000)return cm((a/1000).toFixed(2))+'B';return cm(a.toFixed(1))+'M';}
 function pc(n){return n==null||isNaN(n)?'—':(n*100).toFixed(1)+'%';}
 function pr(n){return n==null||isNaN(n)?'—':cs()+cm(n.toFixed(2));}
 function fx(n){return n==null||isNaN(n)?'—':n.toFixed(1)+'x';}
@@ -258,21 +258,21 @@ async function buildCo(tk){
     function _km(){for(var i=0;i<arguments.length;i++){var v=y[arguments[i]];if(v!=null&&v!=0&&!isNaN(v))return+v;}return 0;}
     return{
     yr:yrOf(y)||(y.date?y.date.slice(0,4):'')||'',
-    pe:_km('peRatio'),
-    evEbitda:_km('enterpriseValueOverEBITDA'),
-    evFcf:_km('evToFreeCashFlow'),
-    evCfo:_km('evToOperatingCashFlow'),
-    ps:_km('priceToSalesRatio'),
-    pb:_km('pbRatio'),
+    pe:_km('peRatio','priceEarningsRatio'),
+    evEbitda:_km('enterpriseValueOverEBITDA','evToEbitda'),
+    evFcf:_km('evToFreeCashFlow','evFreeCashFlow'),
+    evCfo:_km('evToOperatingCashFlow','evOperatingCashFlow'),
+    ps:_km('priceToSalesRatio','priceToSales'),
+    pb:_km('pbRatio','priceToBookRatio'),
     ptb:_km('ptbRatio'),
     ev:_km('enterpriseValue'),
     mc:_km('marketCap'),
-    ebitda:_km('ebitda')||0,
-    roic:_km('roic'),
-    roe:_km('roe'),
+    ebitda:_km('ebitda'),
+    roic:_km('roic','returnOnInvestedCapital'),
+    roe:_km('roe','returnOnEquity'),
     ic:_km('interestCoverage'),
     divYld:_km('dividendYield'),
-    fcfYld:_km('freeCashFlowYield'),
+    fcfYld:_km('freeCashFlowYield','fcfYield'),
     cfoPs:_km('operatingCashFlowPerShare'),
     fcfPs:_km('freeCashFlowPerShare'),
     bvPs:_km('bookValuePerShare'),
@@ -737,6 +737,27 @@ function render(){
   // Quality
   h+='<div style="background:'+qB+';border-radius:8px;padding:14px 16px;margin-bottom:12px;border:1px solid '+qC+'33"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--lb)">Quality Ratio</div><div style="font-size:28px;font-weight:800;font-family:var(--m);color:var(--br)">'+pc(c.qr)+'</div><div style="font-size:10px;color:var(--lb)">Adj FCF/EV '+pc(c.fy)+' + Rev CAGR '+pc(c.rc)+'</div></div><span class="bg" style="background:'+qC+'22;color:'+qC+'">'+qL+'</span></div></div>';
 
+  // ── DIVIDEND STATUS ──────────────────────────────────────
+  var _divArr=(d.divH||[]).filter(function(x){return x&&x.v>0;});
+  var _divKm=(d.kmH||[]).filter(function(k){return k&&k.divYld>0;});
+  var _isDivPayer=_divArr.length>0||_divKm.length>0;
+  if(_isDivPayer){
+    var _latDivYld=_divKm.length>0?_divKm[0].divYld:0;
+    var _divGrow=_divArr.length>=2&&_divArr[0].v>_divArr[_divArr.length-1].v;
+    h+='<div style="background:#0a1a0a;border:1px solid #22c55e44;border-radius:8px;padding:8px 12px;margin-bottom:12px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;font-size:11px">';
+    h+='<span style="color:var(--gn);font-weight:700">💰 Dividend Payer</span>';
+    if(_latDivYld>0)h+='<span style="color:var(--lb)">Current Yield: <b style="color:var(--gn)">'+pc(_latDivYld)+'</b></span>';
+    h+='<span style="color:var(--lb)">5Y History: ';
+    (d.divH||[]).slice(0,5).reverse().forEach(function(x){
+      h+='<span style="color:'+( x&&x.v>0?'var(--tl)':'var(--dm)')+'">'+( x&&x.v>0?D(x.v):'—')+'</span> ';
+    });
+    h+='</span>';
+    if(_divGrow)h+='<span style="color:var(--gn)">▲ Growing</span>';
+    h+='</div>';
+  }else{
+    h+='<div style="background:#0a0e18;border:1px solid var(--bd);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--dm)">No dividend — reinvests earnings or buys back stock.</div>';
+  }
+
   // ── PRICE CHART ───────────────────────────────────────────
   var _ph=ST.priceHist||[];
   h+='<div class="card"><div class="ci"><div class="cm">';
@@ -831,7 +852,7 @@ function render(){
       vmRow2('EV/EBITDA',function(k){return k.evEbitda;},_ttmEvEb,fmtXm,10,20,'<10x cheap, >20x expensive');
       vmRow2('EV/FCF',function(k){return k.evFcf||0;},_ttmEvFcf,fmtXm,15,30,'EV to free cash flow. <15x cheap');
       vmRow2('EV/CFO',function(k){return k.evCfo||0;},0,fmtXm,10,25,'EV to operating cash flow');
-      vmRow2('P/CFO',function(k){return k.mc&&k.cfoPs?k.mc/(k.cfoPs*1e6):0;},_ttmPCfo,fmtXm,10,20,'Price to cash from ops per share. <10x cheap');
+      vmRow2('P/CFO',function(k){return k.mc&&k.cfoPs&&k.cfoPs>0?k.mc/1e6/k.cfoPs:0;},_ttmPCfo,fmtXm,10,20,'Price to cash from ops per share. <10x cheap');
       vmRow2('P/S',function(k){return k.ps;},_ttmPs,fmtXm,2,5,'<2x cheap, >5x premium');
       vmRow2('P/B',function(k){return k.pb;},_ttmPb,fmtXm,1,3,'<1x below book value');
       vmRow2('ROIC',function(k){return k.roic;},0,fmtPm,0,0,'NOPAT ÷ Invested Capital. >25% = moat');
@@ -1471,6 +1492,24 @@ function render(){
     else if(_gm0>0.60)_gfs.push('✓ Gross margin '+pc(_gm0)+' — strong pricing power, likely moat.');
     if(_gm0>0&&_gm1>0&&_gm0<_gm1-0.05)_rfs.push('⚠ Gross margin compressed '+(((_gm0-_gm1)*100).toFixed(1))+'pp YoY — pricing pressure or cost inflation.');
     else if(_gm0>_gm1+0.02)_gfs.push('✓ Gross margin expanding — improving unit economics.');
+
+    // ── MANAGEMENT / KEY HOLDER CHANGES ──────────
+    // Check CEO field against known pattern changes
+    // We flag if company was recently formed (IPO < 3 years) or name suggests interim
+    var _ceoName=d.ceo||'';
+    if(_ceoName.toLowerCase().indexOf('interim')>=0||_ceoName.toLowerCase().indexOf('acting')>=0){
+      _rfs.push('⚠ Interim/Acting CEO ('+_ceoName+') — leadership transition in progress.');
+    }
+    // Flag recent IPO as management track record is short
+    if(d.ipoDate){
+      var _ipoYrN=parseInt((d.ipoDate||'').slice(0,4));
+      var _thisYr=new Date().getFullYear();
+      if(_ipoYrN>0&&_thisYr-_ipoYrN<=3){
+        _rfs.push('⚠ Company listed '+(_thisYr-_ipoYrN)+'yr ago — limited public track record for management.');
+      }
+    }
+    // Note: for real-time management/holder changes, check SEC 8-K filings or proxy statements
+    _gfs.push('ℹ Management: '+(d.ceo||'CEO data not available')+'. For recent changes, check SEC 8-K / proxy filings.');
 
     // ── QUALITY RATIO GAP ─────────────────────────
     if(c.qr<0.10)_rfs.push('⚠ Quality Ratio '+pc(c.qr)+' — both yield and growth are low. Avoid unless deep value thesis.');
