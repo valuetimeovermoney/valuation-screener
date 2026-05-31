@@ -1179,41 +1179,7 @@ function render(){
   // ── PATH TO 25% ──────────────────────────────────────────────
   h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="ct" style="color:var(--yw);margin-bottom:0">Path to 25% Annual Return</div><span class="tog'+(ST.showPath?' on':'')+'" onclick="togSection(\'Path\')">'+(ST.showPath?'▼ Hide':'▶ Expand')+'</span></div>';
   if(ST.showPath){
-    h+='<div style="font-size:11px;color:var(--lb);margin-bottom:10px;padding:8px;background:#0a0e18;border-radius:5px;border:1px solid var(--bd)">';
-    h+='Quality Ratio = <b>Adj FCF/EV '+pc(c.fy)+'</b> + <b>Rev CAGR '+pc(c.rc)+'</b> = <span style="font-family:var(--m);font-weight:700;color:'+(c.qr>=0.25?'var(--gn)':c.qr>=0.20?'var(--yw)':'var(--rd)')+'">'+pc(c.qr)+'</span> (target ≥25%)';
-    h+='</div>';
-    if(c.gap<=0){
-      h+='<div style="color:var(--gn);font-size:12px;padding:8px;border-radius:4px;background:#052e1644;border:1px solid var(--gn)44">✦ Already meets the 25% threshold — passes the quality screen.</div>';
-    } else {
-      var np2=c.sh>0&&(0.25-c.rc)>0?(c.af/(0.25-c.rc)-c.nd)/d.sh:null;
-      var reqGrowth=(0.25-c.fy)*100;
-      h+='<div style="font-size:11px;color:var(--lb);margin-bottom:10px">Gap to 25%: <span style="color:var(--yw);font-weight:700;font-family:var(--m)">'+(c.gap*100).toFixed(1)+'pp</span></div>';
-      h+='<div class="g2">';
-      h+='<div class="mc"><div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:6px">Via Lower Price</div>';
-      h+=(np2&&np2>0&&np2<d.p?
-        '<div style="font-size:20px;font-weight:800;font-family:var(--m);color:var(--yw)">'+pr(np2)+'</div><div style="font-size:10px;color:var(--dm);margin-top:2px">'+((np2-d.p)/d.p*100).toFixed(1)+'% from current '+pr(d.p)+'</div><div style="font-size:9px;color:var(--dm);margin-top:4px">Hold FCF flat, buy at this price to achieve 10% FCF/EV yield + current CAGR = 25%</div>'
-        :'<div style="font-size:10px;color:var(--dm)">Not achievable via price at current FCF level</div>');
-      h+='</div>';
-      h+='<div class="mc"><div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:6px">Via Higher Revenue Growth</div>';
-      h+='<div style="font-size:20px;font-weight:800;font-family:var(--m);color:var(--yw)">'+reqGrowth.toFixed(1)+'%</div>';
-      h+='<div style="font-size:10px;color:var(--dm);margin-top:2px">revenue CAGR needed (vs '+pc(c.rc)+' now)</div>';
-      h+='<div style="font-size:9px;color:var(--dm);margin-top:4px">Hold current price & FCF/EV yield, need this growth to reach 25%</div>';
-      h+='</div></div>';
-    }
-    // ── ANNUAL RETURN BREAKDOWN ──────────────────────────────
-    h+='<div style="border-top:1px solid var(--bd);padding-top:10px;margin-top:10px">';
-    h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:8px">Annual Return Breakdown</div>';
-
-    var peerMult=null;
-    if(ST.reMult==null)ST.reMult=c.evF5?Math.round(c.evF5*10)/10:c.evF3?Math.round(c.evF3*10)/10:15;
-    var reMultSrc=c.evF5?'5Y avg':c.evF3?'3Y avg':'15x default';
-    var reYrs=ST.reYrs||5;
-    var reMult=ST.reMult||15;
-    var curMult=c.evF||0;
-    var reRateAnn=curMult>0&&reMult>0?Math.pow(reMult/curMult,1/reYrs)-1:0;
-    var fcfYield=c.fy||0;
-
-    // Revenue growth options
+    // ── CURRENT STATUS ───────────────────────────────────
     if(ST.cagrMethod==null)ST.cagrMethod='5y';
     var _rvArr=(d.rv||[]).slice(0,5);
     var _yoy1=_rvArr.length>=2&&_rvArr[1].r>0?(_rvArr[0].r/_rvArr[1].r-1):0;
@@ -1223,55 +1189,167 @@ function render(){
     var _cagrOpts={'1y':_yoy1,'3y':_c3,'5y':_c5,'wtd':_wt};
     if(ST.cagrMethod==='custom'&&ST.cagrCustom!=null)_cagrOpts['custom']=ST.cagrCustom/100;
     var revGrowth=_cagrOpts[ST.cagrMethod]||_c5;
-    var totalAnn=fcfYield+revGrowth+reRateAnn;
-
-    // Store revGrowth globally so quality ratio can use it
     ST._revGrowth=revGrowth;
 
-    // ── Revenue growth selector (mobile-first, full width) ──
+    if(ST.reMult==null)ST.reMult=c.evF5?Math.round(c.evF5*10)/10:c.evF3?Math.round(c.evF3*10)/10:15;
+    var reMultSrc=c.evF5?'5Y avg':c.evF3?'3Y avg':'15x default';
+    var reYrs=ST.reYrs||5;var reMult=ST.reMult||15;var curMult=c.evF||0;
+    var reRateAnn=curMult>0&&reMult>0?Math.pow(reMult/curMult,1/reYrs)-1:0;
+    var fcfYield=c.fy||0;
+    var totalAnn=fcfYield+revGrowth+reRateAnn;
+
+    // Formula bar
+    h+='<div style="padding:10px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd);margin-bottom:10px">';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;margin-bottom:6px">';
+    h+='<span style="color:var(--dm)">FCF/EV <b style="color:var(--tl)">'+pc(fcfYield)+'</b></span>';
+    h+='<span style="color:var(--dm)">+ Growth <b style="color:var(--bl)">'+pc(revGrowth)+'</b></span>';
+    h+='<span style="color:var(--dm)">+ Re-rating <b style="color:'+(reRateAnn>0?'var(--gn)':'var(--rd)')+'">'+pc(reRateAnn)+'</b></span>';
+    h+='<span style="padding:2px 10px;border-radius:4px;background:'+(totalAnn>=0.25?'#052e1644':totalAnn>=0.15?'#42200644':'#450a0a44')+';border:1px solid '+(totalAnn>=0.25?'#22c55e44':totalAnn>=0.15?'#eab30844':'#ef444444')+'"><b style="color:'+(totalAnn>=0.25?'var(--gn)':totalAnn>=0.15?'var(--yw)':'var(--rd)')+'">= '+pc(totalAnn)+'</b></span>';
+    h+='</div>';
+    h+='<div style="font-size:9px;color:var(--dm)">Re-rating: ('+fx(reMult)+'÷'+fx(curMult)+')^(1/'+reYrs+')−1 = '+pc(reRateAnn)+'&nbsp;&nbsp;|&nbsp;&nbsp;Target ≥25%</div>';
+    h+='</div>';
+
+    // ── THREE PATHS ────────────────────────────────────────
+    h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:8px">Three Paths to 25%</div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">';
+
+    // Path 1: Via Price Drop
+    var np2=c.sh>0&&(0.25-revGrowth)>0?(c.af/(0.25-revGrowth)-c.nd)/d.sh:null;
+    var priceDrop=np2&&np2>0&&np2<d.p?(np2-d.p)/d.p:null;
+    h+='<div style="background:#0a0e18;border-radius:6px;padding:10px;border:1px solid var(--bd)">';
+    h+='<div style="font-size:9px;color:var(--dm);font-weight:700;margin-bottom:6px">① BUY AT LOWER PRICE</div>';
+    if(np2&&np2>0&&np2<d.p){
+      h+='<div style="font-size:18px;font-weight:800;font-family:var(--m);color:var(--yw)">'+pr(np2)+'</div>';
+      h+='<div style="font-size:10px;color:var(--rd);margin-top:2px">'+((priceDrop)*100).toFixed(1)+'% below current</div>';
+      h+='<div style="font-size:9px;color:var(--dm);margin-top:4px">FCF/EV hits 10% yield at this price, hitting 25% with '+pc(revGrowth)+' growth</div>';
+    }else{
+      h+='<div style="font-size:10px;color:var(--dm);margin-top:4px">Already priced for ≥10% yield at current FCF — no price drop needed</div>';
+    }
+    h+='</div>';
+
+    // Path 2: Via Growth Acceleration
+    var reqGrowth=0.25-fcfYield-reRateAnn;
+    h+='<div style="background:#0a0e18;border-radius:6px;padding:10px;border:1px solid var(--bd)">';
+    h+='<div style="font-size:9px;color:var(--dm);font-weight:700;margin-bottom:6px">② ACCELERATE GROWTH</div>';
+    h+='<div style="font-size:18px;font-weight:800;font-family:var(--m);color:var(--yw)">'+pc(Math.max(0,reqGrowth))+'</div>';
+    h+='<div style="font-size:10px;color:var(--dm);margin-top:2px">rev CAGR needed ('+pc(revGrowth)+' now)</div>';
+    h+='<div style="font-size:9px;color:var(--dm);margin-top:4px">Hold price & multiple, grow revenue faster</div>';
+    h+='</div>';
+
+    // Path 3: Via Multiple Expansion
+    var reqMult=curMult>0?curMult*Math.pow(1.25-fcfYield-revGrowth+1,reYrs):0;
+    var multGap=reqMult>0?reqMult-curMult:null;
+    h+='<div style="background:#0a0e18;border-radius:6px;padding:10px;border:1px solid var(--bd)">';
+    h+='<div style="font-size:9px;color:var(--dm);font-weight:700;margin-bottom:6px">③ MULTIPLE EXPANSION</div>';
+    h+='<div style="font-size:18px;font-weight:800;font-family:var(--m);color:var(--yw)">'+(reqMult>0?fx(reqMult):'—')+'</div>';
+    h+='<div style="font-size:10px;color:var(--dm);margin-top:2px">exit EV/FCF needed ('+fx(curMult)+' now)</div>';
+    h+='<div style="font-size:9px;color:var(--dm);margin-top:4px">Hold price & growth, market re-rates higher</div>';
+    h+='</div>';
+
+    h+='</div>';
+
+    // ── GROWTH SELECTOR ───────────────────────────────────
     h+='<div style="margin-bottom:10px;padding:8px 10px;background:var(--ib);border-radius:6px;border:1px solid var(--bd)">';
     h+='<div style="font-size:9px;color:var(--dm);font-weight:700;margin-bottom:6px">REVENUE GROWTH ASSUMPTION</div>';
     h+='<select id="cagrSel" onchange="ST.cagrMethod=this.value;render();" style="width:100%;background:var(--cd);border:1px solid var(--ibd);border-radius:4px;padding:8px;color:var(--br);font-size:14px;font-family:var(--m);outline:none;margin-bottom:6px;-webkit-appearance:auto">';
-    [{k:'1y',l:'Latest YoY: '+pc(_yoy1)},{k:'3y',l:'3Y CAGR: '+pc(_c3)},{k:'5y',l:'5Y CAGR: '+pc(_c5)},{k:'wtd',l:'Weighted Avg: '+pc(_wt)},{k:'custom',l:'Custom'}].forEach(function(o){
+    [{k:'1y',l:'Latest YoY: '+pc(_yoy1)},{k:'3y',l:'3Y CAGR: '+pc(_c3)},{k:'5y',l:'5Y CAGR: '+pc(_c5)},{k:'wtd',l:'Weighted Avg (40%/35%/25%): '+pc(_wt)},{k:'custom',l:'Custom...'}].forEach(function(o){
       h+='<option value="'+o.k+'"'+(ST.cagrMethod===o.k?' selected':'')+'>'+o.l+'</option>';
     });
     h+='</select>';
     if(ST.cagrMethod==='custom')h+='<input id="cagrCust" type="number" step="0.5" value="'+(ST.cagrCustom||10)+'" onchange="ST.cagrCustom=parseFloat(this.value)||10;render();" style="width:100%;background:var(--cd);border:1px solid var(--ibd);border-radius:4px;padding:8px;color:var(--br);font-size:16px;font-family:var(--m);outline:none;text-align:center;margin-top:4px;-webkit-appearance:none"/>%';
-    h+='<div style="font-size:9px;color:var(--dm);margin-top:4px">Selected: <b style="color:var(--bl)">'+pc(revGrowth)+'</b> — used in Quality Ratio and return calc below.</div>';
     h+='</div>';
 
-    // ── Return components (stacked for mobile) ──
-    h+='<div style="padding:10px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd);margin-bottom:10px">';
-    h+='<div style="display:flex;flex-wrap:wrap;gap:6px 20px;margin-bottom:8px;font-size:12px">';
-    h+='<div><span style="color:var(--dm)">Adj FCF/EV:</span> <b style="color:var(--tl)">'+pc(fcfYield)+'</b></div>';
-    h+='<div><span style="color:var(--dm)">+ Growth:</span> <b style="color:var(--bl)">'+pc(revGrowth)+'</b></div>';
-    h+='<div><span style="color:var(--dm)">+ Re-rating:</span> <b style="color:'+(reRateAnn>0.005?'var(--gn)':reRateAnn<-0.005?'var(--rd)':'var(--dm)')+'">'+pc(reRateAnn)+'</b></div>';
-    h+='<div style="padding:3px 8px;border-radius:4px;background:'+(totalAnn>=0.25?'#052e1644':totalAnn>=0.15?'#42200644':'#450a0a44')+'"><span style="color:var(--dm)">=</span> <b style="color:'+(totalAnn>=0.25?'var(--gn)':totalAnn>=0.15?'var(--yw)':'var(--rd)')+'">'+pc(totalAnn)+'</b></div>';
-    h+='</div>';
-
-    // Re-rating math derivation
-    h+='<div style="font-size:10px;color:var(--lb);line-height:1.7;padding-top:6px;border-top:1px solid var(--bd)">';
-    h+='<b>Re-rating math:</b> (Exit Multiple ÷ Current Multiple)<sup>1/years</sup> − 1<br>';
-    h+='= ('+fx(reMult)+' ÷ '+fx(curMult)+')<sup>1/'+reYrs+'</sup> − 1 = <b style="color:'+(reRateAnn>=0?'var(--gn)':'var(--rd)')+'">'+pc(reRateAnn)+'</b> per year';
-    if(reRateAnn>0.005)h+='<br><span style="color:var(--gn)">▲</span> Multiple below historical avg → tailwind if mean-reverts.';
-    else if(reRateAnn<-0.005)h+='<br><span style="color:var(--rd)">▼</span> Multiple above historical avg → headwind even if business executes.';
-    h+='</div></div>';
-
-    // ── Assumptions (2-column grid, stacks on mobile) ──
+    // ── EXIT MULTIPLE INPUTS ──────────────────────────────
     h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px">';
     h+='<div style="padding:8px;background:var(--ib);border-radius:5px;border:1px solid var(--bd)">';
-    h+='<div style="font-size:9px;color:var(--dm);font-weight:700;margin-bottom:6px">EXIT MULTIPLE</div>';
-    h+='<div style="margin-bottom:4px"><span style="color:var(--lb)">Current:</span> <b style="color:var(--br)">'+fx(curMult)+'</b></div>';
-    h+='<div style="margin-bottom:4px"><span style="color:var(--lb)">Exit:</span> <input id="reMult" type="number" step="0.5" value="'+reMult+'" onchange="ST.reMult=parseFloat(this.value)||15;render();" oninput="ST.reMult=parseFloat(this.value)||15;" style="width:70px;background:var(--cd);border:1px solid var(--ibd);border-radius:4px;padding:6px;color:var(--br);font-family:var(--m);font-size:16px;outline:none;text-align:right;-webkit-appearance:none"/>x</div>';
-    h+='<div><span style="color:var(--lb)">Over:</span> <input id="reYrs" type="number" step="1" min="1" max="10" value="'+reYrs+'" onchange="ST.reYrs=parseInt(this.value)||5;render();" oninput="ST.reYrs=parseInt(this.value)||5;" style="width:50px;background:var(--cd);border:1px solid var(--ibd);border-radius:4px;padding:6px;color:var(--br);font-family:var(--m);font-size:16px;outline:none;text-align:right;-webkit-appearance:none"/> yr</div>';
-    h+='<div style="font-size:9px;color:var(--dm);margin-top:4px">Default: '+reMultSrc+'</div>';
+    h+='<div style="font-size:9px;color:var(--dm);font-weight:700;margin-bottom:6px">EXIT MULTIPLE ASSUMPTION</div>';
+    h+='<div style="margin-bottom:6px"><span style="color:var(--lb)">Current:</span> <b>'+fx(curMult)+'</b></div>';
+    h+='<div style="margin-bottom:6px"><span style="color:var(--lb)">Exit:</span> <input id="reMult" type="number" step="0.5" value="'+reMult+'" onchange="ST.reMult=parseFloat(this.value)||15;render();" oninput="ST.reMult=parseFloat(this.value)||15;" style="width:65px;background:var(--cd);border:1px solid var(--ibd);border-radius:4px;padding:5px;color:var(--br);font-family:var(--m);font-size:15px;outline:none;text-align:right;-webkit-appearance:none"/>x over <input id="reYrs" type="number" step="1" min="1" max="10" value="'+reYrs+'" onchange="ST.reYrs=parseInt(this.value)||5;render();" oninput="ST.reYrs=parseInt(this.value)||5;" style="width:36px;background:var(--cd);border:1px solid var(--ibd);border-radius:4px;padding:5px;color:var(--br);font-family:var(--m);font-size:15px;outline:none;text-align:right;-webkit-appearance:none"/>yr</div>';
+    h+='<div style="font-size:9px;color:var(--dm)">Default: '+reMultSrc+'</div>';
     h+='</div>';
     h+='<div style="padding:8px;background:var(--ib);border-radius:5px;border:1px solid var(--bd)">';
-    h+='<div style="font-size:9px;color:var(--dm);font-weight:700;margin-bottom:6px">REFERENCE</div>';
-    h+='<div style="line-height:2">Current: <b>'+fx(curMult)+'</b><br>3Y Avg: '+fx(c.evF3)+'<br>5Y Avg: '+fx(c.evF5)+'<br>10Y Avg: '+fx(c.evF10)+'</div>';
+    h+='<div style="font-size:9px;color:var(--dm);font-weight:700;margin-bottom:6px">MULTIPLE REFERENCE</div>';
+    h+='<div style="font-size:10px;line-height:1.9">Current: <b>'+fx(curMult)+'</b><br>3Y Avg: <b>'+fx(c.evF3)+'</b><br>5Y Avg: <b>'+fx(c.evF5)+'</b><br>10Y Avg: <b>'+fx(c.evF10)+'</b></div>';
     h+='</div></div>';
   }
   h+='</div></div></div>';
+
+  // ── RISK FLAGS ────────────────────────────────────────────
+  h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="ct" style="color:var(--rd);margin-bottom:0">Risk Assessment</div><span class="tog'+(ST.showBS?' on':'')+'" onclick="ST.showBS=!ST.showBS;render();">'+(ST.showBS?'▼ Hide':'▶ Expand')+'</span></div>';
+  if(ST.showBS){
+    var _rfs=[],_gfs=[];
+
+    // ── DILUTION ─────────────────────────────────
+    var _soH5=(d.soH||[]).slice(0,5);
+    var _soDil5=(d.soHDil||[]).slice(0,5);
+    var _soCAGR=_soH5.length>=2&&_soH5[_soH5.length-1]&&_soH5[0]&&_soH5[0].v>0?cagr(_soH5[_soH5.length-1].v||1,_soH5[0].v||1,_soH5.length-1):null;
+    var _avgDilPct=null;
+    if(_soH5.length>0){
+      var _dilVals=_soH5.map(function(x,i){var d2=_soDil5[i];return x&&d2&&d2.v&&x.v>0?(d2.v-x.v)/x.v:null;}).filter(Boolean);
+      _avgDilPct=_dilVals.length?av(_dilVals):null;
+    }
+    if(_soCAGR>0.03)_rfs.push('⚠ Share count growing at '+pc(_soCAGR)+'/yr — diluting shareholders.');
+    else if(_soCAGR<-0.01)_gfs.push('✓ Share count shrinking ('+pc(_soCAGR)+'/yr) — buybacks reducing float.');
+    if(_avgDilPct>0.05)_rfs.push('⚠ Diluted shares exceed basic by '+pc(_avgDilPct)+' avg — watch option grants.');
+
+    // ── DEBT RISK ─────────────────────────────────
+    var _latBsR2=(d.bsH||[])[0]||{};
+    var _lDebt=(bvG(_latBsR2,'shortTermDebt','currentDebt')+bvG(_latBsR2,'longTermDebt'))/1e6;
+    var _lCash2=bvG(_latBsR2,'cashAndShortTermInvestments','cashAndCashEquivalents','cash')/1e6;
+    var _lStd=bvG(_latBsR2,'shortTermDebt','currentDebt')/1e6;
+    var _lLtd=bvG(_latBsR2,'longTermDebt')/1e6;
+    if(_lStd>0&&_lLtd>0&&_lStd/_lLtd>0.5)_rfs.push('⚠ Short-term debt ('+D(_lStd)+') is '+pc(_lStd/_lLtd)+' of long-term — near-term refinancing risk.');
+    if(_lDebt>0&&_lCash2>0&&_lDebt/_lCash2>3)_rfs.push('⚠ Debt ('+D(_lDebt)+') is '+(_lDebt/_lCash2).toFixed(1)+'x cash — limited liquidity buffer.');
+    if(_lCash2>_lDebt)_gfs.push('✓ Net cash position ('+D(_lCash2-_lDebt)+') — no refinancing risk.');
+
+    // ── SBC / DILUTION COST ───────────────────────
+    var _latRev2=(d.rv||[])[0]?d.rv[0].r:0;
+    var _latSbc2=(d.sbcH||[])[0]?d.sbcH[0].v:0;
+    var _sbcPct2=_latRev2>0?_latSbc2/_latRev2:0;
+    if(_sbcPct2>0.10)_rfs.push('⚠ SBC/Rev = '+pc(_sbcPct2)+' — high hidden dilution cost, FCF is overstated.');
+    else if(_sbcPct2<0.03&&_latSbc2>0)_gfs.push('✓ Low SBC/Rev ('+pc(_sbcPct2)+') — minimal hidden compensation cost.');
+
+    // ── FCF SUSTAINABILITY ────────────────────────
+    var _fcfTrend=(d.fcf||[]).slice(0,3).map(function(x){return x?x.v:null;}).filter(Boolean);
+    var _negFcf=_fcfTrend.filter(function(v){return v<0;}).length;
+    if(_negFcf>0)_rfs.push('⚠ '+_negFcf+' of last 3 years had negative Adj FCF — burn rate concern.');
+    if(_fcfTrend.length>=2&&_fcfTrend[0]>_fcfTrend[_fcfTrend.length-1])_gfs.push('✓ Adj FCF growing — improving cash generation.');
+    else if(_fcfTrend.length>=2&&_fcfTrend[0]<_fcfTrend[_fcfTrend.length-1]&&_fcfTrend[0]>0)_rfs.push('⚠ Adj FCF declining — check if structural or cyclical.');
+
+    // ── REVENUE CONCENTRATION PROXY ───────────────
+    var _gm0=(d.gm||[])[0]?d.gm[0].v:0;
+    var _gm1=(d.gm||[])[1]?d.gm[1].v:0;
+    if(_gm0<0.20)_rfs.push('⚠ Gross margin <20% — commodity-like pricing, limited moat.');
+    else if(_gm0>0.60)_gfs.push('✓ Gross margin '+pc(_gm0)+' — strong pricing power, likely moat.');
+    if(_gm0>0&&_gm1>0&&_gm0<_gm1-0.05)_rfs.push('⚠ Gross margin compressed '+(((_gm0-_gm1)*100).toFixed(1))+'pp YoY — pricing pressure or cost inflation.');
+    else if(_gm0>_gm1+0.02)_gfs.push('✓ Gross margin expanding — improving unit economics.');
+
+    // ── QUALITY RATIO GAP ─────────────────────────
+    if(c.qr<0.10)_rfs.push('⚠ Quality Ratio '+pc(c.qr)+' — both yield and growth are low. Avoid unless deep value thesis.');
+    else if(c.qr>=0.25)_gfs.push('✓ Quality Ratio '+pc(c.qr)+' — meets 25% return threshold on current metrics.');
+
+    // ── FCF YIELD CONTEXT ─────────────────────────
+    if(c.fy<0.03&&c.fy>0)_rfs.push('⚠ FCF/EV yield only '+pc(c.fy)+' — very expensive; needs exceptional growth to justify.');
+    else if(c.fy>=0.10)_gfs.push('✓ FCF/EV yield '+pc(c.fy)+' — strong earnings yield, good margin of safety.');
+
+    // Display
+    var totalFlags=_rfs.length+_gfs.length;
+    if(!totalFlags){h+='<div style="color:var(--dm);font-size:11px;padding:10px">No significant risk flags detected.</div>';}
+    else{
+      if(_gfs.length){
+        h+='<div style="font-size:9px;font-weight:700;color:var(--gn);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Green Flags ('+_gfs.length+')</div>';
+        h+='<div style="margin-bottom:10px">';
+        _gfs.forEach(function(f){h+='<div style="padding:6px 8px;background:#052e1622;border-left:3px solid var(--gn);margin-bottom:4px;font-size:11px;color:var(--lb);line-height:1.5">'+f+'</div>';});
+        h+='</div>';
+      }
+      if(_rfs.length){
+        h+='<div style="font-size:9px;font-weight:700;color:var(--rd);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Risk Flags ('+_rfs.length+')</div>';
+        _rfs.forEach(function(f){h+='<div style="padding:6px 8px;background:#45090922;border-left:3px solid var(--rd);margin-bottom:4px;font-size:11px;color:var(--lb);line-height:1.5">'+f+'</div>';});
+      }
+    }
+  }
+  h+='</div><div class="cs"><b class="s">Risk checks:</b><br><br>Share dilution >3%/yr<br>Debt maturity concentration<br>SBC >10% of revenue<br>FCF trend direction<br>Gross margin trend<br>FCF yield vs growth balance<br><br>🟢 Green = strength<br>🔴 Red = watch/concern</div></div></div>';
+
 
   
   h+='<div style="font-size:9px;color:#2a3040;padding-top:8px;border-top:1px solid var(--bd)">Quality ≥25% 🟢 | Adj FCF = CFO − SBC − Maint CapEx | Data: FMP (SEC 10-K) | <a href="/valuation-screener/valuation/" style="color:#4a5568">DCF & Valuation Model →</a></div>';
