@@ -1252,8 +1252,8 @@ function render(){
     // Commentary
     var cm2=[];
     if((ndArr[ndArr.length-1]||0)>0)cm2.push('✓ Net cash — self-funded, recession-proof.');
-    else if(_lDAF!=null&&_lDAF<2)cm2.push('✓ Debt manageable — <2yr FCF payoff.');
-    else if(_lDAF!=null&&_lDAF>4)cm2.push('⚠ Heavy debt ('+fx(_lDAF)+'yr). Refinancing risk.');
+    else if(_lDAF2!=null&&_lDAF2<2)cm2.push('✓ Debt manageable — <2yr FCF payoff.');
+    else if(_lDAF2!=null&&_lDAF2>4)cm2.push('⚠ Heavy debt ('+fx(_lDAF2)+'yr). Refinancing risk.');
     if(_icL!=null&&_icL>8)cm2.push('✓ Interest coverage '+fx(_icL)+' — fortress.');
     else if(_icL!=null&&_icL<3)cm2.push('⚠ Thin coverage ('+fx(_icL)+'x). Earnings drop = stress.');
     if(_lCR!=null&&_lCR<1)cm2.push('⚠ Current ratio below 1 — short-term liquidity risk.');
