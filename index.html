@@ -286,6 +286,11 @@ async function buildCo(tk){
 
   return{
     t:p.symbol||tk,n:p.companyName||tk,p:px,pd:new Date().toISOString().split('T')[0],
+    hq:(p.city&&p.country?p.city+', '+p.country:p.country||p.city||''),
+    ceo:p.ceo||'',
+    employees:p.fullTimeEmployees||0,
+    desc:(p.description||'').slice(0,300),
+    website:p.website||'',
     sh:mcap&&px?+(mcap/px/1e6).toFixed(1):0,
     ca:+((gf(bs0,'cashAndShortTermInvestments')||gf(bs0,'cashAndCashEquivalents'))/1e6).toFixed(1),
     de:+((gf(bs0,'shortTermDebt')+gf(bs0,'longTermDebt'))/1e6).toFixed(1),
@@ -1370,14 +1375,49 @@ function render(){
       if(_kmRecent&&_kmRecent.evFcf)_peerEVFCF=_kmRecent.evFcf;
     }
     h+='</div>';
-    // Sector peers info
+    // Company Info + Competitor Table
     h+='<div style="padding:8px;background:var(--ib);border-radius:5px;border:1px solid var(--bd)">';
     h+='<div style="font-size:9px;color:var(--dm);font-weight:700;margin-bottom:6px">COMPANY INFO</div>';
     h+='<div style="font-size:10px;line-height:1.9;color:var(--lb)">';
-    h+=d.sec?'Sector: <b>'+d.sec+'</b><br>':'';
-    h+=d.industry?'Industry: <b>'+d.industry+'</b><br>':'';
-    h+=d.exch?'Exchange: <b>'+d.exch+'</b><br>':'';
+    h+=d.sec?'<span style="color:var(--dm)">Sector:</span> <b>'+d.sec+'</b><br>':'';
+    h+=d.industry?'<span style="color:var(--dm)">Industry:</span> <b>'+d.industry+'</b><br>':'';
+    h+=d.exch?'<span style="color:var(--dm)">Exchange:</span> <b>'+d.exch+'</b><br>':'';
+    h+=d.hq?'<span style="color:var(--dm)">HQ:</span> <b>'+d.hq+'</b><br>':'';
+    h+=d.ceo?'<span style="color:var(--dm)">CEO:</span> <b>'+d.ceo+'</b><br>':'';
+    h+=d.employees?'<span style="color:var(--dm)">Employees:</span> <b>'+(d.employees>1000?(d.employees/1000).toFixed(1)+'K':d.employees)+'</b><br>':'';
+    if(d.desc)h+='<div style="font-size:9px;color:var(--dm);margin-top:4px;line-height:1.5">'+d.desc+(d.desc.length>=300?'…':'')+'</div>';
     h+='</div></div>';
+
+    // Competitor comparison table
+    if(ST.co&&ST.co.length>0){
+      h+='<div style="padding:8px;background:var(--ib);border-radius:5px;border:1px solid var(--bd);grid-column:1/-1">';
+      h+='<div style="font-size:9px;color:var(--dm);font-weight:700;margin-bottom:8px">PEER COMPARISON</div>';
+      h+='<div style="overflow-x:auto"><table class="t" style="margin-bottom:0"><thead><tr>';
+      h+='<th>Company</th><th>MCap</th><th>Rev</th><th>ROIC</th><th>P/E</th><th>EV/FCF</th><th>FCF Yld</th><th>Rev CAGR</th><th>QR</th></tr></thead><tbody>';
+      // Current company first
+      var _allCos=[d].concat(ST.co||[]);
+      _allCos.forEach(function(co,idx){
+        var cm=calcM(co);
+        var _isCurrent=idx===0;
+        var _bg=_isCurrent?'background:#0f172a':'';
+        h+='<tr style="'+_bg+'">';
+        h+='<td><b style="color:'+(_isCurrent?'var(--yw)':'var(--bl)')+'">'+co.t+'</b> <span style="font-size:9px;color:var(--dm)">'+co.n.slice(0,20)+'</span></td>';
+        h+='<td>'+D(cm.mc)+'</td>';
+        h+='<td>'+D((co.rv||[])[0]?(co.rv[0].r):null)+'</td>';
+        // ROIC from kmH
+        var _kmR=(co.kmH||[])[0];var _roicV=_kmR?_kmR.roic:null;
+        h+='<td style="color:'+(_roicV>0.25?'var(--gn)':_roicV>0.15?'var(--yw)':'var(--dm)')+'">'+(_roicV?pc(_roicV):'—')+'</td>';
+        // P/E from kmH or _pe
+        var _peV=co._pe||(_kmR?_kmR.pe:0);
+        h+='<td style="color:'+(_peV>0&&_peV<15?'var(--gn)':_peV>0&&_peV<25?'var(--yw)':'var(--dm)')+'">'+(_peV>0?_peV.toFixed(1)+'x':'—')+'</td>';
+        h+='<td style="color:'+(cm.evF>0&&cm.evF<20?'var(--gn)':cm.evF>0&&cm.evF<35?'var(--yw)':'var(--dm)')+'">'+( cm.evF>0?cm.evF.toFixed(1)+'x':'—')+'</td>';
+        h+='<td style="color:'+(cm.fy>=0.10?'var(--gn)':cm.fy>=0.05?'var(--yw)':'var(--dm)')+'">'+( cm.fy>0?pc(cm.fy):'—')+'</td>';
+        h+='<td style="color:'+(cm.rc>0.15?'var(--gn)':cm.rc>0.05?'var(--yw)':'var(--dm)')+'">'+pc(cm.rc)+'</td>';
+        h+='<td style="color:'+(cm.qr>=0.25?'var(--gn)':cm.qr>=0.15?'var(--yw)':'var(--rd)')+'"><b>'+pc(cm.qr)+'</b></td>';
+        h+='</tr>';
+      });
+      h+='</tbody></table></div></div>';
+    }
     h+='</div>';
   }
   h+='</div></div></div>';
