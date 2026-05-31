@@ -217,12 +217,13 @@ function calcM(d){
 }
 
 async function buildCo(tk){
-  var[prof,cfs,bss,incs,qIncs,qCfs]=await Promise.all([
+  var[prof,cfs,bss,incs,qIncs,qCfs,keyM]=await Promise.all([
     fmpFlex('profile?symbol='+tk),fmpFlex('cash-flow-statement?symbol='+tk+'&period=annual&limit=10'),
     fmpFlex('balance-sheet-statement?symbol='+tk+'&period=annual&limit=5'),
     fmpFlex('income-statement?symbol='+tk+'&period=annual&limit=10'),
     fmpFlex('income-statement?symbol='+tk+'&period=quarter&limit=4').catch(function(){return null;}),
     fmpFlex('cash-flow-statement?symbol='+tk+'&period=quarter&limit=4').catch(function(){return null;}),
+    fmpFlex('key-metrics?symbol='+tk+'&period=annual&limit=5').catch(function(){return null;}),
 ]);
   if(!prof||(Array.isArray(prof)&&prof.length===0)){throw new Error('No data found for '+tk+'. Try with exchange suffix (e.g. .TO for TSX, .L for London).');}
   var p=(Array.isArray(prof)?prof[0]:prof)||{};
@@ -250,6 +251,24 @@ async function buildCo(tk){
   var soH=(incA||[]).filter(Boolean).slice(0,5).map(function(y){var s=gf(y,'weightedAverageShsOut');if(!s)s=gf(y,'weightedAverageShsOutDil');return{y:yrOf(y),v:s>0?+(s/1e6).toFixed(1):null};});
 
   var fyEnd=cf0.date?(cf0.date.substring(5)):'';
+  var kmA=Array.isArray(keyM)?keyM:keyM?[keyM]:[];var km0=kmA[0]||{};
+  // Key metrics history for valuation table
+  var kmH=(kmA||[]).filter(Boolean).slice(0,5).map(function(y){return{
+    yr:yrOf(y),
+    pe:+gf(y,'peRatio','priceEarningsRatio'),
+    evEbitda:+gf(y,'enterpriseValueOverEBITDA','evToEbitda'),
+    ps:+gf(y,'priceToSalesRatio','priceToSalesTTM'),
+    pb:+gf(y,'pbRatio','priceToBookRatio'),
+    ev:+gf(y,'enterpriseValue'),
+    ebitda:+gf(y,'ebitda'),
+    roic:+gf(y,'roic'),
+    divYld:+gf(y,'dividendYield'),
+    fcfYld:+gf(y,'fcfYield','freeCashFlowYield'),
+  };});
+  // Diluted vs basic shares
+  var soHDil=(incA||[]).filter(Boolean).slice(0,5).map(function(y){
+    var s=gf(y,'weightedAverageShsOutDil');return{y:yrOf(y),v:s>0?+(s/1e6).toFixed(1):null};
+  });
 
   return{
     t:p.symbol||tk,n:p.companyName||tk,p:px,pd:new Date().toISOString().split('T')[0],
@@ -269,12 +288,17 @@ async function buildCo(tk){
     _bvps:+(gf(bs0,'totalStockholdersEquity')/1e6).toFixed(1),
     _bsLoaded:true,
     ipoDate:p.ipoDate||'',
+    _pe:+gf(p,'pe','priceEarningsRatioTTM')||0,
+    _ps:+(gf(p,'priceToSalesRatioTTM')||gf(km0,'priceToSalesRatio')||0),
+    _pb:+(gf(p,'priceToBookRatioTTM')||gf(km0,'pbRatio')||0),
+    _evEb:+(gf(km0,'enterpriseValueOverEBITDA','evToEbitda')||0),
     latQ:(qIncs&&qIncs[0])?qIncs[0].date||qIncs[0].period||'':'',
     qInc:Array.isArray(qIncs)?(qIncs||[]).filter(Boolean).slice(0,4):[],
     qCf:Array.isArray(qCfs)?(qCfs||[]).filter(Boolean).slice(0,4):[],
     cur:p.currency||'USD',
     // 5yr arrays for BS health table
     bsH:(bsA||[]).filter(Boolean).slice(0,5),
+    kmH:kmH,soHDil:soHDil,
     incH:(inc5||[]).map(function(y){return{
       yr:yrOf(y),
       rev:+(gf(y,'revenue')/1e6).toFixed(1),
@@ -700,6 +724,71 @@ function render(){
 
 
   // ── FINANCIAL HIGHLIGHTS TABLE ─────────────────────────────
+  // ── VALUATION MULTIPLES ──────────────────────────────────
+  h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--br)">Valuation Multiples</div>';
+  {
+    var kmH2=(d.kmH||[]).slice(0,5).reverse();
+    var _rvV=(d.rv||[]).slice(0,5).reverse();
+    var fsNiV=(d.ni||[]).slice(0,5).reverse();
+    // Current quick multiples from profile
+    var _pe=d._pe||0;var _ps=d._ps||0;var _pb=d._pb||0;var _evEb=d._evEb||0;
+    // Show quick current multiples
+    h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">';
+    var _qm=[
+      {l:'P/E',v:_pe,good:15,ok:25,fmt:function(v){return v>0?v.toFixed(1)+'x':'—';}},
+      {l:'EV/EBITDA',v:_evEb,good:10,ok:20,fmt:function(v){return v>0?v.toFixed(1)+'x':'—';}},
+      {l:'P/S',v:_ps,good:2,ok:5,fmt:function(v){return v>0?v.toFixed(1)+'x':'—';}},
+      {l:'P/B',v:_pb,good:1,ok:3,fmt:function(v){return v>0?v.toFixed(1)+'x':'—';}},
+    ];
+    _qm.forEach(function(m){
+      var col=m.v>0&&m.v<m.good?'var(--gn)':m.v>0&&m.v<m.ok?'var(--yw)':'var(--dm)';
+      h+='<div style="background:#0a0e18;border-radius:6px;padding:8px;border:1px solid var(--bd);text-align:center">';
+      h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:4px">'+m.l+'</div>';
+      h+='<div style="font-size:16px;font-weight:700;font-family:var(--m);color:'+col+'">'+m.fmt(m.v)+'</div>';
+      h+='</div>';
+    });
+    h+='</div>';
+    // 5-year multiples history table
+    if(kmH2.length>0){
+      h+='<div style="overflow-x:auto"><table class="t"><thead><tr><th></th>';
+      kmH2.forEach(function(k){h+='<th>'+k.yr+'</th>';});
+      h+='</tr></thead><tbody>';
+      // P/E
+      h+='<tr><td>P/E</td>';kmH2.forEach(function(k){var v=k.pe;h+='<td style="color:'+(v>0&&v<15?'var(--gn)':v>0&&v<25?'var(--yw)':'var(--dm)')+'">'+( v>0?v.toFixed(1)+'x':'—')+'</td>';});h+='</tr>';
+      // EV/EBITDA
+      h+='<tr><td>EV/EBITDA</td>';kmH2.forEach(function(k){var v=k.evEbitda;h+='<td style="color:'+(v>0&&v<10?'var(--gn)':v>0&&v<20?'var(--yw)':'var(--dm)')+'">'+( v>0?v.toFixed(1)+'x':'—')+'</td>';});h+='</tr>';
+      // EV/FCF (from our calc)
+      h+='<tr><td>EV/FCF</td>';
+      var _fcfV=(d.fcf||[]).slice(0,5).reverse();
+      _fcfV.forEach(function(x,i){
+        var km=kmH2[i];var ev2=km?km.ev/1e6:0;var fcf2=x?x.v:0;var v=ev2>0&&fcf2>0?ev2/fcf2:0;
+        h+='<td style="color:'+(v>0&&v<20?'var(--gn)':v>0&&v<35?'var(--yw)':'var(--dm)')+'">'+( v>0?v.toFixed(1)+'x':'—')+'</td>';
+      });h+='</tr>';
+      // P/S
+      h+='<tr><td>P/S</td>';kmH2.forEach(function(k){var v=k.ps;h+='<td>'+( v>0?v.toFixed(1)+'x':'—')+'</td>';});h+='</tr>';
+      // P/B
+      h+='<tr><td>P/B</td>';kmH2.forEach(function(k){var v=k.pb;h+='<td>'+( v>0?v.toFixed(1)+'x':'—')+'</td>';});h+='</tr>';
+      // Div Yield from key metrics
+      h+='<tr><td>Dividend Yield</td>';kmH2.forEach(function(k){var v=k.divYld;h+='<td style="color:'+(v>0.03?'var(--tl)':'var(--dm)')+'">'+( v>0?pc(v):'—')+'</td>';});h+='</tr>';
+      // ROIC from key metrics
+      h+='<tr><td>ROIC</td>';kmH2.forEach(function(k){var v=k.roic;h+='<td style="color:'+(v>0.25?'var(--gn)':v>0.15?'var(--yw)':'var(--dm)')+'">'+( v?pc(v):'—')+'</td>';});h+='</tr>';
+      h+='</tbody></table></div>';
+    }
+    // Dilution check
+    var _soBasic=(d.soH||[]).slice(0,5).reverse();
+    var _soDil=(d.soHDil||[]).slice(0,5).reverse();
+    var _dilArr=_soBasic.map(function(x,i){var d2=_soDil[i];return x&&x.v&&d2&&d2.v?d2.v-x.v:null;});
+    var _dilPct=_dilArr.map(function(v,i){var b=_soBasic[i];return v!=null&&b&&b.v>0?v/b.v:null;});
+    var _avgDil=av(_dilPct.filter(function(v){return v!=null;}));
+    h+='<div style="margin-top:8px;font-size:10px;color:var(--lb)">';
+    h+='<b>Share Dilution:</b> Options/warrants add <b style="color:'+(_avgDil>0.05?'var(--rd)':_avgDil>0.02?'var(--yw)':'var(--gn)')+'">'+pc(_avgDil)+'</b> of shares on average (diluted vs basic). ';
+    if(_avgDil>0.05)h+='<span style="color:var(--rd)">⚠ High dilution — check option grants.</span>';
+    else if(_avgDil>0.02)h+='<span style="color:var(--yw)">◐ Moderate dilution.</span>';
+    else h+='<span style="color:var(--gn)">✓ Minimal dilution.</span>';
+    h+='</div>';
+  }
+  h+='</div><div class="cs"><b class="s">Valuation context:</b><br><br><b>P/E:</b> 🟢 &lt;15x cheap<br><b>EV/EBITDA:</b> 🟢 &lt;10x<br><b>EV/FCF:</b> 🟢 &lt;20x<br><b>P/S:</b> 🟢 &lt;2x<br><br><b>Dilution:</b><br>🟢 &lt;2%/yr minimal<br>🟡 2-5%/yr watch<br>🔴 &gt;5%/yr concern</div></div></div>';
+
   h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--tl)">Financial Highlights (5 Years)</div>';
   {
     var fsMp=ST.mpOver!=null?ST.mpOver:(d.mp||50);
