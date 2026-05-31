@@ -253,17 +253,20 @@ async function buildCo(tk){
   var fyEnd=cf0.date?(cf0.date.substring(5)):'';
   var kmA=Array.isArray(keyM)?keyM:keyM?[keyM]:[];var km0=kmA[0]||{};
   // Key metrics history for valuation table
-  var kmH=(kmA||[]).filter(Boolean).slice(0,5).map(function(y){return{
-    yr:yrOf(y),
-    pe:+gf(y,'peRatio','priceEarningsRatio'),
-    evEbitda:+gf(y,'enterpriseValueOverEBITDA','evToEbitda'),
-    ps:+gf(y,'priceToSalesRatio','priceToSalesTTM'),
-    pb:+gf(y,'pbRatio','priceToBookRatio'),
-    ev:+gf(y,'enterpriseValue'),
-    ebitda:+gf(y,'ebitda'),
-    roic:+gf(y,'roic'),
-    divYld:+gf(y,'dividendYield'),
-    fcfYld:+gf(y,'fcfYield','freeCashFlowYield'),
+  var kmH=(kmA||[]).filter(Boolean).slice(0,5).map(function(y){
+    // FMP key-metrics uses: peRatio, evToEbitda, priceToSalesRatio, pbRatio, enterpriseValue, roic, dividendYield, fcfYield
+    function _km(){for(var i=0;i<arguments.length;i++){var v=y[arguments[i]];if(v!=null&&v!=0&&!isNaN(v))return+v;}return 0;}
+    return{
+    yr:yrOf(y)||y.date&&y.date.slice(0,4)||'',
+    pe:_km('peRatio','priceEarningsRatio','pe'),
+    evEbitda:_km('evToEbitda','enterpriseValueOverEBITDA','evEbitda','evToEBITDA'),
+    ps:_km('priceToSalesRatio','priceSales','ps'),
+    pb:_km('pbRatio','priceToBookRatio','pb'),
+    ev:_km('enterpriseValue'),
+    ebitda:_km('ebitda'),
+    roic:_km('roic','returnOnInvestedCapital'),
+    divYld:_km('dividendYield'),
+    fcfYld:_km('fcfYield','freeCashFlowYield'),
   };});
   // Diluted vs basic shares
   var soHDil=(incA||[]).filter(Boolean).slice(0,5).map(function(y){
@@ -288,10 +291,10 @@ async function buildCo(tk){
     _bvps:+(gf(bs0,'totalStockholdersEquity')/1e6).toFixed(1),
     _bsLoaded:true,
     ipoDate:p.ipoDate||'',
-    _pe:+gf(p,'pe','priceEarningsRatioTTM')||0,
-    _ps:+(gf(p,'priceToSalesRatioTTM')||gf(km0,'priceToSalesRatio')||0),
-    _pb:+(gf(p,'priceToBookRatioTTM')||gf(km0,'pbRatio')||0),
-    _evEb:+(gf(km0,'enterpriseValueOverEBITDA','evToEbitda')||0),
+    _pe:+(function(){var v=gf(km0,'peRatio','pe');return v?v:gf(p,'pe')||0;})(),
+    _ps:+(gf(km0,'priceToSalesRatio','priceSales')||0),
+    _pb:+(gf(km0,'pbRatio','priceToBookRatio')||0),
+    _evEb:+(gf(km0,'evToEbitda','enterpriseValueOverEBITDA','evEbitda')||0),
     latQ:(qIncs&&qIncs[0])?qIncs[0].date||qIncs[0].period||'':'',
     qInc:Array.isArray(qIncs)?(qIncs||[]).filter(Boolean).slice(0,4):[],
     qCf:Array.isArray(qCfs)?(qCfs||[]).filter(Boolean).slice(0,4):[],
@@ -579,6 +582,7 @@ function mkRo(lb,val,bold,op,bt){var oH=op?'<span style="margin-right:4px;font-w
 function bvG(o){for(var i=1;i<arguments.length;i++){var v=o[arguments[i]];if(v!=null&&v!==0)return+v;}return 0;}
 function bmG(o){return bvG.apply(null,arguments)/1e6;}
 function render(){
+  var _scrollY=window.scrollY||0;
   var _focId=document.activeElement?document.activeElement.id:null;
   var _focVal=document.activeElement?document.activeElement.value:null;
   var _focPos=document.activeElement&&document.activeElement.selectionStart!=null?document.activeElement.selectionStart:null;
@@ -789,7 +793,7 @@ function render(){
   }
   h+='</div><div class="cs"><b class="s">Valuation context:</b><br><br><b>P/E:</b> 🟢 &lt;15x cheap<br><b>EV/EBITDA:</b> 🟢 &lt;10x<br><b>EV/FCF:</b> 🟢 &lt;20x<br><b>P/S:</b> 🟢 &lt;2x<br><br><b>Dilution:</b><br>🟢 &lt;2%/yr minimal<br>🟡 2-5%/yr watch<br>🔴 &gt;5%/yr concern</div></div></div>';
 
-  h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--tl)">Financial Highlights (5 Years)</div>';
+  h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div class="ct" style="color:var(--tl);margin-bottom:0">Financial Highlights (5 Years)</div><span style="font-size:9px;color:var(--dm);cursor:pointer" onclick="ST.hlScroll=!ST.hlScroll;render();">'+( ST.hlScroll?'↕ Scroll':'📋 Scroll')+' table →</span></div>';
   {
     var fsMp=ST.mpOver!=null?ST.mpOver:(d.mp||50);
     var fsRv=(d.rv||[]).slice(0,5).reverse();
@@ -1354,6 +1358,7 @@ function render(){
   
   h+='<div style="font-size:9px;color:#2a3040;padding-top:8px;border-top:1px solid var(--bd)">Quality ≥25% 🟢 | Adj FCF = CFO − SBC − Maint CapEx | Data: FMP (SEC 10-K) | <a href="/valuation-screener/valuation/" style="color:#4a5568">DCF & Valuation Model →</a></div>';
   document.getElementById('out').innerHTML=h;
+  window.scrollTo(0,_scrollY);
   // Restore focus to prevent scroll jump
   if(_focId){var _el=document.getElementById(_focId);if(_el){_el.focus({preventScroll:true});if(_focVal!=null)_el.value=_focVal;if(_focPos!=null)try{_el.setSelectionRange(_focPos,_focPos);}catch(e){}}}
 }
