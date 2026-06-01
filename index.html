@@ -343,13 +343,13 @@ async function buildCo(tk){
     kmH:kmH,soHDil:soHDil,execList:execList,insiderList:insiderList,topHolders:topHolders,
     incH:(inc5||[]).map(function(y){
       // FMP field names vary: interestExpense, interestExpenseNet, nonOperatingInterestIncomeExpense
-      var _ie=Math.abs(gf(y,'interestExpense')||gf(y,'interestExpenseNet')||gf(y,'totalInterestExpense')||0);
+      var _ie=Math.abs(gf(y,'interestExpense')||gf(y,'interestExpenseNet')||gf(y,'totalInterestExpense')||gf(y,'netInterestIncome')||0);
       return{
       yr:yrOf(y),
       rev:+(gf(y,'revenue')/1e6).toFixed(1),
       gp:+(gf(y,'grossProfit')/1e6).toFixed(1),
-      ebit:+(gf(y,'operatingIncome','ebitda','ebit')/1e6).toFixed(1),
-      ebitda:+(gf(y,'ebitda')/1e6).toFixed(1),
+      ebit:+(gf(y,'operatingIncome','ebit')/1e6).toFixed(1),
+      ebitda:+(gf(y,'ebitda','ebitdaratio')/1e6).toFixed(1),
       intEx:+(_ie/1e6).toFixed(1),
       ni:+(gf(y,'netIncome')/1e6).toFixed(1),
       da:+(gf(y,'depreciationAndAmortization')/1e6).toFixed(1),
@@ -1224,7 +1224,7 @@ function render(){
     var _lDAF2=latFcfV2>0?(bv(latBsR,'shortTermDebt','currentDebt')+bv(latBsR,'longTermDebt'))/1e6/latFcfV2:null;
     h+='<td></td><td></td><td>'+(_lDAF2!=null?(_lDAF2<2?'✓ <2yr':_lDAF2<4?'◐ 2–4yr':'⚠ >4yr'):'—')+'</td></tr>';
     // Interest Coverage
-    h+='<tr><td style="font-weight:600">Interest Coverage (EBIT÷IntEx)</td>';
+    h+='<tr><td style="font-weight:600">Interest Coverage <span style="font-size:8px;color:var(--dm);font-weight:400">(EBIT÷IntEx · year shown below each)</span></td>';
     var _icL=null;
     incH2.forEach(function(y){
       // Try ebit first, then operatingIncome from raw income data
@@ -1239,7 +1239,9 @@ function render(){
     var _ttmIC=_ttmInc&&_ttmInc.intEx>0&&_ttmInc.ebit>0?_ttmInc.ebit/_ttmInc.intEx:null;
     if(_ttmIC)_icL=_ttmIC;
     h+='<td style="font-weight:600;color:'+(_icL!=null&&_icL>8?'var(--gn)':_icL!=null&&_icL>3?'var(--yw)':_icL!=null?'var(--rd)':'var(--dm)')+'">'+((_ttmIC)?_ttmIC.toFixed(1)+'x':'—')+'</td>';
-    h+='<td style="font-weight:600;color:'+(_icL!=null&&_icL>8?'var(--gn)':_icL!=null&&_icL>3?'var(--yw)':_icL!=null?'var(--rd)':'var(--dm)')+'">'+((_icL)?(_icL>8?'✓ Fortress':_icL>3?'◐ OK':'⚠ Thin'):'N/A')+'</td></tr>';
+    h+='<td style="font-weight:600;color:'+(_icL!=null&&_icL>8?'var(--gn)':_icL!=null&&_icL>3?'var(--yw)':_icL!=null?'var(--rd)':'var(--dm)')+'">'+((_icL)?(_icL>8?'✓ Fortress':_icL>3?'◐ OK':'⚠ Thin'):'—')+'</td></tr>';
+    h+='<tr style="font-size:8px"><td style="color:var(--dm);padding-left:8px">— = no interest expense (debt-free or not reported)</td>';
+    for(var _ici=0;_ici<hn3+3;_ici++)h+='<td></td>';h+='</tr>';
     // Solvency
     h+='<tr><td>Solvency (A/L)</td>';
     bsRaw.forEach(function(y){var ta2=bv(y,'totalAssets');var eq2=bv(y,'totalStockholdersEquity','totalEquity');var li=ta2-eq2;var s2=li>0?ta2/li:null;h+='<td style="color:'+(s2>2?'var(--gn)':s2>1.5?'var(--yw)':'var(--rd)')+'">'+pc(s2)+'</td>';});
