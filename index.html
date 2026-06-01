@@ -217,13 +217,16 @@ function calcM(d){
 }
 
 async function buildCo(tk){
-  var[prof,cfs,bss,incs,qIncs,qCfs,keyM]=await Promise.all([
+  var[prof,cfs,bss,incs,qIncs,qCfs,keyM,execs,insiders,instOwn]=await Promise.all([
     fmpFlex('profile?symbol='+tk),fmpFlex('cash-flow-statement?symbol='+tk+'&period=annual&limit=10'),
     fmpFlex('balance-sheet-statement?symbol='+tk+'&period=annual&limit=5'),
     fmpFlex('income-statement?symbol='+tk+'&period=annual&limit=10'),
     fmpFlex('income-statement?symbol='+tk+'&period=quarter&limit=4').catch(function(){return null;}),
     fmpFlex('cash-flow-statement?symbol='+tk+'&period=quarter&limit=4').catch(function(){return null;}),
     fmpFlex('key-metrics?symbol='+tk+'&period=annual&limit=5').catch(function(){return null;}),
+    fmpFlex('key-executives?symbol='+tk).catch(function(){return null;}),
+    fmpFlex('insider-trading?symbol='+tk+'&limit=10').catch(function(){return null;}),
+    fmpFlex('institutional-ownership?symbol='+tk+'&limit=1').catch(function(){return null;}),
 ]);
   if(!prof||(Array.isArray(prof)&&prof.length===0)){throw new Error('No data found for '+tk+'. Try with exchange suffix (e.g. .TO for TSX, .L for London).');}
   var p=(Array.isArray(prof)?prof[0]:prof)||{};
@@ -251,6 +254,25 @@ async function buildCo(tk){
   var soH=(incA||[]).filter(Boolean).slice(0,5).map(function(y){var s=gf(y,'weightedAverageShsOut');if(!s)s=gf(y,'weightedAverageShsOutDil');return{y:yrOf(y),v:s>0?+(s/1e6).toFixed(1):null};});
 
   var fyEnd=cf0.date?(cf0.date.substring(5)):'';
+  // Executives
+  var execA=Array.isArray(execs)?execs:[];
+  var execList=(execA||[]).slice(0,6).map(function(e){return{
+    name:e.name||'',title:e.title||e.titleSince||'',pay:e.pay||0,
+    since:e.yearBorn||0
+  };});
+  // Insider transactions (last 10)
+  var insiderA=Array.isArray(insiders)?insiders:(insiders&&insiders.data?insiders.data:[]);
+  var insiderList=(insiderA||[]).slice(0,8).map(function(x){return{
+    name:x.reportingName||x.name||'',title:x.typeOfOwner||'',
+    type:x.transactionType||x.acquistionOrDisposition||'',
+    shares:x.securitiesTransacted||0,price:x.price||0,
+    date:x.transactionDate||x.filingDate||''
+  };});
+  // Institutional ownership
+  var instA=Array.isArray(instOwn)?instOwn:(instOwn&&instOwn[0]?[instOwn[0]]:[]);
+  var instData=instA[0]||null;
+  var topHolders=instData&&instData.institutionalOwnership?(instData.institutionalOwnership||[]).slice(0,5):
+    instData&&instData.holders?(instData.holders||[]).slice(0,5):[];
   var kmA=Array.isArray(keyM)?keyM:keyM?[keyM]:[];var km0=kmA[0]||{};
   // Key metrics history for valuation table
   var kmH=(kmA||[]).filter(Boolean).slice(0,5).map(function(y){
@@ -317,7 +339,7 @@ async function buildCo(tk){
     cur:p.currency||'USD',
     // 5yr arrays for BS health table
     bsH:(bsA||[]).filter(Boolean).slice(0,5),
-    kmH:kmH,soHDil:soHDil,
+    kmH:kmH,soHDil:soHDil,execList:execList,insiderList:insiderList,topHolders:topHolders,
     incH:(inc5||[]).map(function(y){
       // FMP field names vary: interestExpense, interestExpenseNet, nonOperatingInterestIncomeExpense
       var _ie=Math.abs(gf(y,'interestExpense')||gf(y,'interestExpenseNet')||gf(y,'totalInterestExpense')||0);
@@ -1496,10 +1518,16 @@ function render(){
     // ── MANAGEMENT / KEY HOLDER CHANGES ──────────
     // Check CEO field against known pattern changes
     // We flag if company was recently formed (IPO < 3 years) or name suggests interim
-    var _ceoName=d.ceo||'';
+    var _ceoName=d.ceo||((d.execList||[]).find(function(e){return e.title&&e.title.toLowerCase().indexOf('chief executive')>=0;})||{}).name||'';
     if(_ceoName.toLowerCase().indexOf('interim')>=0||_ceoName.toLowerCase().indexOf('acting')>=0){
       _rfs.push('⚠ Interim/Acting CEO ('+_ceoName+') — leadership transition in progress.');
     }
+    // Insider sell signal
+    var _insL2=d.insiderList||[];
+    var _insB2=(_insL2||[]).filter(function(x){return x.type&&(x.type.toLowerCase().indexOf('purchase')>=0||x.type==='P'||x.type==='A');}).length;
+    var _insS2=(_insL2||[]).filter(function(x){return x.type&&(x.type.toLowerCase().indexOf('sale')>=0||x.type==='S'||x.type==='D');}).length;
+    if(_insS2>0&&_insS2>_insB2)_rfs.push('⚠ Insiders selling — '+_insS2+' sell transaction'+(   _insS2>1?'s':'')+' vs '+_insB2+' buy'+(   _insB2!==1?'s':'')+' recently.');
+    else if(_insB2>0&&_insB2>=_insS2)_gfs.push('✓ Insiders buying — '+_insB2+' purchase'+(   _insB2>1?'s':'')+' recently. Management has skin in the game.');
     // Flag recent IPO as management track record is short
     if(d.ipoDate){
       var _ipoYrN=parseInt((d.ipoDate||'').slice(0,4));
