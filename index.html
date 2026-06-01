@@ -937,7 +937,7 @@ function render(){
   }
   h+='</div><div class="cs"><b class="s">Valuation context:</b><br><br><b>P/E:</b> 🟢 &lt;15x cheap<br><b>EV/EBITDA:</b> 🟢 &lt;10x<br><b>EV/FCF:</b> 🟢 &lt;20x<br><b>P/S:</b> 🟢 &lt;2x<br><br><b>Dilution:</b><br>🟢 &lt;2%/yr minimal<br>🟡 2-5%/yr watch<br>🔴 &gt;5%/yr concern</div></div></div>';
 
-  h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div class="ct" style="color:var(--tl);margin-bottom:0">Financial Highlights (5 Years)</div><span style="font-size:9px;color:var(--dm);cursor:pointer" onclick="ST.hlScroll=!ST.hlScroll;render();">'+( ST.hlScroll?'↕ Scroll':'📋 Scroll')+' table →</span></div>';
+  h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div class="ct" style="color:var(--tl);margin-bottom:0">Financial Highlights (5 Years)'+curNote()+'</div><span style="font-size:9px;color:var(--dm);cursor:pointer" onclick="ST.hlScroll=!ST.hlScroll;render();">'+( ST.hlScroll?'↕ Scroll':'📋 Scroll')+' table →</span></div>';
   {
     var fsMp=ST.mpOver!=null?ST.mpOver:(d.mp||50);
     var fsRv=(d.rv||[]).slice(0,5).reverse();
@@ -1162,10 +1162,6 @@ function render(){
     secH('Equity');
     bsRow('Retained Earnings',function(y){return bm(y,'retainedEarnings');});
     bsRow('Total Equity',function(y){return bm(y,'totalStockholdersEquity','totalEquity');},true);
-    // Working Capital
-    h+='<tr><td style="font-weight:600">Working Capital (CA−CL)</td>';
-    bsRaw.forEach(function(y){var wc=(bv(y,'totalCurrentAssets')-bv(y,'totalCurrentLiabilities'))/1e6;h+='<td style="font-weight:600;color:'+(wc>0?'var(--gn)':'var(--rd)')+'">'+D(wc)+'</td>';});
-    h+='<td></td><td></td><td></td></tr>';
     // TBV
     h+='<tr><td>Tangible Book Value</td>';
     bsRaw.forEach(function(y){var eq=bm(y,'totalStockholdersEquity','totalEquity');var ig=bm(y,'goodwillAndIntangibleAssets')||(bm(y,'goodwill')+bm(y,'intangibleAssets'));h+='<td style="color:'+(eq-ig>0?'':'var(--rd)')+'">'+D(eq-ig)+'</td>';});
@@ -1186,6 +1182,11 @@ function render(){
     var ndCg=ndArr.length>=3&&ndArr[0]!==0?cagr(Math.abs(ndArr[0])||1,Math.abs(ndArr[ndArr.length-1])||1,ndArr.length-1):null;
     h+='<td style="color:var(--lb)">'+D(ndAvg)+'</td><td></td>';
     h+='<td style="color:'+(ndArr[ndArr.length-1]>0?'var(--gn)':'var(--rd)')+'">'+((ndArr[ndArr.length-1]||0)>0?'✓ Net Cash':'⚠ Net Debt')+(ndUp?' ↑':' ↓')+'</td></tr>';
+    // Working Capital
+    h+='<tr><td style="font-weight:600">Working Capital (CA−CL)</td>';
+    bsRaw.forEach(function(y){var wc=(bv(y,'totalCurrentAssets')-bv(y,'totalCurrentLiabilities'))/1e6;h+='<td style="font-weight:600;color:'+(wc>0?'var(--gn)':'var(--rd)')+'">'+D(wc)+'</td>';});
+    var _latWC=bsRaw.length?(bv(bsRaw[bsRaw.length-1],'totalCurrentAssets')-bv(bsRaw[bsRaw.length-1],'totalCurrentLiabilities'))/1e6:null;
+    h+='<td></td><td></td><td style="color:'+(_latWC>0?'var(--gn)':'var(--rd)')+'">'+(_latWC>0?'✓ Positive':'⚠ Negative')+'</td></tr>';
     // Current Ratio
     h+='<tr><td>Current Ratio <span style="font-size:8px;color:var(--dm)">(Curr.Assets÷Curr.Liab)</span></td>';
     bsRaw.forEach(function(y){var cr=bv(y,'totalCurrentLiabilities')>0?bv(y,'totalCurrentAssets')/bv(y,'totalCurrentLiabilities'):null;h+='<td style="color:'+(cr>1.5?'var(--gn)':cr>1?'var(--yw)':'var(--rd)')+'">'+pc(cr)+'</td>';});
