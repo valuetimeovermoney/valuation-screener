@@ -192,51 +192,6 @@ async function buildCo(tk){
     af:af0,ev:ev,fy2:fy,rc:rc,nd:nd0,a3f:a3f,a5f:a5f,
     sec:sec,exch:p.exchangeFullName||p.exchange||'',industry:p.industry||'',
     _tbv:+(Math.max(0,(gf(bs0,'totalStockholdersEquity')-gf(bs0,'goodwillAndIntangibleAssets')-gf(bs0,'intangibleAssets')))/1e6).toFixed(1),
-    waccData:(function(){
-      var inc0=incA[0]||{},rfr=0.043,erp=0.046,betaV=+(p.beta||1.0),ke=rfr+betaV*erp;
-      var grossDebtM=(+(gf(bs0,'longTermDebt'))++(gf(bs0,'shortTermDebt')))/1e6;
-      var cashEqM=(+(gf(bs0,'cashAndCashEquivalents'))++(gf(bs0,'shortTermInvestments')))/1e6;
-      var intExpM=Math.abs(gf(inc0,'interestExpense'))/1e6;
-      var kdPre=grossDebtM>0?intExpM/grossDebtM:0;
-      var preTaxI=gf(inc0,'incomeBeforeTax'),taxExpI=gf(inc0,'incomeTaxExpense');
-      var taxRateI=preTaxI>0?Math.max(0,Math.min(0.35,taxExpI/preTaxI)):0.21;
-      var kdPost=kdPre*(1-taxRateI);
-      var mktCapM2=(mcap||0)/1e6,totCapM2=mktCapM2+grossDebtM;
-      var weI=totCapM2>0?mktCapM2/totCapM2:1,wdI=totCapM2>0?grossDebtM/totCapM2:0;
-      var waccI=weI*ke+wdI*kdPost;
-      var ebitM=gf(inc0,'operatingIncome')/1e6,nopatM=ebitM*(1-taxRateI);
-      var icM=(gf(bs0,'totalStockholdersEquity')/1e6)+grossDebtM-cashEqM;
-      var roicI=icM>0?nopatM/icM:null;
-      return{rfr:rfr,erp:erp,beta:betaV,ke:ke,grossDebt:grossDebtM,cashEq:cashEqM,
-        intExp:intExpM,kdPre:kdPre,taxRate:taxRateI,kdPost:kdPost,we:weI,wd:wdI,wacc:waccI,roic:roicI};
-    })(),
-    qflags:(function(){
-      var inc0=incA[0]||{},flags=[];
-      var grossDebtM=(+(gf(bs0,'longTermDebt'))++(gf(bs0,'shortTermDebt')))/1e6;
-      var cashEqM=(+(gf(bs0,'cashAndCashEquivalents'))++(gf(bs0,'shortTermInvestments')))/1e6;
-      var preTaxI=gf(inc0,'incomeBeforeTax'),taxExpI=gf(inc0,'incomeTaxExpense');
-      var taxRateI=preTaxI>0?Math.max(0,Math.min(0.35,taxExpI/preTaxI)):0.21;
-      var intExpM=Math.abs(gf(inc0,'interestExpense'))/1e6;
-      var kdPre=grossDebtM>0?intExpM/grossDebtM:0;
-      var kdPost=kdPre*(1-taxRateI);
-      var mktCapM2=(mcap||0)/1e6,totCapM2=mktCapM2+grossDebtM;
-      var weI=totCapM2>0?mktCapM2/totCapM2:1,wdI=totCapM2>0?grossDebtM/totCapM2:0;
-      var rfr=0.043,erp=0.046,betaV=+(p.beta||1.0),ke=rfr+betaV*erp;
-      var waccI=weI*ke+wdI*kdPost;
-      var ebitM=gf(inc0,'operatingIncome')/1e6,nopatM=ebitM*(1-taxRateI);
-      var icM=(gf(bs0,'totalStockholdersEquity')/1e6)+grossDebtM-cashEqM;
-      var roicI=icM>0?nopatM/icM:null;
-      var niM=gf(inc0,'netIncome')/1e6;
-      var fcf0M=cfA.length&&cfA[0]?+((gf(cfA[0],'operatingCashFlow')-gf(cfA[0],'stockBasedCompensation')-Math.abs(gf(cfA[0],'capitalExpenditure'))*(isL?0.5:0.7))/1e6).toFixed(1):0;
-      var fcfConvI=niM>0?fcf0M/niM:null;
-      var ebitdaM=gf(inc0,'ebitda')/1e6||ebitM,ndM=grossDebtM-cashEqM;
-      if(roicI!=null&&roicI-waccI>0.02)flags.push({t:'ok',m:'ROIC ('+(roicI*100).toFixed(1)+'%) exceeds WACC ('+(waccI*100).toFixed(1)+'%) — value creating'});
-      if(roicI!=null&&roicI-waccI<-0.02)flags.push({t:'bad',m:'ROIC ('+(roicI*100).toFixed(1)+'%) below WACC ('+(waccI*100).toFixed(1)+'%) — destroying capital'});
-      if(fcfConvI!=null&&fcfConvI<0.7)flags.push({t:'warn',m:'FCF conversion '+(fcfConvI*100).toFixed(0)+'% < 70% — earnings quality concern'});
-      if(fcfConvI!=null&&fcfConvI>=0.9)flags.push({t:'ok',m:'FCF conversion '+(fcfConvI*100).toFixed(0)+'% — strong earnings quality'});
-      if(ebitdaM>0&&ndM/ebitdaM>4)flags.push({t:'bad',m:'Net leverage '+(ndM/ebitdaM).toFixed(1)+'x > 4x EBITDA — elevated credit risk'});
-      return flags;
-    })(),
   };
 }
 
@@ -495,79 +450,7 @@ function render(){
   }
   h+='</div><div class="cs"><b class="s">Three valuation lenses:</b><br><br><b>M1 FCF Yield:</b> Current EV divided by shares. Represents what you\'re paying for today\'s cash generation.<br><br><b>M2 DCF:</b> Discounted future FCF + terminal value. Forward-looking, sensitive to growth assumptions.<br><br><b>M3 Book Value:</b> Tangible asset floor. Most relevant for capital-heavy businesses.<br><br><b class="s">Margin of Safety bands:</b><br>🟢 ≥100% ready<br>🟡 50–100% watch<br>🔴 &lt;50% avoid</div></div></div>';
 
-
-  // ── WACC ─────────────────────────────────────────────────────────────────
-  var w=d.waccData;
-  if(w){
-    function wr2(lbl,val,src){return '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid var(--ib);font-size:11px"><span style="color:var(--lb)">'+lbl+'</span><span><b style="font-family:var(--m);color:var(--br)">'+val+'</b>'+(src?'<span style="font-size:9px;color:var(--dm);margin-left:5px">['+src+']</span>':'')+'</span></div>';}
-    h+='<div class="card"><div class="ci"><div class="cm"><div class="ct">WACC — Full Build</div>';
-    h+=wr2('Risk-Free Rate (10Y UST)',pc(w.rfr),'US Treasury 10Y');
-    h+=wr2('Equity Risk Premium',pc(w.erp),'Damodaran Jan 2024');
-    h+=wr2('Beta (5Y monthly)',w.beta.toFixed(2),'FMP stable/profile');
-    h+=wr2('Cost of Equity (Ke = Rf + β×ERP)',pc(w.ke),'CAPM');
-    h+='<div style="height:1px;background:var(--bd);margin:6px 0"></div>';
-    h+=wr2('Gross Debt',D(w.grossDebt),'FMP balance-sheet [LT+ST]');
-    h+=wr2('Interest Expense',D(w.intExp),'FMP income-statement');
-    h+=wr2('Pre-tax Cost of Debt',pc(w.kdPre),'Calc: Interest÷Debt');
-    h+=wr2('Effective Tax Rate',pc(w.taxRate),'Calc: Tax÷Pre-tax Income');
-    h+=wr2('After-tax Cost of Debt (Kd)',pc(w.kdPost),'Calc: Kd×(1−T)');
-    h+='<div style="height:1px;background:var(--bd);margin:6px 0"></div>';
-    h+=wr2('Equity Weight (E/V)',pc(w.we),'MktCap÷(MktCap+Debt)');
-    h+=wr2('Debt Weight (D/V)',pc(w.wd),'Debt÷(MktCap+Debt)');
-    h+='<div style="margin-top:8px;padding:8px 12px;background:#0a0e18;border-radius:5px;border:1px solid var(--bd);display:flex;align-items:center;gap:12px">';
-    h+='<span style="font-size:11px;color:var(--dm)">WACC =</span>';
-    h+='<span style="font-family:var(--m);font-size:18px;font-weight:800;color:var(--bl)">'+pc(w.wacc)+'</span>';
-    h+='<span style="font-size:9px;color:var(--dm)">('+pc(w.we)+'×'+pc(w.ke)+') + ('+pc(w.wd)+'×'+pc(w.kdPost)+')</span></div>';
-    if(w.roic!=null){h+=wr2('ROIC',pc(w.roic),'NOPAT÷Invested Capital');h+=wr2('ROIC − WACC',pc(w.roic-w.wacc),'Positive = value creating');}
-    h+='</div><div class="cs"><b class="s">Sources:</b><br><br>Rf: 10Y UST (4.3% fallback).<br><br>ERP: Damodaran Jan 2024 (4.6%).<br><br>Beta: FMP 5Y monthly.<br><br>Kd: actual interest÷gross debt.<br><br>Tax: effective rate from IS.</div></div></div>';
-  }
-
-  // ── QUALITY FLAGS ─────────────────────────────────────────────────────────
-  if(d.qflags&&d.qflags.length){
-    var qc={ok:'var(--gn)',warn:'var(--yw)',bad:'var(--rd)'},qi={ok:'✓',warn:'⚠',bad:'✗'};
-    h+='<div class="card"><div style="padding:12px 16px"><div class="ct">Quality Flags</div>';
-    d.qflags.forEach(function(f){h+='<div style="padding:6px 10px;margin-bottom:5px;border-radius:5px;background:'+qc[f.t]+'18;border:1px solid '+qc[f.t]+'44;color:'+qc[f.t]+';font-size:12px;display:flex;gap:8px"><span>'+qi[f.t]+'</span><span>'+f.m+'</span></div>';});
-    h+='</div></div>';
-  }
-
-  // ── SENSITIVITY ───────────────────────────────────────────────────────────
-  var dcfSens=calcDCF();
-  if(w&&dcfSens&&dcfSens.pFcf){
-    var wB=w.wacc,wArr=[wB-0.02,wB-0.01,wB,wB+0.01,wB+0.02],tArr=[0.01,0.015,0.02,0.025,0.03];
-    h+='<div class="card"><div style="padding:12px 16px"><div class="ct">DCF Sensitivity — Intrinsic Value / Share</div>';
-    h+='<div style="font-size:9px;color:var(--dm);margin-bottom:8px">WACC (cols) × Terminal Growth (rows). <span style="color:var(--gn)">Green</span> = above current '+pr(d.p)+'</div>';
-    h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:11px;font-family:var(--m);width:100%"><thead><tr>';
-    h+='<th style="background:var(--ib);color:var(--dm);padding:4px 8px;border:1px solid var(--bd)">g \ WACC</th>';
-    wArr.forEach(function(ww){h+='<th style="background:var(--ib);color:var(--bl);padding:4px 8px;border:1px solid var(--bd);text-align:center">'+(ww*100).toFixed(1)+'%</th>';});
-    h+='</tr></thead><tbody>';
-    tArr.forEach(function(g){
-      h+='<tr><td style="background:var(--ib);color:var(--bl);padding:4px 8px;border:1px solid var(--bd);text-align:center">'+(g*100).toFixed(1)+'%</td>';
-      wArr.forEach(function(ww){
-        if(ww<=g){h+='<td style="padding:4px 8px;border:1px solid var(--bd);text-align:center;color:var(--dm)">N/A</td>';return;}
-        var pv5=0;
-        for(var i=0;i<5;i++){pv5+=dcfSens.pFcf[i]/Math.pow(1+ww,i+1);}
-        var tv=(dcfSens.pFcf[4]*(1+g))/(ww-g);
-        var pvtv=tv/Math.pow(1+ww,5);
-        var nd2=d.de-d.ca,sh2=ST.dcf['sh5']||d.sh;
-        var iv2=sh2>0?(pv5+pvtv-nd2)/sh2:0;
-        var col=iv2>d.p?'var(--gn)':iv2<0?'var(--rd)':'var(--br)';
-        var bg=iv2>d.p?'rgba(34,197,94,0.1)':iv2<0?'rgba(239,68,68,0.1)':'var(--ib)';
-        h+='<td style="padding:4px 8px;border:1px solid var(--bd);text-align:center;background:'+bg+';color:'+col+'">'+pr(iv2)+'</td>';
-      });
-      h+='</tr>';
-    });
-    h+='</tbody></table></div></div></div>';
-  }
-
-  // ── AI ANALYST ────────────────────────────────────────────────────────────
-  h+='<div class="card"><div style="padding:12px 16px"><div class="ct">AI Analyst (Claude)</div>';
-  h+='<div style="font-size:10px;color:var(--dm);margin-bottom:10px">Opinion based strictly on sourced data — no hallucinated figures.</div>';
-  h+='<button id="aibtn" onclick="runAI()" style="background:linear-gradient(135deg,var(--bl),var(--pu));border:none;border-radius:6px;padding:8px 18px;color:#fff;font-weight:700;font-size:12px;cursor:pointer;font-family:var(--f)">Run AI Analyst</button>';
-  h+='<div id="aiout" style="margin-top:12px;font-size:12px;color:#cbd5e1;line-height:1.8;white-space:pre-wrap"></div>';
-  h+='</div></div>';
-
-  
-    h+='<div style="font-size:9px;color:#2a3040;padding-top:8px;border-top:1px solid var(--bd)">Adj FCF = CFO − SBC − Maint CapEx · EV = MCap + Net Debt · Data: FMP (SEC 10-K) · <a href="https://valuetimeovermoney.github.io/valuation-screener/" style="color:var(--dm)">← Back to Screener</a></div>';
+  h+='<div style="font-size:9px;color:#2a3040;padding-top:8px;border-top:1px solid var(--bd)">Adj FCF = CFO − SBC − Maint CapEx · EV = MCap + Net Debt · Data: FMP (SEC 10-K) · <a href="https://valuetimeovermoney.github.io/valuation-screener/" style="color:var(--dm)">← Back to Screener</a></div>';
 
   document.getElementById('out').innerHTML=h;
 }
@@ -589,21 +472,6 @@ function calcTri(){
     +(ups!=null?'&nbsp;&nbsp;<b>Current:</b> '+pr(d.p)+'&nbsp;&nbsp;<b>Upside:</b> <span style="color:'+(ups>0?'var(--gn)':'var(--rd)')+';font-weight:700">'+pc(ups)+'</span>':'');
 }
 
-async function runAI(){
-  var d=ST.d;if(!d)return;
-  var btn=document.getElementById('aibtn'),out=document.getElementById('aiout');
-  if(btn){btn.disabled=true;btn.textContent='Analyzing…';}
-  if(out)out.textContent='';
-  var dcfR=calcDCF(),w=d.waccData||{};
-  var summary={ticker:d.t,name:d.n,sector:d.sec,price:d.p,revCAGR:d.rc,fcfYield:d.fy2,wacc:w.wacc,roic:w.roic,intrinsicPerShare:dcfR?dcfR.iv:null,marginOfSafety:dcfR?dcfR.mos:null,flags:d.qflags?d.qflags.map(function(f){return f.m;}):[]};
-  try{
-    var res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:'You are a senior buy-side analyst. Write a concise 3-4 paragraph investment opinion based ONLY on this data. Be direct about risks and opportunities:\n\n'+JSON.stringify(summary,null,2)}]})});
-    var j=await res.json();
-    if(j.error||j.type==='error'){if(out)out.textContent='⚠ AI requires server-side proxy (CORS). All metrics shown above.';}
-    else{if(out)out.textContent=(j.content||[]).map(function(b){return b.text||'';}).join('\n');}
-  }catch(e){if(out)out.textContent='⚠ AI unavailable from browser: '+e.message;}
-  if(btn){btn.disabled=false;btn.textContent='Run AI Analyst';}
-}
 document.getElementById('qi').addEventListener('keydown',function(e){if(e.key==='Enter')go();});
 
 async function go(){
