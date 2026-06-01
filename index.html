@@ -826,7 +826,18 @@ function render(){
   h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--pu)">Adjusted Adj FCF / EV Yield</div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:22px;font-weight:800;font-family:var(--m);color:'+(c.fy>=0.10?'var(--gn)':'var(--rd)')+'">'+pc(c.fy)+'</span><span class="bg" style="background:'+(c.fy>=0.10?'#052e1688':'#450a0a88')+';color:'+(c.fy>=0.10?'var(--gn)':'var(--rd)')+'">'+(c.fy>=0.10?'≥10%':'<10%')+'</span></div>';
   h+='<div style="font-size:11px;color:var(--lb);margin-bottom:6px">'+D(c.af)+' ÷ '+D(c.ev)+' = '+pc(c.fy)+'</div>';
   h+='<div style="display:flex;gap:14px;margin-bottom:6px;font-size:11px"><div><span style="color:var(--dm)">3Y Avg:</span> <span style="font-family:var(--m);font-weight:600">'+pc(c.a3y)+'</span></div><div><span style="color:var(--dm)">5Y Avg:</span> <span style="font-family:var(--m);font-weight:600">'+pc(c.a5y)+'</span></div></div>';
-  if(c.tp!=null)h+='<div class="mc"><div style="font-size:10px;color:var(--dm);margin-bottom:3px">Price for 10% yield:</div><span style="font-size:16px;font-weight:700;font-family:var(--m);color:var(--pu)">'+pr(c.tp)+'</span></div>';
+  if(c.tp!=null){
+    var _mos10=c.sp>0?(c.tp-c.sp)/c.sp:0;
+    h+='<div class="mc">';
+    h+='<div style="font-size:10px;color:var(--dm);margin-bottom:2px">Price for 10% Adj FCF/EV yield:</div>';
+    h+='<div style="display:flex;align-items:baseline;gap:12px">';
+    h+='<span style="font-size:16px;font-weight:700;font-family:var(--m);color:var(--pu)">'+pr(c.tp)+'</span>';
+    if(_mos10<0)h+='<span style="font-size:11px;color:var(--rd);font-weight:600">'+pc(_mos10)+' MOS (overvalued by '+pc(Math.abs(_mos10))+')</span>';
+    else h+='<span style="font-size:11px;color:var(--gn);font-weight:600">+'+pc(_mos10)+' MOS from current '+pr(c.sp)+'</span>';
+    h+='</div>';
+    h+='<div style="font-size:9px;color:var(--dm);margin-top:2px">Adj FCF '+D(c.af)+' ÷ 10% = target EV, then −debt+cash ÷ shares</div>';
+    h+='</div>';
+  }
   h+='</div><div class="cs">≥10% strong. 3Y/5Y avg smooths cycles.</div></div></div>';
 
 
@@ -1061,7 +1072,7 @@ function render(){
     // Buybacks
     if(fsBuy.some(function(x){return x&&x.v>0;})){
       hlRow('Buybacks',fsBuy,'v',false,'');
-      h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:10px">Buyback Yield</td>';
+      h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:10px">Buyback Yield <span style="font-size:8px">(BB÷MCap)</span></td>';
       fsBuy.forEach(function(x,i){var mc=mcapVals[i];h+='<td style="color:'+(mc&&x&&x.v/mc>=0.03?'var(--tl)':'var(--dm)')+'">'+pc(mc&&x?x.v/mc:null)+'</td>';});
       h+='<td></td><td></td></tr>';
     }
@@ -1150,6 +1161,10 @@ function render(){
     secH('Equity');
     bsRow('Retained Earnings',function(y){return bm(y,'retainedEarnings');});
     bsRow('Total Equity',function(y){return bm(y,'totalStockholdersEquity','totalEquity');},true);
+    // Working Capital
+    h+='<tr><td style="font-weight:600">Working Capital (CA−CL)</td>';
+    bsRaw.forEach(function(y){var wc=(bv(y,'totalCurrentAssets')-bv(y,'totalCurrentLiabilities'))/1e6;h+='<td style="font-weight:600;color:'+(wc>0?'var(--gn)':'var(--rd)')+'">'+D(wc)+'</td>';});
+    h+='<td></td><td></td><td></td></tr>';
     // TBV
     h+='<tr><td>Tangible Book Value</td>';
     bsRaw.forEach(function(y){var eq=bm(y,'totalStockholdersEquity','totalEquity');var ig=bm(y,'goodwillAndIntangibleAssets')||(bm(y,'goodwill')+bm(y,'intangibleAssets'));h+='<td style="color:'+(eq-ig>0?'':'var(--rd)')+'">'+D(eq-ig)+'</td>';});
@@ -1186,14 +1201,15 @@ function render(){
     var _lDAF2=latFcfV2>0?(bv(latBsR,'shortTermDebt','currentDebt')+bv(latBsR,'longTermDebt'))/1e6/latFcfV2:null;
     h+='<td></td><td></td><td>'+(_lDAF2!=null?(_lDAF2<2?'✓ <2yr':_lDAF2<4?'◐ 2–4yr':'⚠ >4yr'):'—')+'</td></tr>';
     // Interest Coverage
-    h+='<tr><td style="font-weight:600">Interest Coverage <span style="font-size:8px;color:var(--dm)">(EBIT÷IntEx · latest='+(incH2[incH2.length-1]?incH2[incH2.length-1].yr:'')+')</span></td>';
+    h+='<tr><td style="font-weight:600">Interest Coverage (EBIT÷IntEx)</td>';
     var _icL=null;
     incH2.forEach(function(y){
       // Try ebit first, then operatingIncome from raw income data
       var _ebit=+y.ebit;var _ie=+y.intEx;
-      var ic=_ie>0&&_ebit>0?_ebit/_ie:(_ie===0?null:null);
+      var ic=_ie>0&&_ebit>0?_ebit/_ie:null;
       if(ic)_icL=ic;
-      h+='<td style="font-weight:600;color:'+(ic!=null&&ic>8?'var(--gn)':ic!=null&&ic>3?'var(--yw)':ic!=null?'var(--rd)':'var(--dm)')+'">'+( ic!=null?ic.toFixed(1)+'x':'—')+'</td>';
+      var _icCol=ic!=null&&ic>8?'var(--gn)':ic!=null&&ic>3?'var(--yw)':ic!=null?'var(--rd)':'var(--dm)';
+      h+='<td style="font-weight:600;color:'+_icCol+'">'+(ic!=null?ic.toFixed(1)+'x':'—')+'<div style="font-size:7px;color:var(--dm);font-weight:400">'+y.yr+'</div></td>';
     });
     // TTM coverage
     var _ttmInc=d.incTTM||null;
@@ -1332,7 +1348,7 @@ function render(){
   h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="ct" style="color:var(--yw);margin-bottom:0">Path to 25% Annual Return</div><span class="tog'+(ST.showPath?' on':'')+'" onclick="togSection(\'Path\')">'+(ST.showPath?'▼ Hide':'▶ Expand')+'</span></div>';
   if(ST.showPath){
     // ── CURRENT STATUS ───────────────────────────────────
-    if(ST.cagrMethod==null)ST.cagrMethod='5y';
+    if(ST.cagrMethod==null)ST.cagrMethod='3y';
     var _rvArr=(d.rv||[]).slice(0,5);
     var _yoy1=_rvArr.length>=2&&_rvArr[1].r>0?(_rvArr[0].r/_rvArr[1].r-1):0;
     var _c3=_rvArr.length>=3?cagr(_rvArr[_rvArr.length>3?2:_rvArr.length-1].r,_rvArr[0].r,Math.min(3,_rvArr.length-1)):_yoy1;
@@ -1343,8 +1359,8 @@ function render(){
     var revGrowth=_cagrOpts[ST.cagrMethod]||_c5;
     ST._revGrowth=revGrowth;
 
-    if(ST.reMult==null)ST.reMult=c.evF5?Math.round(c.evF5*10)/10:c.evF3?Math.round(c.evF3*10)/10:15;
-    var reMultSrc=c.evF5?'5Y avg':c.evF3?'3Y avg':'15x default';
+    if(ST.reMult==null)ST.reMult=c.evF5?Math.round(c.evF5*10)/10:10;
+    var reMultSrc=c.evF5?'5Y Avg EV/Adj FCF':c.evF3?'3Y Avg EV/Adj FCF':'10x default (EV/Adj FCF)';
     var reYrs=ST.reYrs||5;var reMult=ST.reMult||15;var curMult=c.evF||0;
     var reRateAnn=curMult>0&&reMult>0?Math.pow(reMult/curMult,1/reYrs)-1:0;
     var fcfYield=c.fy||0;
@@ -1414,13 +1430,13 @@ function render(){
     // ── EXIT MULTIPLE INPUTS ──────────────────────────────
     h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px">';
     h+='<div style="padding:8px;background:var(--ib);border-radius:5px;border:1px solid var(--bd)">';
-    h+='<div style="font-size:9px;color:var(--dm);font-weight:700;margin-bottom:6px">EXIT MULTIPLE ASSUMPTION</div>';
+    h+='<div style="font-size:9px;color:var(--dm);font-weight:700;margin-bottom:6px">EXIT EV / ADJ FCF MULTIPLE</div>';
     h+='<div style="margin-bottom:6px"><span style="color:var(--lb)">Current:</span> <b>'+fx(curMult)+'</b></div>';
     h+='<div style="margin-bottom:6px"><span style="color:var(--lb)">Exit:</span> <input id="reMult" type="number" step="0.5" value="'+reMult+'" onchange="ST.reMult=parseFloat(this.value)||15;render();" oninput="ST.reMult=parseFloat(this.value)||15;" style="width:65px;background:var(--cd);border:1px solid var(--ibd);border-radius:4px;padding:5px;color:var(--br);font-family:var(--m);font-size:15px;outline:none;text-align:right;-webkit-appearance:none"/>x over <input id="reYrs" type="number" step="1" min="1" max="10" value="'+reYrs+'" onchange="ST.reYrs=parseInt(this.value)||5;render();" oninput="ST.reYrs=parseInt(this.value)||5;" style="width:36px;background:var(--cd);border:1px solid var(--ibd);border-radius:4px;padding:5px;color:var(--br);font-family:var(--m);font-size:15px;outline:none;text-align:right;-webkit-appearance:none"/>yr</div>';
     h+='<div style="font-size:9px;color:var(--dm)">Default: '+reMultSrc+'</div>';
     h+='</div>';
     h+='<div style="padding:8px;background:var(--ib);border-radius:5px;border:1px solid var(--bd)">';
-    h+='<div style="font-size:9px;color:var(--dm);font-weight:700;margin-bottom:6px">MULTIPLE REFERENCE</div>';
+    h+='<div style="font-size:9px;color:var(--dm);font-weight:700;margin-bottom:6px">EV / ADJ FCF REFERENCE</div>';
     h+='<div style="font-size:10px;line-height:2">Current: <b style="color:var(--br)">'+fx(curMult)+'</b><br>';
     h+='3Y Avg: <b>'+fx(c.evF3)+'</b><br>';
     h+='5Y Avg: <b>'+fx(c.evF5)+'</b><br>';
