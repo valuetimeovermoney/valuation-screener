@@ -4,565 +4,533 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Valuation Engine</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #020617; color: #f8fafc; font-family: 'Courier New', monospace; }
-  input, button { font-family: 'Courier New', monospace; }
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: #0f172a; }
-  ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#020617;color:#f8fafc;font-family:'Courier New',monospace;padding:16px;min-height:100vh}
+.wrap{max-width:860px;margin:0 auto}
+input,button{font-family:'Courier New',monospace}
+input{background:#0f172a;border:1px solid #334155;color:#f8fafc;padding:10px 14px;border-radius:6px;font-size:14px;outline:none;width:100%}
+.row-in{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.row-in input{flex:1 1 160px}
+.btn{background:#0ea5e9;color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;letter-spacing:1px;white-space:nowrap}
+.btn:disabled{background:#1e293b;cursor:not-allowed}
+.btn-sm{background:#0f172a;color:#64748b;border:1px solid #334155;padding:10px 14px;border-radius:6px;cursor:pointer;font-size:11px}
+.err{background:#f8717122;border:1px solid #f8717155;color:#f87171;padding:10px 14px;border-radius:6px;margin-bottom:12px;font-size:13px}
+.hdr{margin-bottom:20px}
+.hdr .label{color:#38bdf8;font-size:11px;letter-spacing:3px;margin-bottom:4px}
+.hdr h1{font-size:22px;font-weight:700;letter-spacing:-0.5px}
+.hdr p{color:#475569;font-size:11px;margin-top:2px}
+.company-bar{background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:14px 16px;margin-bottom:12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.company-bar .name{font-size:18px;font-weight:700;color:#38bdf8}
+.company-bar .sub{color:#94a3b8;font-size:12px}
+.company-bar .sub2{color:#475569;font-size:11px}
+.company-bar .price{font-size:22px;font-weight:700;text-align:right}
+.company-bar .meta{text-align:right;font-size:13px}
+.flags{margin-bottom:12px}
+.flag{padding:6px 10px;border-radius:5px;margin-bottom:6px;font-size:12px;display:flex;gap:8px}
+.tabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
+.tab{background:#0f172a;color:#64748b;border:1px solid #1e293b;padding:6px 12px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700;letter-spacing:1px;font-family:'Courier New',monospace}
+.tab.active{background:#0ea5e9;color:#fff;border-color:#0ea5e9}
+.section{margin-bottom:16px;border-radius:8px;overflow:hidden}
+.sec-hdr{padding:10px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:13px;letter-spacing:1px}
+.sec-body{padding:10px 14px}
+.drow{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid #1e293b}
+.drow .lbl{color:#cbd5e1;font-size:13px;flex:1}
+.drow .lbl.sub{color:#64748b;font-size:12px}
+.drow .val{color:#f8fafc;font-weight:600;font-size:13px;font-family:'Courier New',monospace;text-align:right}
+.drow .src{font-size:10px;color:#64748b;margin-left:6px}
+.drow .flg{margin-left:6px;color:#f59e0b;font-size:10px}
+.divider{height:1px;background:#1e293b;margin:10px 0}
+.sub-hdr{font-size:12px;font-weight:700;margin-bottom:6px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{padding:4px 8px;color:#64748b;font-weight:600;text-align:right}
+td{padding:4px 8px;text-align:right;border-bottom:1px solid #1e293b}
+td:first-child,th:first-child{text-align:left}
+.sens td{font-family:'Courier New',monospace;font-size:11px;text-align:center}
+.sens th{text-align:center}
+.note{font-size:11px;color:#64748b;margin-bottom:8px}
+.src-note{color:#475569;font-size:10px;margin-top:6px}
+.ai-box{background:#0f172a;border:1px solid #334155;border-radius:6px;padding:14px;font-size:13px;color:#cbd5e1;line-height:1.7;white-space:pre-wrap;margin-top:12px}
+.test-msg{font-size:12px;margin-bottom:8px;font-family:'Courier New',monospace}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:#0f172a}
+::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
 </style>
 </head>
 <body>
-<div id="root"></div>
-<script type="text/babel">
-const { useState, useCallback } = React;
+<div class="wrap">
+  <div class="hdr">
+    <div class="label">INVESTMENT ANALYSIS TERMINAL</div>
+    <h1>Valuation Engine</h1>
+    <p>All numbers sourced from FMP API + SEC filings. No estimates without disclosure.</p>
+  </div>
 
-const FMP_KEY = "zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J";
+  <div class="row-in">
+    <input id="tkr" placeholder="TICKER (e.g. AAPL)" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')analyze()"/>
+    <button class="btn" id="btnAnalyze" onclick="analyze()">ANALYZE</button>
+    <button class="btn-sm" onclick="testAPI()">TEST API</button>
+  </div>
+  <div id="testMsg" class="test-msg" style="display:none"></div>
+  <div id="errBox" class="err" style="display:none"></div>
 
-const fmt = (n, dec = 1) => n == null || isNaN(n) ? "—" : Number(n).toLocaleString("en-US", { maximumFractionDigits: dec });
-const fmtM = (n) => n == null || isNaN(n) ? "—" : `$${fmt(n / 1e6)}M`;
-const fmtB = (n) => n == null || isNaN(n) ? "—" : `$${fmt(n / 1e9, 2)}B`;
-const fmtPct = (n) => n == null || isNaN(n) ? "—" : `${fmt(n * 100, 1)}%`;
-const fmtX = (n) => n == null || isNaN(n) ? "—" : `${fmt(n, 1)}x`;
-const fmtD = (n) => n == null || isNaN(n) ? "—" : `$${fmt(n, 2)}`;
+  <div id="results" style="display:none">
+    <div class="company-bar" id="companyBar"></div>
+    <div class="flags" id="flagsBox"></div>
+    <div class="tabs" id="tabBar"></div>
+    <div id="tabContent"></div>
+  </div>
+</div>
 
-function Source({ text }) {
-  return <span style={{ fontSize: 10, color: "#64748b", fontFamily: "monospace", marginLeft: 6 }}>[{text}]</span>;
+<script>
+const FMP = "zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J";
+let D = null;
+let openSections = {};
+
+const fmt = (n,d=1) => n==null||isNaN(n) ? "—" : Number(n).toLocaleString("en-US",{maximumFractionDigits:d});
+const fmtM = n => n==null||isNaN(n) ? "—" : `$${fmt(n/1e6)}M`;
+const fmtB = n => n==null||isNaN(n) ? "—" : `$${fmt(n/1e9,2)}B`;
+const fmtP = n => n==null||isNaN(n) ? "—" : `${fmt(n*100,1)}%`;
+const fmtX = n => n==null||isNaN(n) ? "—" : `${fmt(n,1)}x`;
+const fmtD = n => n==null||isNaN(n) ? "—" : `$${fmt(n,2)}`;
+
+async function fmpGet(path) {
+  const sep = path.includes("?") ? "&" : "?";
+  const r = await fetch(`https://financialmodelingprep.com/api${path}${sep}apikey=${FMP}`);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const j = await r.json();
+  if (j?.["Error Message"]) throw new Error(j["Error Message"]);
+  if (j?.["message"]) throw new Error(j["message"]);
+  return j;
 }
 
-function Row({ label, value, source, sub, flag, indent = 0 }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "5px 0", borderBottom: "1px solid #1e293b", paddingLeft: indent * 16 }}>
-      <span style={{ color: sub ? "#64748b" : "#cbd5e1", fontSize: sub ? 12 : 13, flex: 1 }}>
-        {label}
-        {flag && <span style={{ marginLeft: 6, color: "#f59e0b", fontSize: 10 }}>⚠ {flag}</span>}
+async function testAPI() {
+  const el = document.getElementById("testMsg");
+  el.style.display = "block"; el.textContent = "Testing…"; el.style.color = "#94a3b8";
+  try {
+    const j = await fmpGet("/v3/profile/AAPL");
+    if (Array.isArray(j) && j[0]?.symbol) {
+      el.textContent = "✅ Connected — AAPL: $" + j[0].price; el.style.color = "#4ade80";
+    } else { el.textContent = "⚠ " + JSON.stringify(j).slice(0,80); el.style.color = "#f59e0b"; }
+  } catch(e) { el.textContent = "❌ " + e.message; el.style.color = "#f87171"; }
+}
+
+async function analyze() {
+  const sym = document.getElementById("tkr").value.trim().toUpperCase();
+  if (!sym) return;
+  const btn = document.getElementById("btnAnalyze");
+  btn.disabled = true; btn.textContent = "LOADING…";
+  document.getElementById("errBox").style.display = "none";
+  document.getElementById("results").style.display = "none";
+
+  try {
+    const [profile,incomeA,balanceA,cashflowA,ratios,keyMetrics,quote,analystEst,insiderTx,dcfFmp,treasury] = await Promise.allSettled([
+      fmpGet(`/v3/profile/${sym}`),
+      fmpGet(`/v3/income-statement/${sym}?limit=5`),
+      fmpGet(`/v3/balance-sheet-statement/${sym}?limit=5`),
+      fmpGet(`/v3/cash-flow-statement/${sym}?limit=5`),
+      fmpGet(`/v3/ratios/${sym}?limit=1`),
+      fmpGet(`/v3/key-metrics/${sym}?limit=2`),
+      fmpGet(`/v3/quote/${sym}`),
+      fmpGet(`/v3/analyst-estimates/${sym}?limit=3`),
+      fmpGet(`/v4/insider-trading?symbol=${sym}&limit=10`),
+      fmpGet(`/v3/discounted-cash-flow/${sym}`),
+      fmpGet(`/v4/treasury?from=2024-01-01&to=2024-12-31`),
+    ]);
+
+    const get = r => r.status === "fulfilled" ? r.value : null;
+    const p = get(profile)?.[0];
+    if (!p) {
+      const raw = get(profile);
+      const detail = raw?.["Error Message"] || raw?.["message"] || (Array.isArray(raw) && raw.length===0 ? "Ticker not found on FMP" : "No data");
+      throw new Error("Profile failed: " + detail);
+    }
+
+    const ia = get(incomeA) || [];
+    const ba = get(balanceA) || [];
+    const ca = get(cashflowA) || [];
+    const rat = get(ratios)?.[0] || {};
+    const km = get(keyMetrics)?.[0] || {};
+    const q = get(quote)?.[0] || {};
+    const ae = get(analystEst) || [];
+    const ins = get(insiderTx) || [];
+    const dcfRef = get(dcfFmp)?.[0] || {};
+    const tData = get(treasury) || [];
+
+    const li = ia[0]||{}, lb = ba[0]||{}, lc = ca[0]||{};
+    const rfr = tData.length ? (tData[tData.length-1]?.year10||4.3)/100 : 0.043;
+    const rfrSrc = tData.length ? "FMP /v4/treasury (10Y UST)" : "Fallback 4.3%";
+    const erp = 0.046, beta = p.beta||1.0;
+    const ke = rfr + beta * erp;
+
+    const grossDebt = (lb.longTermDebt||0)+(lb.shortTermDebt||0);
+    const cashEq = (lb.cashAndCashEquivalents||0)+(lb.shortTermInvestments||0);
+    const netDebt = grossDebt - cashEq;
+    const intExp = Math.abs(li.interestExpense||0);
+    const kdPre = grossDebt>0 ? intExp/grossDebt : 0;
+    const taxRate = li.incomeBeforeTax>0 ? Math.max(0,Math.min(0.35,li.incomeTaxExpense/li.incomeBeforeTax)) : 0.21;
+    const kdPost = kdPre*(1-taxRate);
+    const mktCap = p.mktCap||0;
+    const totCap = mktCap+grossDebt;
+    const we = totCap>0?mktCap/totCap:1, wd = totCap>0?grossDebt/totCap:0;
+    const wacc = we*ke + wd*kdPost;
+
+    const fcfArr = ca.slice(0,4).map(y=>({year:y.calendarYear,ocf:y.operatingCashFlow,capex:Math.abs(y.capitalExpenditure||0),fcf:(y.operatingCashFlow||0)-Math.abs(y.capitalExpenditure||0),src:`FMP /v3/cash-flow-statement (10-K ${y.calendarYear})`}));
+    const incArr = ia.slice(0,4).map(y=>({year:y.calendarYear,rev:y.revenue,ebitda:y.ebitda,ebit:y.operatingIncome,ni:y.netIncome,ebm:y.revenue>0?y.ebitda/y.revenue:null,nm:y.revenue>0?y.netIncome/y.revenue:null}));
+
+    const revCAGR = ia[0]?.revenue&&ia[3]?.revenue&&ia[3].revenue>0 ? Math.pow(ia[0].revenue/ia[3].revenue,1/3)-1 : null;
+    const fcfCAGR = fcfArr[0]?.fcf&&fcfArr[3]?.fcf&&fcfArr[3].fcf>0 ? Math.pow(fcfArr[0].fcf/fcfArr[3].fcf,1/3)-1 : null;
+
+    const nopat = (li.operatingIncome||0)*(1-taxRate);
+    const ic = (lb.totalEquity||0)+grossDebt-cashEq;
+    const roic = ic>0?nopat/ic:null;
+    const roicSpread = roic!=null?roic-wacc:null;
+    const fcfConv = li.netIncome>0?(fcfArr[0]?.fcf||0)/li.netIncome:null;
+    const avgAssets = ((ba[0]?.totalAssets||0)+(ba[1]?.totalAssets||0))/2;
+    const accruals = avgAssets>0?((li.netIncome||0)-(fcfArr[0]?.fcf||0))/avgAssets:null;
+    const dilSh = li.weightedAverageShsOutDil||li.weightedAverageShsOut;
+
+    const growthCap = Math.min(revCAGR||0.05,0.15);
+    const tg = 0.025, baseFCF = fcfArr[0]?.fcf||0;
+    const proj = Array.from({length:5},(_,i)=>({year:(ia[0]?.calendarYear||2023)+i+1,fcf:baseFCF*Math.pow(1+growthCap,i+1),pv:baseFCF*Math.pow(1+growthCap,i+1)/Math.pow(1+wacc,i+1)}));
+    const pvSum = proj.reduce((s,y)=>s+y.pv,0);
+    const termFCF = proj[4].fcf*(1+tg);
+    const termVal = wacc>tg?termFCF/(wacc-tg):null;
+    const pvTV = termVal?termVal/Math.pow(1+wacc,5):null;
+    const evDCF = pvTV?pvSum+pvTV:null;
+    const eqVal = evDCF!=null?evDCF-netDebt:null;
+    const intrinsic = eqVal&&dilSh>0?eqVal/dilSh:null;
+    const tvPct = evDCF&&pvTV?pvTV/evDCF:null;
+
+    const wRange = [wacc-0.02,wacc-0.01,wacc,wacc+0.01,wacc+0.02];
+    const gRange = [0.01,0.015,0.02,0.025,0.03];
+    const sensFn = (w,g)=>{
+      if(w<=g||baseFCF<=0||!dilSh) return null;
+      const pv5=proj.reduce((s,y,i)=>s+(baseFCF*Math.pow(1+growthCap,i+1))/Math.pow(1+w,i+1),0);
+      const tv=(proj[4].fcf*(1+g))/(w-g);
+      return (pv5+tv/Math.pow(1+w,5)-netDebt)/dilSh;
+    };
+
+    const evFMP = km.enterpriseValue||mktCap+netDebt;
+    const ebitda = li.ebitda;
+    const evEbLTM = rat.enterpriseValueMultiple||(ebitda>0?evFMP/ebitda:null);
+    const evEbFwd = ae[0]?.estimatedEbitdaAvg?evFMP/ae[0].estimatedEbitdaAvg:null;
+
+    const dso = lb.netReceivables&&li.revenue?(lb.netReceivables/li.revenue)*365:null;
+    const dpo = lb.accountPayables&&li.costOfRevenue?(lb.accountPayables/li.costOfRevenue)*365:null;
+    const dio = lb.inventory&&li.costOfRevenue?(lb.inventory/li.costOfRevenue)*365:null;
+    const ccc = dso!=null&&dpo!=null&&dio!=null?dso+dio-dpo:null;
+
+    const flags=[];
+    if(tvPct>0.8) flags.push({t:"warn",m:`Terminal value is ${fmtP(tvPct)} of EV — heavily assumption-dependent`});
+    if(fcfConv!=null&&fcfConv<0.7) flags.push({t:"warn",m:`FCF conversion ${fmtP(fcfConv)} < 70% — earnings quality concern`});
+    if(fcfConv!=null&&fcfConv>=0.9) flags.push({t:"ok",m:`FCF conversion ${fmtP(fcfConv)} — strong earnings quality`});
+    if(accruals!=null&&Math.abs(accruals)>0.05) flags.push({t:"warn",m:`Accruals ratio ${fmtP(accruals)} — elevated non-cash earnings`});
+    if(roicSpread!=null&&roicSpread>0.02) flags.push({t:"ok",m:`ROIC (${fmtP(roic)}) exceeds WACC (${fmtP(wacc)}) by ${fmtP(roicSpread)} — value creating`});
+    if(roicSpread!=null&&roicSpread<-0.02) flags.push({t:"bad",m:`ROIC (${fmtP(roic)}) below WACC (${fmtP(wacc)}) — destroying capital`});
+    if(ebitda>0&&netDebt/ebitda>4) flags.push({t:"bad",m:`Net leverage ${fmtX(netDebt/ebitda)} > 4x EBITDA — elevated credit risk`});
+    if(intrinsic&&q.price){const ud=(intrinsic-q.price)/q.price;if(ud>0.2)flags.push({t:"ok",m:`DCF implies ${fmtP(ud)} upside`});if(ud<-0.2)flags.push({t:"bad",m:`DCF implies ${fmtP(Math.abs(ud))} downside`});}
+
+    const iBuys = ins.filter(x=>x.transactionType==="P-Purchase").length;
+    const iSells = ins.filter(x=>x.transactionType==="S-Sale").length;
+
+    D = {sym,p,q,rat,km,ae,ia:incArr,ca:fcfArr,proj,li,lb,lc,rfr,rfrSrc,erp,beta,ke,kdPre,kdPost,taxRate,we,wd,wacc,grossDebt,cashEq,netDebt,intExp,dilSh,growthCap,tg,baseFCF,pvSum,termVal,pvTV,evDCF,eqVal,intrinsic,tvPct,wRange,gRange,sensFn,evFMP,ebitda,evEbLTM,evEbFwd,revCAGR,fcfCAGR,roic,nopat,ic,roicSpread,fcfConv,accruals,dso,dpo,dio,ccc,flags,iBuys,iSells,ins,dcfRef,fetchedAt:new Date().toISOString()};
+
+    renderResults();
+  } catch(e) {
+    const eb = document.getElementById("errBox");
+    eb.textContent = "✗ " + e.message; eb.style.display = "block";
+  }
+  btn.disabled = false; btn.textContent = "ANALYZE";
+}
+
+function section(id, title, color, content, badge="") {
+  const isOpen = openSections[id] !== false;
+  return `<div class="section" style="border:1px solid ${color}33">
+    <div class="sec-hdr" style="background:${color}15;color:${color}" onclick="toggleSection('${id}')">
+      <span>${title.toUpperCase()}</span>
+      <span style="display:flex;gap:8px;align-items:center">
+        ${badge?`<span style="font-size:10px;background:${color}22;color:${color};border:1px solid ${color}55;border-radius:3px;padding:1px 5px;font-family:'Courier New',monospace">${badge}</span>`:""}
+        <span style="color:#475569;font-size:12px" id="arr_${id}">${isOpen?"▲":"▼"}</span>
       </span>
-      <span style={{ textAlign: "right" }}>
-        <span style={{ color: "#f8fafc", fontWeight: sub ? 400 : 600, fontSize: 13, fontFamily: "monospace" }}>{value}</span>
-        {source && <Source text={source} />}
-      </span>
     </div>
+    <div id="sec_${id}" style="display:${isOpen?"block":"none"}" class="sec-body">${content}</div>
+  </div>`;
+}
+
+function toggleSection(id) {
+  const el = document.getElementById("sec_"+id);
+  const arr = document.getElementById("arr_"+id);
+  const open = el.style.display !== "none";
+  el.style.display = open ? "none" : "block";
+  arr.textContent = open ? "▼" : "▲";
+  openSections[id] = !open;
+}
+
+function row(label, value, src="", sub=false, indent=0, flag="") {
+  return `<div class="drow" style="padding-left:${indent*16}px">
+    <span class="lbl${sub?" sub":""}">${label}${flag?`<span class="flg">⚠ ${flag}</span>`:""}</span>
+    <span><span class="val">${value}</span>${src?`<span class="src">[${src}]</span>`:""}</span>
+  </div>`;
+}
+
+function flagHtml(f) {
+  const colors={warn:"#f59e0b",ok:"#4ade80",bad:"#f87171"}, icons={warn:"⚠",ok:"✓",bad:"✗"};
+  return `<div class="flag" style="background:${colors[f.t]}15;border:1px solid ${colors[f.t]}44;color:${colors[f.t]}"><span>${icons[f.t]}</span><span>${f.m}</span></div>`;
+}
+
+function sensTable() {
+  const d = D;
+  let h = `<div style="overflow-x:auto"><table class="sens"><thead><tr><th style="background:#0f172a;color:#64748b">WACC→/g↓</th>`;
+  d.wRange.forEach(w=>h+=`<th style="background:#0f172a;color:#38bdf8">${(w*100).toFixed(1)}%</th>`);
+  h += `</tr></thead><tbody>`;
+  d.gRange.forEach(g=>{
+    h+=`<tr><td style="background:#0f172a;color:#38bdf8">${(g*100).toFixed(1)}%</td>`;
+    d.wRange.forEach(w=>{
+      const v=d.sensFn(w,g);
+      const above = d.q.price && v > d.q.price;
+      const bg = v==null?"#1e293b":v<0?"#f8717122":above?"#4ade8022":"#1e293b";
+      const col = v<0?"#f87171":"#f8fafc";
+      h+=`<td style="background:${bg};color:${col}">${v==null||isNaN(v)?"—":"$"+fmt(v,0)}</td>`;
+    });
+    h+=`</tr>`;
+  });
+  return h+`</tbody></table></div>`;
+}
+
+function tabOverview() {
+  const d=D;
+  let html = section("snap","Key Metrics Snapshot","#38bdf8",
+    row("Revenue (LTM)",fmtB(d.li.revenue),`FMP /v3/income-statement · 10-K ${d.ia[0]?.year}`)+
+    row("EBITDA (LTM)",fmtB(d.li.ebitda),`FMP /v3/income-statement · 10-K ${d.ia[0]?.year}`)+
+    row("EBIT (Operating Income)",fmtB(d.li.operatingIncome),`FMP /v3/income-statement · 10-K ${d.ia[0]?.year}`)+
+    row("Net Income (LTM)",fmtB(d.li.netIncome),`FMP /v3/income-statement · 10-K ${d.ia[0]?.year}`)+
+    row("FCF (LTM)",fmtB(d.ca[0]?.fcf),`FMP /v3/cash-flow-statement · 10-K ${d.ca[0]?.year} [OCF − CapEx]`)+
+    row("EBITDA Margin",fmtP(d.ia[0]?.ebm),"Calc: EBITDA ÷ Revenue")+
+    row("Net Margin",fmtP(d.ia[0]?.nm),"Calc: Net Income ÷ Revenue")+
+    row("Revenue CAGR (3Y)",fmtP(d.revCAGR),`FMP · 10-K ${d.ia[3]?.year}–${d.ia[0]?.year}`)+
+    row("FCF CAGR (3Y)",fmtP(d.fcfCAGR),`FMP · 10-K ${d.ca[3]?.year}–${d.ca[0]?.year}`)
+  );
+
+  let tbl = `<div style="overflow-x:auto"><table><thead><tr>${["Year","Revenue","EBITDA","EBIT","Net Inc","EBITDA%","Net%"].map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>`;
+  d.ia.forEach(y=>{ tbl+=`<tr><td style="color:#38bdf8">${y.year}</td><td>${fmtB(y.rev)}</td><td>${fmtB(y.ebitda)}</td><td>${fmtB(y.ebit)}</td><td>${fmtB(y.ni)}</td><td style="color:${y.ebm>0.2?"#4ade80":"#f8fafc"}">${fmtP(y.ebm)}</td><td>${fmtP(y.nm)}</td></tr>`; });
+  tbl+=`</tbody></table><div class="src-note">Source: FMP /v3/income-statement · Annual 10-K filings</div></div>`;
+  html += section("hist","Historical Income Trends","#a78bfa",tbl);
+
+  let ae = d.ae.length===0?`<div style="color:#64748b;font-size:12px">No analyst estimates available</div>`:d.ae.slice(0,3).map(e=>`<div style="margin-bottom:8px"><div style="color:#fb923c;font-size:12px;margin-bottom:4px">FY${e.date?.slice(0,4)} Estimates <span style="font-size:10px;color:#64748b">[FMP /v3/analyst-estimates]</span></div>${row("Revenue (consensus)",fmtB(e.estimatedRevenueAvg),"",true,1)+row("EPS (consensus)",fmtD(e.estimatedEpsAvg),"",true,1)+row("EBITDA (consensus)",fmtB(e.estimatedEbitdaAvg),"",true,1)+row("Analyst count",fmt(e.numberAnalystEstimatedRevenue,0),"",true,1)}</div>`).join("");
+  html += section("ae","Analyst Estimates","#fb923c",ae);
+  return html;
+}
+
+function tabWACC() {
+  const d=D;
+  return section("wacc","WACC — Full Build","#f59e0b",
+    `<div class="note">Formula: WACC = (E/V × Ke) + (D/V × Kd × (1 − T))</div>`+
+    `<div class="sub-hdr" style="color:#f59e0b">COST OF EQUITY (CAPM)</div>`+
+    row("Risk-Free Rate (10Y UST)",fmtP(d.rfr),d.rfrSrc)+
+    row("Equity Risk Premium",fmtP(d.erp),"Damodaran Jan 2024 (damodaran.com)")+
+    row("Beta (levered, 5Y monthly)",fmt(d.beta,2),"FMP /v3/profile")+
+    row("Cost of Equity (Ke = Rf + β × ERP)",fmtP(d.ke),`Calc: ${fmtP(d.rfr)} + ${fmt(d.beta,2)} × ${fmtP(d.erp)}`)+
+    `<div class="divider"></div><div class="sub-hdr" style="color:#f59e0b">COST OF DEBT</div>`+
+    row("Gross Debt",fmtB(d.grossDebt),`FMP /v3/balance-sheet · 10-K ${d.ia[0]?.year} [LT + ST Debt]`)+
+    row("Interest Expense (LTM)",fmtM(d.intExp),`FMP /v3/income-statement · 10-K ${d.ia[0]?.year}`)+
+    row("Pre-tax Cost of Debt",fmtP(d.kdPre),"Calc: Interest Expense ÷ Gross Debt")+
+    row("Effective Tax Rate",fmtP(d.taxRate),`FMP · 10-K ${d.ia[0]?.year} [Tax ÷ Pre-tax Income]`,false,0,d.taxRate<0.1?"Low — verify 10-K footnotes":"")+
+    row("After-tax Cost of Debt (Kd)",fmtP(d.kdPost),`Calc: ${fmtP(d.kdPre)} × (1 − ${fmtP(d.taxRate)})`)+
+    `<div class="divider"></div><div class="sub-hdr" style="color:#f59e0b">CAPITAL STRUCTURE WEIGHTS</div>`+
+    row("Market Cap (E)",fmtB(d.p.mktCap),"FMP /v3/profile (live price × diluted shares)")+
+    row("Gross Debt (D)",fmtB(d.grossDebt),`FMP /v3/balance-sheet · 10-K ${d.ia[0]?.year}`)+
+    row("Total Capital (V = E + D)",fmtB(d.p.mktCap+d.grossDebt),"Calc: Market Cap + Gross Debt")+
+    row("Equity Weight (E/V)",fmtP(d.we),"Calc: Market Cap ÷ Total Capital")+
+    row("Debt Weight (D/V)",fmtP(d.wd),"Calc: Gross Debt ÷ Total Capital")+
+    `<div class="divider"></div><div class="sub-hdr" style="color:#f59e0b">WACC RESULT</div>`+
+    row("WACC",fmtP(d.wacc),`Calc: (${fmtP(d.we)} × ${fmtP(d.ke)}) + (${fmtP(d.wd)} × ${fmtP(d.kdPost)})`)
+  ,fmtP(d.wacc));
+}
+
+function tabDCF() {
+  const d=D;
+  let fcfHist="";
+  d.ca.forEach(y=>{ fcfHist+=row(`${y.year} OCF`,fmtB(y.ocf),y.src)+row(`${y.year} CapEx`,`(${fmtB(y.capex)})`,y.src,true,1)+row(`${y.year} FCF`,fmtB(y.fcf),"Calc: OCF − CapEx")+`<div class="divider"></div>`; });
+
+  let projRows="";
+  d.proj.forEach((y,i)=>{ projRows+=row(`Year ${i+1} (${y.year}) FCF`,fmtB(y.fcf),"",true,1,"")+`<span style="font-size:10px;color:#64748b;padding-left:16px;display:block;margin-bottom:2px">PV: ${fmtB(y.pv)}</span>`; });
+
+  const dcfBody =
+    row("Base FCF (LTM)",fmtB(d.baseFCF),`FMP /v3/cash-flow-statement · 10-K ${d.ca[0]?.year}`)+
+    row("FCF Growth Rate (Stage 1, 5Y)",fmtP(d.growthCap),`Calc: min(Rev CAGR ${fmtP(d.revCAGR)}, 15% cap)`)+
+    row("Terminal Growth Rate",fmtP(d.tg),"IMF long-run nominal GDP 2.5%")+
+    row("Discount Rate (WACC)",fmtP(d.wacc),"See WACC tab")+
+    `<div class="divider"></div><div class="sub-hdr" style="color:#4ade80">PROJECTED FREE CASH FLOWS</div>`+projRows+
+    `<div class="divider"></div>`+
+    row("PV of Explicit FCFs (5Y)",fmtB(d.pvSum),"Calc: Σ FCF_t ÷ (1+WACC)^t")+
+    row("Terminal FCF (Year 6)",fmtB(d.proj[4]?.fcf*(1+d.tg)),`Calc: FCF_5 × (1 + ${fmtP(d.tg)})`)+
+    row("Terminal Value (Gordon Growth)",fmtB(d.termVal),`Calc: Terminal FCF ÷ (WACC ${fmtP(d.wacc)} − g ${fmtP(d.tg)})`)+
+    row("PV of Terminal Value",fmtB(d.pvTV),"Calc: TV ÷ (1+WACC)^5",false,0,d.tvPct>0.8?"> 80% of EV":"")+
+    row("Terminal Value as % of EV",fmtP(d.tvPct),"Sanity check — >80% = high risk")+
+    `<div class="divider"></div>`+
+    row("Enterprise Value (DCF)",fmtB(d.evDCF),"Calc: PV FCFs + PV Terminal")+
+    row("Net Debt",fmtB(d.netDebt),`FMP /v3/balance-sheet · 10-K ${d.ia[0]?.year} [Gross Debt − Cash − ST Inv]`)+
+    row("Equity Value",fmtB(d.eqVal),"Calc: EV − Net Debt")+
+    row("Diluted Shares",fmt(d.dilSh/1e6,0)+"M",`FMP /v3/income-statement · 10-K ${d.ia[0]?.year}`)+
+    row("Intrinsic Value Per Share",fmtD(d.intrinsic),"Calc: Equity Value ÷ Diluted Shares")+
+    row("Current Price",fmtD(d.q.price),"FMP /v3/quote (live)")+
+    row("Upside / (Downside)",d.intrinsic&&d.q.price?fmtP((d.intrinsic-d.q.price)/d.q.price):"—","Calc: (Intrinsic − Price) ÷ Price")+
+    `<div style="color:#38bdf8;font-size:12px;font-weight:700;margin:10px 0 6px">FMP REFERENCE DCF</div>`+
+    row("FMP DCF Estimate",fmtD(d.dcfRef.dcf),"FMP /v3/discounted-cash-flow (cross-check)");
+
+  const sensBody = `<div class="note">WACC (columns) × Terminal Growth (rows). Green = above current price.</div>${sensTable()}<div class="src-note">Base case: WACC ${fmtP(d.wacc)}, g ${fmtP(d.tg)}</div>`;
+
+  return section("fcfhist","FCF History","#4ade80",fcfHist)+
+    section("dcfmain","DCF — 5Y Explicit + Terminal","#4ade80",dcfBody,fmtD(d.intrinsic))+
+    section("sens","Sensitivity: Price Per Share","#4ade80",sensBody);
+}
+
+function tabBalance() {
+  const d=D;
+  const lev =
+    row("Cash & Equivalents",fmtB(d.lb.cashAndCashEquivalents),`FMP /v3/balance-sheet · 10-K ${d.ia[0]?.year}`)+
+    row("Short-Term Investments",fmtB(d.lb.shortTermInvestments),`FMP /v3/balance-sheet · 10-K ${d.ia[0]?.year}`)+
+    row("Total Liquid Assets",fmtB(d.cashEq),"Calc: Cash + ST Investments")+
+    row("Short-Term Debt",fmtB(d.lb.shortTermDebt),`FMP /v3/balance-sheet · 10-K ${d.ia[0]?.year}`)+
+    row("Long-Term Debt",fmtB(d.lb.longTermDebt),`FMP /v3/balance-sheet · 10-K ${d.ia[0]?.year}`)+
+    row("Gross Debt",fmtB(d.grossDebt),"Calc: ST Debt + LT Debt")+
+    row("Net Debt",fmtB(d.netDebt),"Calc: Gross Debt − Liquid Assets",false,0,d.netDebt<0?"Net cash position":"")+
+    row("Net Debt / EBITDA",d.ebitda>0?fmtX(d.netDebt/d.ebitda):"—","Calc: Net Debt ÷ EBITDA",false,0,d.ebitda>0&&d.netDebt/d.ebitda>4?"Elevated leverage":"")+
+    row("Total Equity (Book)",fmtB(d.lb.totalEquity),`FMP /v3/balance-sheet · 10-K ${d.ia[0]?.year}`)+
+    row("Diluted Shares",fmt(d.dilSh/1e6,0)+"M",`FMP /v3/income-statement · 10-K ${d.ia[0]?.year}`);
+
+  const wc =
+    `<div class="note">Source: FMP /v3/balance-sheet + income-statement · 10-K ${d.ia[0]?.year}</div>`+
+    row("Days Sales Outstanding (DSO)",d.dso!=null?`${fmt(d.dso,0)} days`:"—","Calc: (Receivables ÷ Revenue) × 365")+
+    row("Days Payable Outstanding (DPO)",d.dpo!=null?`${fmt(d.dpo,0)} days`:"—","Calc: (Payables ÷ COGS) × 365")+
+    row("Days Inventory Outstanding (DIO)",d.dio!=null?`${fmt(d.dio,0)} days`:"—","Calc: (Inventory ÷ COGS) × 365")+
+    row("Cash Conversion Cycle (CCC)",d.ccc!=null?`${fmt(d.ccc,0)} days`:"—","Calc: DSO + DIO − DPO");
+
+  const insHtml = `<div class="note">Source: FMP /v4/insider-trading (SEC Form 4 filings)</div>`+
+    row("Recent Insider Buys",fmt(d.iBuys,0),"FMP /v4/insider-trading (P-Purchase)")+
+    row("Recent Insider Sales",fmt(d.iSells,0),"FMP /v4/insider-trading (S-Sale)")+
+    d.ins.slice(0,5).map(t=>row(`${t.reportingName||"Unknown"} – ${t.transactionType}`,`${fmt(t.securitiesTransacted,0)} @ ${fmtD(t.price)}`,"Form 4 filed "+t.transactionDate,true,1)).join("");
+
+  return section("lev","Capital Structure & Leverage","#fb923c",lev)+
+    section("wc","Working Capital Efficiency","#fb923c",wc)+
+    section("ins","Insider Transactions (Form 4)","#fb923c",insHtml);
+}
+
+function tabQuality() {
+  const d=D;
+  const roicBody =
+    `<div class="note">ROIC &gt; WACC = value creation. ROIC &lt; WACC = capital destruction.</div>`+
+    row("EBIT (Operating Income)",fmtB(d.li.operatingIncome),`FMP /v3/income-statement · 10-K ${d.ia[0]?.year}`)+
+    row("Effective Tax Rate",fmtP(d.taxRate),`FMP · 10-K [Tax ÷ Pre-tax Income]`)+
+    row("NOPAT (= EBIT × (1 − T))",fmtB(d.nopat),"Calc: EBIT × (1 − Tax Rate)")+
+    row("Total Equity (Book)",fmtB(d.lb.totalEquity),`FMP /v3/balance-sheet · 10-K ${d.ia[0]?.year}`)+
+    row("Gross Debt",fmtB(d.grossDebt),`FMP /v3/balance-sheet · 10-K ${d.ia[0]?.year}`)+
+    row("Excess Cash Deducted",`(${fmtB(d.cashEq)})`,"Calc: Cash + ST Investments")+
+    row("Invested Capital",fmtB(d.ic),"Calc: Equity + Gross Debt − Excess Cash")+
+    row("ROIC",fmtP(d.roic),"Calc: NOPAT ÷ Invested Capital")+
+    row("WACC",fmtP(d.wacc),"See WACC tab")+
+    row("ROIC − WACC Spread",fmtP(d.roicSpread),"Value creation indicator");
+
+  const eqBody =
+    row("Net Income (LTM)",fmtB(d.li.netIncome),`FMP /v3/income-statement · 10-K ${d.ia[0]?.year}`)+
+    row("FCF (LTM)",fmtB(d.ca[0]?.fcf),"FMP /v3/cash-flow-statement [OCF − CapEx]")+
+    row("FCF Conversion (FCF ÷ Net Income)",fmtP(d.fcfConv),"Calc: FCF ÷ Net Income — target >80%",false,0,d.fcfConv<0.7?"Below 70%":"")+
+    row("Accruals Ratio",fmtP(d.accruals),"Calc: (Net Income − FCF) ÷ Avg Assets — target ~0",false,0,Math.abs(d.accruals)>0.05?">5% elevated":"")+
+    row("OCF / Revenue",fmtP((d.lc.operatingCashFlow||0)/(d.li.revenue||1)),"Calc: OCF ÷ Revenue")+
+    row("CapEx / Revenue",fmtP((d.ca[0]?.capex||0)/(d.li.revenue||1)),"Calc: CapEx ÷ Revenue");
+
+  const capBody =
+    row("Dividends Paid",fmtB(Math.abs(d.lc.dividendsPaid||0)),`FMP /v3/cash-flow-statement · 10-K ${d.ca[0]?.year}`)+
+    row("Buybacks",fmtB(Math.abs(d.lc.commonStockRepurchased||0)),`FMP /v3/cash-flow-statement · 10-K ${d.ca[0]?.year}`)+
+    row("Total Capital Returned",fmtB(Math.abs(d.lc.dividendsPaid||0)+Math.abs(d.lc.commonStockRepurchased||0)),"Calc: Dividends + Buybacks")+
+    row("FCF Yield",fmtP(d.km.freeCashFlowYield),"FMP /v3/key-metrics")+
+    row("Dividend Yield",fmtP(d.p.lastDiv&&d.q.price?d.p.lastDiv/d.q.price:null),"FMP /v3/profile (ann. div ÷ price)");
+
+  const badge = d.roicSpread!=null?(d.roicSpread>0?`+${fmtP(d.roicSpread)} spread`:fmtP(d.roicSpread)):"—";
+  return section("roic","ROIC vs WACC — Value Creation Test","#a78bfa",roicBody,badge)+
+    section("eq","Earnings Quality","#a78bfa",eqBody)+
+    section("cap","Capital Allocation","#a78bfa",capBody);
+}
+
+function tabComps() {
+  const d=D;
+  return section("comps","Multiples & Relative Valuation","#f472b6",
+    `<div class="note">All multiples sourced from FMP with formula shown.</div>`+
+    row("P/E (LTM)",fmtX(d.rat.priceEarningsRatio),"FMP /v3/ratios (Price ÷ EPS LTM)")+
+    row("P/E (NTM, consensus)",d.ae[0]?.estimatedEpsAvg&&d.q.price?fmtX(d.q.price/d.ae[0].estimatedEpsAvg):"—","Calc: Price ÷ FMP consensus NTM EPS")+
+    row("P/B",fmtX(d.rat.priceToBookRatio),"FMP /v3/ratios (Price ÷ Book/Share)")+
+    row("P/FCF",fmtX(d.rat.priceToFreeCashFlowsRatio),"FMP /v3/ratios")+
+    row("EV (FMP)",fmtB(d.evFMP),"FMP /v3/key-metrics")+
+    row("EV/EBITDA (LTM)",fmtX(d.evEbLTM),"FMP /v3/ratios [enterpriseValueMultiple]")+
+    row("EV/EBITDA (NTM, consensus)",fmtX(d.evEbFwd),"Calc: EV ÷ FMP consensus NTM EBITDA")+
+    row("EV/EBIT (LTM)",d.li.operatingIncome>0?fmtX(d.evFMP/d.li.operatingIncome):"—","Calc: EV ÷ EBIT")+
+    row("EV/Revenue (LTM)",fmtX(d.rat.evToSales),"FMP /v3/ratios")+
+    row("EV/FCF (LTM)",d.ca[0]?.fcf>0?fmtX(d.evFMP/d.ca[0].fcf):"—","Calc: EV ÷ LTM FCF")+
+    row("Debt/Equity (Book)",fmtX(d.rat.debtEquityRatio),"FMP /v3/ratios")+
+    row("Interest Coverage",d.intExp>0?fmtX(d.li.operatingIncome/d.intExp):"No debt","Calc: EBIT ÷ Interest Expense")
   );
 }
 
-function Section({ title, color = "#38bdf8", children, badge }) {
-  const [open, setOpen] = useState(true);
-  return (
-    <div style={{ marginBottom: 16, border: `1px solid ${color}33`, borderRadius: 8, overflow: "hidden" }}>
-      <div onClick={() => setOpen(o => !o)} style={{ background: color + "15", padding: "10px 14px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ color, fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>{title.toUpperCase()}</span>
-        <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {badge && <span style={{ fontSize: 10, fontFamily: "monospace", fontWeight: 700, background: color + "22", color, border: `1px solid ${color}55`, borderRadius: 3, padding: "1px 5px" }}>{badge}</span>}
-          <span style={{ color: "#475569", fontSize: 12 }}>{open ? "▲" : "▼"}</span>
-        </span>
-      </div>
-      {open && <div style={{ padding: "10px 14px" }}>{children}</div>}
+function tabAI() {
+  return `<div style="border:1px solid #38bdf833;border-radius:8px;overflow:hidden">
+    <div class="sec-hdr" style="background:#38bdf815;color:#38bdf8">AI ANALYST OPINION</div>
+    <div class="sec-body">
+      <div class="note" style="margin-bottom:12px">Claude Sonnet 4 opinion based strictly on sourced data above. No hallucinated figures.</div>
+      <button class="btn" onclick="runAI()" id="btnAI">RUN AI ANALYST</button>
+      <div id="aiBox"></div>
     </div>
-  );
+  </div>`;
 }
 
-function Flag({ type, msg }) {
-  const colors = { warn: "#f59e0b", ok: "#4ade80", bad: "#f87171", info: "#38bdf8" };
-  const icons = { warn: "⚠", ok: "✓", bad: "✗", info: "ℹ" };
-  return (
-    <div style={{ padding: "6px 10px", borderRadius: 5, marginBottom: 6, background: colors[type] + "15", border: `1px solid ${colors[type]}44`, color: colors[type], fontSize: 12, display: "flex", gap: 8 }}>
-      <span>{icons[type]}</span><span>{msg}</span>
-    </div>
-  );
+async function runAI() {
+  if (!D) return;
+  const btn = document.getElementById("btnAI");
+  btn.disabled=true; btn.textContent="ANALYZING…";
+  const summary = {ticker:D.sym,price:D.q.price,intrinsicPerShare:D.intrinsic,wacc:D.wacc,roic:D.roic,fcfConversion:D.fcfConv,revCAGR:D.revCAGR,netLeverage:D.ebitda>0?D.netDebt/D.ebitda:null,flags:D.flags.map(f=>f.m),evEbitdaLTM:D.evEbLTM,sector:D.p.sector,description:D.p.description?.slice(0,300)};
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:`You are a senior buy-side analyst. Based on these sourced financial metrics, write a concise investment opinion (4–5 paragraphs). Be direct about risks and opportunities. Do not make up numbers. Stick strictly to the data:\n\n${JSON.stringify(summary,null,2)}`}]})});
+    const data = await res.json();
+    const text = data.content?.map(b=>b.text||"").join("\n")||"No response.";
+    document.getElementById("aiBox").innerHTML=`<div class="ai-box">${text}</div>`;
+  } catch(e) { document.getElementById("aiBox").innerHTML=`<div class="ai-box" style="color:#f87171">Failed: ${e.message}</div>`; }
+  btn.disabled=false; btn.textContent="RUN AI ANALYST";
 }
 
-function SensTable({ waccs, growths, calcTV, currentPrice }) {
-  return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 11, fontFamily: "monospace" }}>
-        <thead>
-          <tr>
-            <th style={{ padding: "4px 8px", color: "#64748b", textAlign: "center", background: "#0f172a" }}>WACC→/g↓</th>
-            {waccs.map(w => <th key={w} style={{ padding: "4px 8px", color: "#38bdf8", textAlign: "center", background: "#0f172a" }}>{(w * 100).toFixed(1)}%</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {growths.map(g => (
-            <tr key={g}>
-              <td style={{ padding: "4px 8px", color: "#38bdf8", textAlign: "center", background: "#0f172a" }}>{(g * 100).toFixed(1)}%</td>
-              {waccs.map(w => {
-                const val = calcTV(w, g);
-                const above = currentPrice && val > currentPrice;
-                return <td key={w} style={{ padding: "4px 8px", textAlign: "center", background: val < 0 ? "#f8717122" : above ? "#4ade8022" : "#1e293b", color: val < 0 ? "#f87171" : "#f8fafc" }}>{val == null || isNaN(val) ? "—" : `$${fmt(val, 0)}`}</td>;
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+const TABS = ["overview","wacc","dcf","balance","quality","comps","ai"];
+let activeTab = "overview";
+
+function setTab(t) {
+  activeTab = t;
+  document.querySelectorAll(".tab").forEach(el=>el.classList.toggle("active",el.dataset.tab===t));
+  const fns = {overview:tabOverview,wacc:tabWACC,dcf:tabDCF,balance:tabBalance,quality:tabQuality,comps:tabComps,ai:tabAI};
+  document.getElementById("tabContent").innerHTML = fns[t]();
 }
 
-function App() {
-  const [ticker, setTicker] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [data, setData] = useState(null);
-  const [activeTab, setActiveTab] = useState("overview");
-  const [aiAnalysis, setAiAnalysis] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
-  const [testMsg, setTestMsg] = useState("");
-
-  const fmpFetch = useCallback(async (path) => {
-    const sep = path.includes("?") ? "&" : "?";
-    const url = `https://financialmodelingprep.com/api${path}${sep}apikey=${FMP_KEY}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status} on ${path}`);
-    const json = await res.json();
-    if (json && json["Error Message"]) throw new Error(json["Error Message"]);
-    if (json && json["message"]) throw new Error(json["message"]);
-    return json;
-  }, []);
-
-  const testConnection = useCallback(async () => {
-    setTestMsg("Testing…");
-    try {
-      const res = await fetch(`https://financialmodelingprep.com/api/v3/profile/AAPL?apikey=${FMP_KEY}`);
-      const json = await res.json();
-      if (json && json["Error Message"]) setTestMsg("❌ " + json["Error Message"]);
-      else if (Array.isArray(json) && json[0]?.symbol) setTestMsg("✅ Connected — AAPL price: $" + json[0].price);
-      else setTestMsg("⚠ Unexpected: " + JSON.stringify(json).slice(0, 100));
-    } catch(e) { setTestMsg("❌ " + e.message); }
-  }, []);
-
-  const analyze = useCallback(async () => {
-    if (!ticker.trim()) return;
-    setLoading(true); setError(null); setData(null); setAiAnalysis("");
-    try {
-      const sym = ticker.trim().toUpperCase();
-      const [profile, incomeA, balanceA, cashflowA, ratios, keyMetrics, quote, analystEst, insiderTx, dcfFmp, treasury] = await Promise.allSettled([
-        fmpFetch(`/v3/profile/${sym}`),
-        fmpFetch(`/v3/income-statement/${sym}?limit=5`),
-        fmpFetch(`/v3/balance-sheet-statement/${sym}?limit=5`),
-        fmpFetch(`/v3/cash-flow-statement/${sym}?limit=5`),
-        fmpFetch(`/v3/ratios/${sym}?limit=1`),
-        fmpFetch(`/v3/key-metrics/${sym}?limit=2`),
-        fmpFetch(`/v3/quote/${sym}`),
-        fmpFetch(`/v3/analyst-estimates/${sym}?limit=3`),
-        fmpFetch(`/v4/insider-trading?symbol=${sym}&limit=10`),
-        fmpFetch(`/v3/discounted-cash-flow/${sym}`),
-        fmpFetch(`/v4/treasury?from=2024-01-01&to=2024-12-31`),
-      ]);
-
-      const get = (r) => r.status === "fulfilled" ? r.value : null;
-      const p = get(profile)?.[0];
-      if (!p) {
-        const raw = get(profile);
-        const detail = raw?.["Error Message"] || raw?.["message"] || (Array.isArray(raw) && raw.length === 0 ? "Empty — ticker not found on FMP" : "No data returned");
-        throw new Error(`Profile failed: ${detail}`);
-      }
-
-      const ia = get(incomeA) || [];
-      const ba = get(balanceA) || [];
-      const ca = get(cashflowA) || [];
-      const rat = get(ratios)?.[0] || {};
-      const km = get(keyMetrics)?.[0] || {};
-      const q = get(quote)?.[0] || {};
-      const ae = get(analystEst) || [];
-      const insiders = get(insiderTx) || [];
-      const dcfRef = get(dcfFmp)?.[0] || {};
-      const treasuryData = get(treasury) || [];
-
-      const rfr = treasuryData.length ? (treasuryData[treasuryData.length - 1]?.year10 || 4.3) / 100 : 0.043;
-      const rfrSource = treasuryData.length ? "FMP /v4/treasury (10Y UST, latest)" : "Fallback 4.3%";
-      const erp = 0.046;
-      const betaRaw = p.beta || 1.0;
-      const ke = rfr + betaRaw * erp;
-
-      const latestIncome = ia[0] || {};
-      const latestBalance = ba[0] || {};
-      const latestCF = ca[0] || {};
-
-      const grossDebt = (latestBalance.longTermDebt || 0) + (latestBalance.shortTermDebt || 0);
-      const cashAndEquiv = (latestBalance.cashAndCashEquivalents || 0) + (latestBalance.shortTermInvestments || 0);
-      const netDebt = grossDebt - cashAndEquiv;
-      const interestExp = Math.abs(latestIncome.interestExpense || 0);
-      const kdPretax = grossDebt > 0 ? interestExp / grossDebt : 0;
-      const effectiveTaxRate = latestIncome.incomeBeforeTax > 0
-        ? Math.max(0, Math.min(0.35, latestIncome.incomeTaxExpense / latestIncome.incomeBeforeTax)) : 0.21;
-      const kdAfterTax = kdPretax * (1 - effectiveTaxRate);
-
-      const mktCap = p.mktCap || 0;
-      const totalCapital = mktCap + grossDebt;
-      const we = totalCapital > 0 ? mktCap / totalCapital : 1;
-      const wd = totalCapital > 0 ? grossDebt / totalCapital : 0;
-      const wacc = we * ke + wd * kdAfterTax;
-
-      const fcfArr = ca.slice(0, 4).map(y => ({
-        year: y.calendarYear, ocf: y.operatingCashFlow,
-        capex: Math.abs(y.capitalExpenditure || 0),
-        fcf: (y.operatingCashFlow || 0) - Math.abs(y.capitalExpenditure || 0),
-        source: `FMP /v3/cash-flow-statement (10-K ${y.calendarYear})`,
-      }));
-
-      const incomeArr = ia.slice(0, 4).map(y => ({
-        year: y.calendarYear, revenue: y.revenue, ebitda: y.ebitda, ebit: y.operatingIncome, netIncome: y.netIncome,
-        ebitdaMargin: y.revenue > 0 ? y.ebitda / y.revenue : null,
-        netMargin: y.revenue > 0 ? y.netIncome / y.revenue : null,
-      }));
-
-      const revCAGR = ia[0]?.revenue && ia[3]?.revenue && ia[3].revenue > 0 ? Math.pow(ia[0].revenue / ia[3].revenue, 1/3) - 1 : null;
-      const fcfCAGR = fcfArr[0]?.fcf && fcfArr[3]?.fcf && fcfArr[3].fcf > 0 ? Math.pow(fcfArr[0].fcf / fcfArr[3].fcf, 1/3) - 1 : null;
-
-      const nopat = (latestIncome.operatingIncome || 0) * (1 - effectiveTaxRate);
-      const investedCapital = (latestBalance.totalEquity || 0) + grossDebt - cashAndEquiv;
-      const roic = investedCapital > 0 ? nopat / investedCapital : null;
-      const roicVsWacc = roic != null ? roic - wacc : null;
-      const fcfConversion = latestIncome.netIncome > 0 ? (fcfArr[0]?.fcf || 0) / latestIncome.netIncome : null;
-      const avgAssets = ((ba[0]?.totalAssets || 0) + (ba[1]?.totalAssets || 0)) / 2;
-      const accruals = avgAssets > 0 ? ((latestIncome.netIncome || 0) - (fcfArr[0]?.fcf || 0)) / avgAssets : null;
-      const dilutedShares = latestIncome.weightedAverageShsOutDil || latestIncome.weightedAverageShsOut;
-
-      const fcfGrowthAssump = Math.min(revCAGR || 0.05, 0.15);
-      const termGrowth = 0.025;
-      const baseFCF = fcfArr[0]?.fcf || 0;
-
-      const projFCF = Array.from({ length: 5 }, (_, i) => ({
-        year: (ia[0]?.calendarYear || 2023) + i + 1,
-        fcf: baseFCF * Math.pow(1 + fcfGrowthAssump, i + 1),
-        pv: baseFCF * Math.pow(1 + fcfGrowthAssump, i + 1) / Math.pow(1 + wacc, i + 1),
-      }));
-
-      const pvSum = projFCF.reduce((s, y) => s + y.pv, 0);
-      const termFCF = projFCF[4].fcf * (1 + termGrowth);
-      const termVal = wacc > termGrowth ? termFCF / (wacc - termGrowth) : null;
-      const pvTerminal = termVal ? termVal / Math.pow(1 + wacc, 5) : null;
-      const enterpriseValueDCF = pvTerminal ? pvSum + pvTerminal : null;
-      const equityValueDCF = enterpriseValueDCF != null ? enterpriseValueDCF - netDebt : null;
-      const intrinsicPerShare = equityValueDCF && dilutedShares > 0 ? equityValueDCF / dilutedShares : null;
-      const tvAsPctEV = enterpriseValueDCF && pvTerminal ? pvTerminal / enterpriseValueDCF : null;
-
-      const waccRange = [wacc - 0.02, wacc - 0.01, wacc, wacc + 0.01, wacc + 0.02];
-      const gRange = [0.01, 0.015, 0.02, 0.025, 0.03];
-      const calcSensPrice = (w, g) => {
-        if (w <= g || baseFCF <= 0 || !dilutedShares) return null;
-        const pv5 = projFCF.reduce((s, y, i) => s + (baseFCF * Math.pow(1 + fcfGrowthAssump, i + 1)) / Math.pow(1 + w, i + 1), 0);
-        const tv = (projFCF[4].fcf * (1 + g)) / (w - g);
-        return (pv5 + tv / Math.pow(1 + w, 5) - netDebt) / dilutedShares;
-      };
-
-      const evFMP = km.enterpriseValue || mktCap + netDebt;
-      const ebitdaLTM = latestIncome.ebitda;
-      const evEbitdaLTM = rat.enterpriseValueMultiple || (ebitdaLTM > 0 ? evFMP / ebitdaLTM : null);
-      const evEbitdaFwd = ae[0]?.estimatedEbitdaAvg ? evFMP / ae[0].estimatedEbitdaAvg : null;
-
-      const dso = latestBalance.netReceivables && latestIncome.revenue ? (latestBalance.netReceivables / latestIncome.revenue) * 365 : null;
-      const dpo = latestBalance.accountPayables && latestIncome.costOfRevenue ? (latestBalance.accountPayables / latestIncome.costOfRevenue) * 365 : null;
-      const dio = latestBalance.inventory && latestIncome.costOfRevenue ? (latestBalance.inventory / latestIncome.costOfRevenue) * 365 : null;
-      const ccc = dso != null && dpo != null && dio != null ? dso + dio - dpo : null;
-
-      const flags = [];
-      if (tvAsPctEV > 0.8) flags.push({ type: "warn", msg: `Terminal value is ${fmtPct(tvAsPctEV)} of total EV — heavily dependent on distant assumptions` });
-      if (fcfConversion != null && fcfConversion < 0.7) flags.push({ type: "warn", msg: `FCF conversion ${fmtPct(fcfConversion)} < 70% — earnings quality concern` });
-      if (fcfConversion != null && fcfConversion >= 0.9) flags.push({ type: "ok", msg: `FCF conversion ${fmtPct(fcfConversion)} — strong earnings quality` });
-      if (accruals != null && Math.abs(accruals) > 0.05) flags.push({ type: "warn", msg: `Accruals ratio ${fmtPct(accruals)} — elevated non-cash earnings` });
-      if (roicVsWacc != null && roicVsWacc > 0.02) flags.push({ type: "ok", msg: `ROIC (${fmtPct(roic)}) exceeds WACC (${fmtPct(wacc)}) by ${fmtPct(roicVsWacc)} — value creating` });
-      if (roicVsWacc != null && roicVsWacc < -0.02) flags.push({ type: "bad", msg: `ROIC (${fmtPct(roic)}) below WACC (${fmtPct(wacc)}) — destroying capital` });
-      if (ebitdaLTM > 0 && netDebt / ebitdaLTM > 4) flags.push({ type: "bad", msg: `Net leverage ${fmtX(netDebt / ebitdaLTM)} > 4x EBITDA — elevated credit risk` });
-      if (intrinsicPerShare && q.price) {
-        const updown = (intrinsicPerShare - q.price) / q.price;
-        if (updown > 0.2) flags.push({ type: "ok", msg: `DCF implies ${fmtPct(updown)} upside to current price` });
-        if (updown < -0.2) flags.push({ type: "bad", msg: `DCF implies ${fmtPct(Math.abs(updown))} downside vs current price` });
-      }
-
-      const insiderBuys = insiders.filter(t => t.transactionType === "P-Purchase").length;
-      const insiderSells = insiders.filter(t => t.transactionType === "S-Sale").length;
-
-      setData({ sym, p, q, rat, km, ae, ia: incomeArr, ca: fcfArr, projFCF, latestIncome, latestBalance, latestCF,
-        rfr, rfrSource, erp, betaRaw, ke, kdPretax, kdAfterTax, effectiveTaxRate, we, wd, wacc,
-        grossDebt, cashAndEquiv, netDebt, interestExp, dilutedShares,
-        fcfGrowthAssump, termGrowth, baseFCF, pvSum, termVal, pvTerminal, enterpriseValueDCF, equityValueDCF, intrinsicPerShare, tvAsPctEV,
-        waccRange, gRange, calcSensPrice, evFMP, ebitdaLTM, evEbitdaLTM, evEbitdaFwd,
-        revCAGR, fcfCAGR, roic, nopat, investedCapital, roicVsWacc, fcfConversion, accruals,
-        dso, dpo, dio, ccc, flags, insiderBuys, insiderSells, insiders, dcfRef,
-        fetchedAt: new Date().toISOString(),
-      });
-    } catch(e) { setError(e.message); }
-    finally { setLoading(false); }
-  }, [ticker, fmpFetch]);
-
-  const runAI = useCallback(async () => {
-    if (!data) return;
-    setAiLoading(true); setAiAnalysis("");
-    try {
-      const summary = { ticker: data.sym, price: data.q.price, intrinsicPerShare: data.intrinsicPerShare, wacc: data.wacc, roic: data.roic, fcfConversion: data.fcfConversion, revCAGR: data.revCAGR, netLeverage: data.ebitdaLTM > 0 ? data.netDebt / data.ebitdaLTM : null, flags: data.flags.map(f => f.msg), evEbitdaLTM: data.evEbitdaLTM, sector: data.p.sector, description: data.p.description?.slice(0, 300) };
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, messages: [{ role: "user", content: `You are a senior buy-side analyst. Based on these sourced financial metrics, write a concise investment opinion (4–5 paragraphs). Be direct about risks and opportunities. Do not make up numbers. Stick strictly to the data:\n\n${JSON.stringify(summary, null, 2)}` }] })
-      });
-      const d = await res.json();
-      setAiAnalysis(d.content?.map(b => b.text || "").join("\n") || "No response.");
-    } catch(e) { setAiAnalysis("AI analysis failed: " + e.message); }
-    setAiLoading(false);
-  }, [data]);
-
-  const tabs = ["overview", "wacc", "dcf", "balance", "quality", "comps", "ai"];
-  const d = data;
-
-  return (
-    <div style={{ background: "#020617", minHeight: "100vh", color: "#f8fafc", fontFamily: "'Courier New', monospace", padding: "20px 16px", maxWidth: 900, margin: "0 auto" }}>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ color: "#38bdf8", fontSize: 11, letterSpacing: 3, marginBottom: 4 }}>INVESTMENT ANALYSIS TERMINAL</div>
-        <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.5 }}>Valuation Engine</div>
-        <div style={{ color: "#475569", fontSize: 11, marginTop: 2 }}>All numbers sourced from FMP API + SEC filings. No estimates without disclosure.</div>
-      </div>
-
-      <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-        <input value={ticker} onChange={e => setTicker(e.target.value.toUpperCase())} onKeyDown={e => e.key === "Enter" && analyze()} placeholder="TICKER (e.g. AAPL)"
-          style={{ flex: "1 1 150px", background: "#0f172a", border: "1px solid #334155", color: "#f8fafc", padding: "10px 14px", borderRadius: 6, fontSize: 14, outline: "none" }} />
-        <button onClick={analyze} disabled={loading} style={{ background: loading ? "#1e293b" : "#0ea5e9", color: "#fff", border: "none", padding: "10px 20px", borderRadius: 6, cursor: loading ? "not-allowed" : "pointer", fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>
-          {loading ? "LOADING…" : "ANALYZE"}
-        </button>
-        <button onClick={testConnection} style={{ background: "#0f172a", color: "#64748b", border: "1px solid #334155", padding: "10px 14px", borderRadius: 6, cursor: "pointer", fontSize: 11 }}>
-          TEST API
-        </button>
-      </div>
-      {testMsg && <div style={{ fontSize: 12, color: testMsg.startsWith("✅") ? "#4ade80" : testMsg.startsWith("⚠") ? "#f59e0b" : "#f87171", marginBottom: 8 }}>{testMsg}</div>}
-      {error && <div style={{ background: "#f8717122", border: "1px solid #f8717155", color: "#f87171", padding: "10px 14px", borderRadius: 6, marginBottom: 16, fontSize: 13 }}>✗ {error}</div>}
-
-      {d && <>
-        <div style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, padding: "14px 16px", marginBottom: 16, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#38bdf8" }}>{d.sym} <span style={{ color: "#64748b", fontSize: 12 }}>{d.p.exchangeShortName}</span></div>
-            <div style={{ color: "#94a3b8", fontSize: 12 }}>{d.p.companyName}</div>
-            <div style={{ color: "#475569", fontSize: 11 }}>{d.p.sector} · {d.p.industry}</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>{fmtD(d.q.price)}</div>
-            <div style={{ fontSize: 11, color: d.q.change >= 0 ? "#4ade80" : "#f87171" }}>{d.q.change >= 0 ? "+" : ""}{fmtD(d.q.change)} ({fmtPct((d.q.changesPercentage || 0) / 100)})</div>
-            <div style={{ fontSize: 11, color: "#475569" }}>52W: {fmtD(d.q.yearLow)} – {fmtD(d.q.yearHigh)}</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 13, color: "#94a3b8" }}>Mkt Cap: <span style={{ color: "#f8fafc" }}>{fmtB(d.p.mktCap)}</span></div>
-            <div style={{ fontSize: 13, color: "#94a3b8" }}>DCF Target: <span style={{ color: d.intrinsicPerShare > d.q.price ? "#4ade80" : "#f87171", fontWeight: 700 }}>{fmtD(d.intrinsicPerShare)}</span></div>
-            <div style={{ fontSize: 11, color: "#475569" }}>As of {new Date(d.fetchedAt).toLocaleString()}</div>
-          </div>
-        </div>
-
-        {d.flags.length > 0 && <div style={{ marginBottom: 16 }}>{d.flags.map((f, i) => <Flag key={i} type={f.type} msg={f.msg} />)}</div>}
-
-        <div style={{ display: "flex", gap: 4, marginBottom: 16, flexWrap: "wrap" }}>
-          {tabs.map(t => <button key={t} onClick={() => setActiveTab(t)} style={{ background: activeTab === t ? "#0ea5e9" : "#0f172a", color: activeTab === t ? "#fff" : "#64748b", border: `1px solid ${activeTab === t ? "#0ea5e9" : "#1e293b"}`, padding: "6px 12px", borderRadius: 5, cursor: "pointer", fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>{t.toUpperCase()}</button>)}
-        </div>
-
-        {/* OVERVIEW */}
-        {activeTab === "overview" && <>
-          <Section title="Key Metrics Snapshot" color="#38bdf8">
-            <Row label="Revenue (LTM)" value={fmtB(d.latestIncome.revenue)} source={`FMP /v3/income-statement · 10-K ${d.ia[0]?.year}`} />
-            <Row label="EBITDA (LTM)" value={fmtB(d.latestIncome.ebitda)} source={`FMP /v3/income-statement · 10-K ${d.ia[0]?.year}`} />
-            <Row label="EBIT (Operating Income)" value={fmtB(d.latestIncome.operatingIncome)} source={`FMP /v3/income-statement · 10-K ${d.ia[0]?.year}`} />
-            <Row label="Net Income (LTM)" value={fmtB(d.latestIncome.netIncome)} source={`FMP /v3/income-statement · 10-K ${d.ia[0]?.year}`} />
-            <Row label="FCF (LTM)" value={fmtB(d.ca[0]?.fcf)} source={`FMP /v3/cash-flow-statement · 10-K ${d.ca[0]?.year} [OCF − CapEx]`} />
-            <Row label="EBITDA Margin" value={fmtPct(d.ia[0]?.ebitdaMargin)} source="Calc: EBITDA ÷ Revenue" />
-            <Row label="Net Margin" value={fmtPct(d.ia[0]?.netMargin)} source="Calc: Net Income ÷ Revenue" />
-            <Row label="Revenue CAGR (3Y)" value={fmtPct(d.revCAGR)} source={`FMP · 10-K ${d.ia[3]?.year}–${d.ia[0]?.year}`} />
-            <Row label="FCF CAGR (3Y)" value={fmtPct(d.fcfCAGR)} source={`FMP · 10-K ${d.ca[3]?.year}–${d.ca[0]?.year}`} />
-          </Section>
-          <Section title="Historical Income Trends" color="#a78bfa">
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                <thead><tr style={{ borderBottom: "1px solid #334155" }}>
-                  {["Year","Revenue","EBITDA","EBIT","Net Inc","EBITDA%","Net%"].map(h => <th key={h} style={{ padding: "4px 8px", color: "#64748b", textAlign: "right", fontWeight: 600 }}>{h}</th>)}
-                </tr></thead>
-                <tbody>{d.ia.map(y => <tr key={y.year} style={{ borderBottom: "1px solid #1e293b" }}>
-                  <td style={{ padding: "4px 8px", color: "#38bdf8" }}>{y.year}</td>
-                  <td style={{ padding: "4px 8px", textAlign: "right" }}>{fmtB(y.revenue)}</td>
-                  <td style={{ padding: "4px 8px", textAlign: "right" }}>{fmtB(y.ebitda)}</td>
-                  <td style={{ padding: "4px 8px", textAlign: "right" }}>{fmtB(y.ebit)}</td>
-                  <td style={{ padding: "4px 8px", textAlign: "right" }}>{fmtB(y.netIncome)}</td>
-                  <td style={{ padding: "4px 8px", textAlign: "right", color: y.ebitdaMargin > 0.2 ? "#4ade80" : "#f8fafc" }}>{fmtPct(y.ebitdaMargin)}</td>
-                  <td style={{ padding: "4px 8px", textAlign: "right" }}>{fmtPct(y.netMargin)}</td>
-                </tr>)}</tbody>
-              </table>
-              <div style={{ color: "#475569", fontSize: 10, marginTop: 6 }}>Source: FMP /v3/income-statement · Annual 10-K filings</div>
-            </div>
-          </Section>
-          <Section title="Analyst Estimates" color="#fb923c">
-            {d.ae.length === 0 ? <div style={{ color: "#64748b", fontSize: 12 }}>No analyst estimates available</div>
-              : d.ae.slice(0, 3).map(e => <div key={e.date} style={{ marginBottom: 8 }}>
-                <div style={{ color: "#fb923c", fontSize: 12, marginBottom: 4 }}>FY{e.date?.slice(0,4)} Estimates <Source text="FMP /v3/analyst-estimates (consensus)" /></div>
-                <Row label="Revenue (consensus)" value={fmtB(e.estimatedRevenueAvg)} indent={1} sub />
-                <Row label="EPS (consensus)" value={fmtD(e.estimatedEpsAvg)} indent={1} sub />
-                <Row label="EBITDA (consensus)" value={fmtB(e.estimatedEbitdaAvg)} indent={1} sub />
-                <Row label="Analyst count" value={fmt(e.numberAnalystEstimatedRevenue, 0)} indent={1} sub />
-              </div>)}
-          </Section>
-        </>}
-
-        {/* WACC */}
-        {activeTab === "wacc" && <Section title="WACC — Full Build" color="#f59e0b" badge={fmtPct(d.wacc)}>
-          <div style={{ marginBottom: 10, fontSize: 11, color: "#64748b" }}>Formula: WACC = (E/V × Ke) + (D/V × Kd × (1 − T))</div>
-          <div style={{ color: "#f59e0b", fontSize: 12, marginBottom: 6, fontWeight: 700 }}>COST OF EQUITY (CAPM)</div>
-          <Row label="Risk-Free Rate (10Y UST)" value={fmtPct(d.rfr)} source={d.rfrSource} />
-          <Row label="Equity Risk Premium" value={fmtPct(d.erp)} source="Damodaran Jan 2024 (damodaran.com)" />
-          <Row label="Beta (levered, 5Y monthly)" value={fmt(d.betaRaw, 2)} source="FMP /v3/profile" />
-          <Row label="Cost of Equity (Ke = Rf + β × ERP)" value={fmtPct(d.ke)} source={`Calc: ${fmtPct(d.rfr)} + ${fmt(d.betaRaw,2)} × ${fmtPct(d.erp)}`} />
-          <div style={{ height: 1, background: "#1e293b", margin: "10px 0" }} />
-          <div style={{ color: "#f59e0b", fontSize: 12, marginBottom: 6, fontWeight: 700 }}>COST OF DEBT</div>
-          <Row label="Gross Debt" value={fmtB(d.grossDebt)} source={`FMP /v3/balance-sheet-statement · 10-K ${d.ia[0]?.year} [LT + ST Debt]`} />
-          <Row label="Interest Expense (LTM)" value={fmtM(d.interestExp)} source={`FMP /v3/income-statement · 10-K ${d.ia[0]?.year}`} />
-          <Row label="Pre-tax Cost of Debt" value={fmtPct(d.kdPretax)} source="Calc: Interest Expense ÷ Gross Debt" />
-          <Row label="Effective Tax Rate" value={fmtPct(d.effectiveTaxRate)} source={`FMP · 10-K ${d.ia[0]?.year} [Tax ÷ Pre-tax Income]`} flag={d.effectiveTaxRate < 0.1 ? "Low — verify 10-K footnotes" : null} />
-          <Row label="After-tax Cost of Debt (Kd)" value={fmtPct(d.kdAfterTax)} source={`Calc: ${fmtPct(d.kdPretax)} × (1 − ${fmtPct(d.effectiveTaxRate)})`} />
-          <div style={{ height: 1, background: "#1e293b", margin: "10px 0" }} />
-          <div style={{ color: "#f59e0b", fontSize: 12, marginBottom: 6, fontWeight: 700 }}>CAPITAL STRUCTURE WEIGHTS</div>
-          <Row label="Market Cap (E)" value={fmtB(d.p.mktCap)} source="FMP /v3/profile (live price × diluted shares)" />
-          <Row label="Gross Debt (D)" value={fmtB(d.grossDebt)} source={`FMP /v3/balance-sheet-statement · 10-K ${d.ia[0]?.year}`} />
-          <Row label="Total Capital (V = E + D)" value={fmtB(d.p.mktCap + d.grossDebt)} source="Calc: Market Cap + Gross Debt" />
-          <Row label="Equity Weight (E/V)" value={fmtPct(d.we)} source="Calc: Market Cap ÷ Total Capital" />
-          <Row label="Debt Weight (D/V)" value={fmtPct(d.wd)} source="Calc: Gross Debt ÷ Total Capital" />
-          <div style={{ height: 1, background: "#1e293b", margin: "10px 0" }} />
-          <div style={{ color: "#f59e0b", fontSize: 12, marginBottom: 6, fontWeight: 700 }}>WACC RESULT</div>
-          <Row label="WACC" value={fmtPct(d.wacc)} source={`Calc: (${fmtPct(d.we)} × ${fmtPct(d.ke)}) + (${fmtPct(d.wd)} × ${fmtPct(d.kdAfterTax)})`} />
-        </Section>}
-
-        {/* DCF */}
-        {activeTab === "dcf" && <>
-          <Section title="FCF History" color="#4ade80">
-            {d.ca.map(y => <div key={y.year}>
-              <Row label={`${y.year} OCF`} value={fmtB(y.ocf)} source={y.source} />
-              <Row label={`${y.year} CapEx`} value={`(${fmtB(y.capex)})`} sub indent={1} source={y.source} />
-              <Row label={`${y.year} FCF`} value={fmtB(y.fcf)} source="Calc: OCF − CapEx" />
-              <div style={{ height: 1, background: "#1e293b", marginBottom: 4 }} />
-            </div>)}
-          </Section>
-          <Section title="DCF — 5Y Explicit + Terminal" color="#4ade80" badge={fmtD(d.intrinsicPerShare)}>
-            <Row label="Base FCF (LTM)" value={fmtB(d.baseFCF)} source={`FMP /v3/cash-flow-statement · 10-K ${d.ca[0]?.year}`} />
-            <Row label="FCF Growth Rate (Stage 1, 5Y)" value={fmtPct(d.fcfGrowthAssump)} source={`Calc: min(Rev CAGR ${fmtPct(d.revCAGR)}, 15% cap)`} />
-            <Row label="Terminal Growth Rate" value={fmtPct(d.termGrowth)} source="IMF long-run nominal GDP 2.5%" />
-            <Row label="Discount Rate (WACC)" value={fmtPct(d.wacc)} source="See WACC tab" />
-            <div style={{ height: 1, background: "#1e293b", margin: "10px 0" }} />
-            <div style={{ color: "#4ade80", fontSize: 12, marginBottom: 6, fontWeight: 700 }}>PROJECTED FREE CASH FLOWS</div>
-            {d.projFCF.map((y, i) => <Row key={y.year} label={`Year ${i+1} (${y.year}) FCF`} value={fmtB(y.fcf)} sub source={`PV: ${fmtB(y.pv)}`} indent={1} />)}
-            <div style={{ height: 1, background: "#1e293b", margin: "10px 0" }} />
-            <Row label="PV of Explicit FCFs (5Y)" value={fmtB(d.pvSum)} source="Calc: Σ FCF_t ÷ (1+WACC)^t" />
-            <Row label="Terminal FCF (Year 6)" value={fmtB(d.projFCF[4]?.fcf * (1 + d.termGrowth))} source={`Calc: FCF_5 × (1 + ${fmtPct(d.termGrowth)})`} />
-            <Row label="Terminal Value (Gordon Growth)" value={fmtB(d.termVal)} source={`Calc: Terminal FCF ÷ (WACC ${fmtPct(d.wacc)} − g ${fmtPct(d.termGrowth)})`} />
-            <Row label="PV of Terminal Value" value={fmtB(d.pvTerminal)} source="Calc: TV ÷ (1+WACC)^5" flag={d.tvAsPctEV > 0.8 ? "> 80% of EV" : null} />
-            <Row label="Terminal Value as % of EV" value={fmtPct(d.tvAsPctEV)} source="Sanity check — >80% = high risk" />
-            <div style={{ height: 1, background: "#1e293b", margin: "10px 0" }} />
-            <Row label="Enterprise Value (DCF)" value={fmtB(d.enterpriseValueDCF)} source="Calc: PV FCFs + PV Terminal" />
-            <Row label="Net Debt" value={fmtB(d.netDebt)} source={`FMP /v3/balance-sheet · 10-K ${d.ia[0]?.year} [Gross Debt − Cash − ST Inv]`} />
-            <Row label="Equity Value" value={fmtB(d.equityValueDCF)} source="Calc: EV − Net Debt" />
-            <Row label="Diluted Shares" value={fmt(d.dilutedShares / 1e6, 0) + "M"} source={`FMP /v3/income-statement · 10-K ${d.ia[0]?.year}`} />
-            <Row label="Intrinsic Value Per Share" value={fmtD(d.intrinsicPerShare)} source="Calc: Equity Value ÷ Diluted Shares" />
-            <Row label="Current Price" value={fmtD(d.q.price)} source="FMP /v3/quote (live)" />
-            <Row label="Upside / (Downside)" value={d.intrinsicPerShare && d.q.price ? fmtPct((d.intrinsicPerShare - d.q.price) / d.q.price) : "—"} source="Calc: (Intrinsic − Price) ÷ Price" />
-            <div style={{ marginTop: 10, color: "#38bdf8", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>FMP REFERENCE DCF</div>
-            <Row label="FMP DCF Estimate" value={fmtD(d.dcfRef.dcf)} source="FMP /v3/discounted-cash-flow (cross-check)" />
-          </Section>
-          <Section title="Sensitivity: Price Per Share" color="#4ade80">
-            <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>WACC (columns) × Terminal Growth (rows). Green = above current price.</div>
-            <SensTable waccs={d.waccRange} growths={d.gRange} calcTV={d.calcSensPrice} currentPrice={d.q.price} />
-            <div style={{ color: "#475569", fontSize: 10, marginTop: 6 }}>Base case: WACC {fmtPct(d.wacc)}, g {fmtPct(d.termGrowth)}</div>
-          </Section>
-        </>}
-
-        {/* BALANCE */}
-        {activeTab === "balance" && <>
-          <Section title="Capital Structure & Leverage" color="#fb923c">
-            <Row label="Cash & Equivalents" value={fmtB(d.latestBalance.cashAndCashEquivalents)} source={`FMP /v3/balance-sheet · 10-K ${d.ia[0]?.year}`} />
-            <Row label="Short-Term Investments" value={fmtB(d.latestBalance.shortTermInvestments)} source={`FMP /v3/balance-sheet · 10-K ${d.ia[0]?.year}`} />
-            <Row label="Total Liquid Assets" value={fmtB(d.cashAndEquiv)} source="Calc: Cash + ST Investments" />
-            <Row label="Short-Term Debt" value={fmtB(d.latestBalance.shortTermDebt)} source={`FMP /v3/balance-sheet · 10-K ${d.ia[0]?.year}`} />
-            <Row label="Long-Term Debt" value={fmtB(d.latestBalance.longTermDebt)} source={`FMP /v3/balance-sheet · 10-K ${d.ia[0]?.year}`} />
-            <Row label="Gross Debt" value={fmtB(d.grossDebt)} source="Calc: ST Debt + LT Debt" />
-            <Row label="Net Debt" value={fmtB(d.netDebt)} source="Calc: Gross Debt − Liquid Assets" flag={d.netDebt < 0 ? "Net cash position" : null} />
-            <Row label="Net Debt / EBITDA" value={fmtX(d.ebitdaLTM > 0 ? d.netDebt / d.ebitdaLTM : null)} source="Calc: Net Debt ÷ EBITDA" flag={d.ebitdaLTM > 0 && d.netDebt / d.ebitdaLTM > 4 ? "Elevated leverage" : null} />
-            <Row label="Total Equity (Book)" value={fmtB(d.latestBalance.totalEquity)} source={`FMP /v3/balance-sheet · 10-K ${d.ia[0]?.year}`} />
-            <Row label="Diluted Shares" value={fmt(d.dilutedShares / 1e6, 0) + "M"} source={`FMP /v3/income-statement · 10-K ${d.ia[0]?.year}`} />
-          </Section>
-          <Section title="Working Capital Efficiency" color="#fb923c">
-            <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>Source: FMP /v3/balance-sheet + income-statement · 10-K {d.ia[0]?.year}</div>
-            <Row label="Days Sales Outstanding (DSO)" value={d.dso != null ? `${fmt(d.dso, 0)} days` : "—"} source="Calc: (Receivables ÷ Revenue) × 365" />
-            <Row label="Days Payable Outstanding (DPO)" value={d.dpo != null ? `${fmt(d.dpo, 0)} days` : "—"} source="Calc: (Payables ÷ COGS) × 365" />
-            <Row label="Days Inventory Outstanding (DIO)" value={d.dio != null ? `${fmt(d.dio, 0)} days` : "—"} source="Calc: (Inventory ÷ COGS) × 365" />
-            <Row label="Cash Conversion Cycle (CCC)" value={d.ccc != null ? `${fmt(d.ccc, 0)} days` : "—"} source="Calc: DSO + DIO − DPO" />
-          </Section>
-          <Section title="Insider Transactions (Form 4)" color="#fb923c">
-            <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>Source: FMP /v4/insider-trading (SEC Form 4 filings)</div>
-            <Row label="Recent Insider Buys" value={fmt(d.insiderBuys, 0)} source="FMP /v4/insider-trading (P-Purchase)" />
-            <Row label="Recent Insider Sales" value={fmt(d.insiderSells, 0)} source="FMP /v4/insider-trading (S-Sale)" />
-            {d.insiders.slice(0, 5).map((t, i) => <Row key={i} label={`${t.reportingName || "Unknown"} – ${t.transactionType}`} value={`${fmt(t.securitiesTransacted, 0)} shares @ ${fmtD(t.price)}`} sub indent={1} source={`Form 4 filed ${t.transactionDate}`} />)}
-          </Section>
-        </>}
-
-        {/* QUALITY */}
-        {activeTab === "quality" && <>
-          <Section title="ROIC vs WACC — Value Creation Test" color="#a78bfa" badge={d.roicVsWacc != null ? (d.roicVsWacc > 0 ? `+${fmtPct(d.roicVsWacc)} spread` : fmtPct(d.roicVsWacc)) : "—"}>
-            <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>ROIC > WACC = value creation. ROIC &lt; WACC = capital destruction.</div>
-            <Row label="EBIT (Operating Income)" value={fmtB(d.latestIncome.operatingIncome)} source={`FMP /v3/income-statement · 10-K ${d.ia[0]?.year}`} />
-            <Row label="Effective Tax Rate" value={fmtPct(d.effectiveTaxRate)} source="FMP · 10-K [Tax ÷ Pre-tax Income]" />
-            <Row label="NOPAT (= EBIT × (1 − T))" value={fmtB(d.nopat)} source="Calc: EBIT × (1 − Tax Rate)" />
-            <Row label="Total Equity (Book)" value={fmtB(d.latestBalance.totalEquity)} source={`FMP /v3/balance-sheet · 10-K ${d.ia[0]?.year}`} />
-            <Row label="Gross Debt" value={fmtB(d.grossDebt)} source={`FMP /v3/balance-sheet · 10-K ${d.ia[0]?.year}`} />
-            <Row label="Excess Cash Deducted" value={`(${fmtB(d.cashAndEquiv)})`} source="Calc: Cash + ST Investments" />
-            <Row label="Invested Capital" value={fmtB(d.investedCapital)} source="Calc: Equity + Gross Debt − Excess Cash" />
-            <Row label="ROIC" value={fmtPct(d.roic)} source="Calc: NOPAT ÷ Invested Capital" />
-            <Row label="WACC" value={fmtPct(d.wacc)} source="See WACC tab" />
-            <Row label="ROIC − WACC Spread" value={fmtPct(d.roicVsWacc)} source="Value creation indicator" />
-          </Section>
-          <Section title="Earnings Quality" color="#a78bfa">
-            <Row label="Net Income (LTM)" value={fmtB(d.latestIncome.netIncome)} source={`FMP /v3/income-statement · 10-K ${d.ia[0]?.year}`} />
-            <Row label="FCF (LTM)" value={fmtB(d.ca[0]?.fcf)} source="FMP /v3/cash-flow-statement [OCF − CapEx]" />
-            <Row label="FCF Conversion (FCF ÷ Net Income)" value={fmtPct(d.fcfConversion)} source="Calc: FCF ÷ Net Income — target >80%" flag={d.fcfConversion < 0.7 ? "Below 70%" : null} />
-            <Row label="Accruals Ratio" value={fmtPct(d.accruals)} source="Calc: (Net Income − FCF) ÷ Avg Assets — target ~0" flag={Math.abs(d.accruals) > 0.05 ? ">5% elevated" : null} />
-            <Row label="OCF / Revenue" value={fmtPct((d.latestCF.operatingCashFlow || 0) / (d.latestIncome.revenue || 1))} source="Calc: OCF ÷ Revenue" />
-            <Row label="CapEx / Revenue" value={fmtPct((d.ca[0]?.capex || 0) / (d.latestIncome.revenue || 1))} source="Calc: CapEx ÷ Revenue" />
-          </Section>
-          <Section title="Capital Allocation" color="#a78bfa">
-            <Row label="Dividends Paid" value={fmtB(Math.abs(d.latestCF.dividendsPaid || 0))} source={`FMP /v3/cash-flow-statement · 10-K ${d.ca[0]?.year}`} />
-            <Row label="Buybacks" value={fmtB(Math.abs(d.latestCF.commonStockRepurchased || 0))} source={`FMP /v3/cash-flow-statement · 10-K ${d.ca[0]?.year}`} />
-            <Row label="Total Capital Returned" value={fmtB(Math.abs(d.latestCF.dividendsPaid || 0) + Math.abs(d.latestCF.commonStockRepurchased || 0))} source="Calc: Dividends + Buybacks" />
-            <Row label="FCF Yield" value={fmtPct(d.km.freeCashFlowYield)} source="FMP /v3/key-metrics" />
-            <Row label="Dividend Yield" value={fmtPct(d.p.lastDiv && d.q.price ? d.p.lastDiv / d.q.price : null)} source="FMP /v3/profile (ann. div ÷ price)" />
-          </Section>
-        </>}
-
-        {/* COMPS */}
-        {activeTab === "comps" && <Section title="Multiples & Relative Valuation" color="#f472b6">
-          <div style={{ marginBottom: 10, fontSize: 11, color: "#64748b" }}>All multiples sourced from FMP with formula shown.</div>
-          <Row label="P/E (LTM)" value={fmtX(d.rat.priceEarningsRatio)} source="FMP /v3/ratios (Price ÷ EPS LTM)" />
-          <Row label="P/E (NTM, consensus)" value={d.ae[0]?.estimatedEpsAvg && d.q.price ? fmtX(d.q.price / d.ae[0].estimatedEpsAvg) : "—"} source="Calc: Price ÷ FMP consensus NTM EPS" />
-          <Row label="P/B" value={fmtX(d.rat.priceToBookRatio)} source="FMP /v3/ratios (Price ÷ Book/Share)" />
-          <Row label="P/FCF" value={fmtX(d.rat.priceToFreeCashFlowsRatio)} source="FMP /v3/ratios" />
-          <Row label="EV (FMP)" value={fmtB(d.evFMP)} source="FMP /v3/key-metrics" />
-          <Row label="EV/EBITDA (LTM)" value={fmtX(d.evEbitdaLTM)} source="FMP /v3/ratios [enterpriseValueMultiple]" />
-          <Row label="EV/EBITDA (NTM, consensus)" value={fmtX(d.evEbitdaFwd)} source="Calc: EV ÷ FMP consensus NTM EBITDA" />
-          <Row label="EV/EBIT (LTM)" value={d.latestIncome.operatingIncome > 0 ? fmtX(d.evFMP / d.latestIncome.operatingIncome) : "—"} source="Calc: EV ÷ EBIT" />
-          <Row label="EV/Revenue (LTM)" value={fmtX(d.rat.evToSales)} source="FMP /v3/ratios" />
-          <Row label="EV/FCF (LTM)" value={d.ca[0]?.fcf > 0 ? fmtX(d.evFMP / d.ca[0].fcf) : "—"} source="Calc: EV ÷ LTM FCF" />
-          <Row label="Debt/Equity (Book)" value={fmtX(d.rat.debtEquityRatio)} source="FMP /v3/ratios" />
-          <Row label="Interest Coverage (EBIT/Interest)" value={d.interestExp > 0 ? fmtX(d.latestIncome.operatingIncome / d.interestExp) : "No debt"} source="Calc: EBIT ÷ Interest Expense" />
-        </Section>}
-
-        {/* AI */}
-        {activeTab === "ai" && <Section title="AI Analyst Opinion" color="#38bdf8">
-          <div style={{ fontSize: 11, color: "#64748b", marginBottom: 12 }}>Claude Sonnet 4 opinion based strictly on sourced data above. No hallucinated figures.</div>
-          <button onClick={runAI} disabled={aiLoading} style={{ background: aiLoading ? "#1e293b" : "#0ea5e9", color: "#fff", border: "none", padding: "10px 20px", borderRadius: 6, cursor: aiLoading ? "not-allowed" : "pointer", fontWeight: 700, fontSize: 13, marginBottom: 16 }}>
-            {aiLoading ? "ANALYZING…" : "RUN AI ANALYST"}
-          </button>
-          {aiAnalysis && <div style={{ background: "#0f172a", border: "1px solid #334155", borderRadius: 6, padding: 14, fontSize: 13, color: "#cbd5e1", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{aiAnalysis}</div>}
-        </Section>}
-      </>}
-
-      <div style={{ textAlign: "center", color: "#1e293b", fontSize: 10, marginTop: 24 }}>
-        Data: Financial Modeling Prep · SEC EDGAR · Damodaran (NYU) · IMF
-      </div>
+function renderResults() {
+  const d=D;
+  const changeColor = d.q.change>=0?"#4ade80":"#f87171";
+  document.getElementById("companyBar").innerHTML=`
+    <div>
+      <div class="name">${d.sym} <span style="color:#64748b;font-size:12px">${d.p.exchangeShortName||""}</span></div>
+      <div class="sub">${d.p.companyName}</div>
+      <div class="sub2">${d.p.sector||""} · ${d.p.industry||""}</div>
     </div>
-  );
-}
+    <div>
+      <div class="price">${fmtD(d.q.price)}</div>
+      <div style="font-size:11px;color:${changeColor}">${d.q.change>=0?"+":""}${fmtD(d.q.change)} (${fmtP((d.q.changesPercentage||0)/100)})</div>
+      <div style="font-size:11px;color:#475569">52W: ${fmtD(d.q.yearLow)} – ${fmtD(d.q.yearHigh)}</div>
+    </div>
+    <div style="text-align:right">
+      <div class="meta" style="color:#94a3b8">Mkt Cap: <span style="color:#f8fafc">${fmtB(d.p.mktCap)}</span></div>
+      <div class="meta" style="color:#94a3b8">DCF Target: <span style="color:${d.intrinsic>d.q.price?"#4ade80":"#f87171"};font-weight:700">${fmtD(d.intrinsic)}</span></div>
+      <div style="font-size:11px;color:#475569">As of ${new Date(d.fetchedAt).toLocaleString()}</div>
+    </div>`;
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  document.getElementById("flagsBox").innerHTML = d.flags.map(f=>flagHtml(f)).join("");
+  document.getElementById("tabBar").innerHTML = TABS.map(t=>`<button class="tab${t===activeTab?" active":""}" data-tab="${t}" onclick="setTab('${t}')">${t.toUpperCase()}</button>`).join("");
+  document.getElementById("results").style.display="block";
+  setTab(activeTab);
+}
 </script>
 </body>
 </html>
