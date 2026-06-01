@@ -784,18 +784,24 @@ function render(){
   if(_buyArr.length>0){
     var _totBuy=_buyArr.reduce(function(s,x){return s+(x.v||0);},0);
     var _latBuy=_buyArr[0]?_buyArr[0].v:0;
+    var _latBuyYr=_buyArr[0]?_buyArr[0].y:'';
     var _buyMc=c.mc>0?_latBuy/c.mc:0;
     var _soTrend=d.soH&&d.soH.length>=2?(d.soH[0].v-d.soH[d.soH.length-1].v)/d.soH[d.soH.length-1].v:0;
     h+='<div style="background:#0a0e18;border:1px solid var(--bd);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px">';
-    h+='<div style="font-weight:700;color:var(--tl);margin-bottom:4px">🔄 Share Buybacks</div>';
-    h+='<div style="display:flex;flex-wrap:wrap;gap:10px 20px;font-size:11px">';
-    h+='<span style="color:var(--lb)">Latest yr: <b>'+D(_latBuy)+'</b></span>';
-    h+='<span style="color:var(--lb)">Buyback Yield: <b style="color:'+(_buyMc>0.05?'var(--gn)':_buyMc>0.02?'var(--tl)':'var(--dm)')+'">'+pc(_buyMc)+'</b></span>';
+    h+='<div style="font-weight:700;color:var(--tl);margin-bottom:6px">🔄 Share Buybacks</div>';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:8px 20px;font-size:11px;margin-bottom:6px">';
+    h+='<span style="color:var(--lb)">Cash spent ('+_latBuyYr+'): <b>'+D(_latBuy)+'</b></span>';
+    h+='<span style="color:var(--lb)">Buyback Yield: <b style="color:'+(_buyMc>0.05?'var(--gn)':_buyMc>0.02?'var(--tl)':'var(--dm)')+'">'+pc(_buyMc)+'</b> <span style="font-size:9px;color:var(--dm)">(cash spent ÷ mkt cap)</span></span>';
     h+='<span style="color:var(--lb)">5Y Total: <b>'+D(_totBuy)+'</b></span>';
     if(_soTrend<0)h+='<span style="color:var(--gn)">▲ Shares reduced '+pc(Math.abs(_soTrend))+' over 5Y</span>';
-    h+='<span style="color:var(--lb)">History: ';
-    (_buyArr||[]).slice(0,5).reverse().forEach(function(x){h+='<b>'+D(x.v)+'</b> ';});
-    h+='</span>';
+    else if(_soTrend>0.01)h+='<span style="color:var(--yw)">↑ Shares increased '+pc(_soTrend)+' over 5Y despite buybacks (dilution)</span>';
+    h+='</div>';
+    // History oldest→newest with year labels
+    h+='<div style="font-size:9px;color:var(--dm);margin-bottom:2px">Annual buybacks (oldest → most recent):</div>';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:4px 12px;font-size:10px">';
+    (_buyArr||[]).slice(0,5).reverse().forEach(function(x){
+      h+='<span><span style="color:var(--dm)">'+x.y+'</span> <b style="color:var(--tl)">'+D(x.v)+'</b></span>';
+    });
     h+='</div></div>';
   }
 
