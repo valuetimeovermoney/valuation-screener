@@ -1073,20 +1073,22 @@ function render(){
     h+='<td style="font-weight:600;color:'+(c.fy>=0.10?'var(--gn)':c.fy>=0.05?'var(--yw)':'var(--rd)')+'">'+pc(c.fy)+'</td><td></td></tr>';
 
     // YoY Revenue Growth per year
-    h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:10px">+ Rev YoY Growth</td>';
+    h+='<tr><td style="color:var(--lb)">+ Rev YoY Growth</td>';
     fsRv.forEach(function(r,i){var prev=fsRv[i-1];var yoy=prev&&prev.r>0?r.r/prev.r-1:null;h+='<td style="color:'+(yoy>0.15?'var(--gn)':yoy>0.05?'var(--yw)':yoy!=null?'var(--rd)':'var(--dm)')+'">'+pc(yoy)+'</td>';});
     h+='<td></td><td></td></tr>';
 
     // Quality Ratio = Adj FCF/EV + Rev YoY
-    h+='<tr style="border-top:1px solid var(--bd)"><td style="font-weight:700;color:var(--br)">= Quality Ratio</td>';
+    h+='<tr style="border-top:2px solid var(--bd);background:#0d1b2a"><td style="font-weight:700;color:var(--br);font-size:12px">= Quality Ratio</td>';
     fsRv.forEach(function(r,i){
       var prev=fsRv[i-1];var yoy=prev&&prev.r>0?r.r/prev.r-1:null;
       var evYld=_evYields[i];
       var qr2=(evYld!=null&&yoy!=null)?evYld+yoy:null;
-      h+='<td style="font-weight:700;color:'+(qr2>=0.25?'var(--gn)':qr2>=0.15?'var(--yw)':qr2!=null?'var(--rd)':'var(--dm)')+'">'+pc(qr2)+'</td>';
+      var qrCol=qr2>=0.25?'var(--gn)':qr2>=0.15?'var(--yw)':qr2!=null?'var(--rd)':'var(--dm)';
+      h+='<td style="font-weight:700;font-size:12px;color:'+qrCol+'">'+pc(qr2)+'</td>';
     });
-    h+='<td style="font-weight:700;color:'+(c.qr>=0.25?'var(--gn)':c.qr>=0.15?'var(--yw)':'var(--rd)')+'">'+pc(c.qr)+'</td><td></td></tr>';
-    h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:10px">Adj FCF/EV + Rev YoY · 🟢 ≥25%</td>';
+    if(hasTTM)h+='<td style="font-weight:700;font-size:12px;color:'+(c.qr>=0.25?'var(--gn)':c.qr>=0.15?'var(--yw)':'var(--rd)')+'">'+pc(c.qr)+'</td>';
+    h+='<td style="font-weight:700;font-size:12px;color:'+(c.qr>=0.25?'var(--gn)':c.qr>=0.15?'var(--yw)':'var(--rd)')+'">'+pc(c.qr)+'</td><td></td></tr>';
+    h+='<tr style="font-size:9px;background:#0d1b2a"><td style="color:var(--dm);padding-left:10px">= Adj FCF/EV + Rev YoY · 🟢 ≥25% target</td>';
     for(var _qi=0;_qi<fsN+(hasTTM?1:0)+2;_qi++)h+='<td></td>';h+='</tr>';
 
     // Buybacks
