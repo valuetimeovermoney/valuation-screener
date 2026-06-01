@@ -93,9 +93,11 @@ const fmtP = n => n==null||isNaN(n) ? "—" : `${fmt(n*100,1)}%`;
 const fmtX = n => n==null||isNaN(n) ? "—" : `${fmt(n,1)}x`;
 const fmtD = n => n==null||isNaN(n) ? "—" : `$${fmt(n,2)}`;
 
-async function fmpGet(path) {
-  const sep = path.includes("?") ? "&" : "?";
-  const r = await fetch(`https://financialmodelingprep.com/api${path}${sep}apikey=${FMP}`);
+async function fmpGet(endpoint) {
+  const sep = endpoint.includes("?") ? "&" : "?";
+  const url = `https://financialmodelingprep.com/stable/${endpoint}${sep}apikey=${FMP}`;
+  const r = await fetch(url);
+  if (r.status === 402 || r.status === 403) return null;
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   const j = await r.json();
   if (j?.["Error Message"]) throw new Error(j["Error Message"]);
@@ -107,7 +109,7 @@ async function testAPI() {
   const el = document.getElementById("testMsg");
   el.style.display = "block"; el.textContent = "Testing…"; el.style.color = "#94a3b8";
   try {
-    const j = await fmpGet("/v3/profile/AAPL");
+    const j = await fmpGet("profile?symbol=AAPL");
     if (Array.isArray(j) && j[0]?.symbol) {
       el.textContent = "✅ Connected — AAPL: $" + j[0].price; el.style.color = "#4ade80";
     } else { el.textContent = "⚠ " + JSON.stringify(j).slice(0,80); el.style.color = "#f59e0b"; }
@@ -124,37 +126,39 @@ async function analyze() {
 
   try {
     const [profile,incomeA,balanceA,cashflowA,ratios,keyMetrics,quote,analystEst,insiderTx,dcfFmp,treasury] = await Promise.allSettled([
-      fmpGet(`/v3/profile/${sym}`),
-      fmpGet(`/v3/income-statement/${sym}?limit=5`),
-      fmpGet(`/v3/balance-sheet-statement/${sym}?limit=5`),
-      fmpGet(`/v3/cash-flow-statement/${sym}?limit=5`),
-      fmpGet(`/v3/ratios/${sym}?limit=1`),
-      fmpGet(`/v3/key-metrics/${sym}?limit=2`),
-      fmpGet(`/v3/quote/${sym}`),
-      fmpGet(`/v3/analyst-estimates/${sym}?limit=3`),
-      fmpGet(`/v4/insider-trading?symbol=${sym}&limit=10`),
-      fmpGet(`/v3/discounted-cash-flow/${sym}`),
-      fmpGet(`/v4/treasury?from=2024-01-01&to=2024-12-31`),
+      fmpGet(`profile?symbol=${sym}`),
+      fmpGet(`income-statement?symbol=${sym}&period=annual&limit=5`),
+      fmpGet(`balance-sheet-statement?symbol=${sym}&period=annual&limit=5`),
+      fmpGet(`cash-flow-statement?symbol=${sym}&period=annual&limit=5`),
+      fmpGet(`ratios?symbol=${sym}&period=annual&limit=1`),
+      fmpGet(`key-metrics?symbol=${sym}&period=annual&limit=2`),
+      fmpGet(`quote?symbol=${sym}`),
+      fmpGet(`analyst-estimates?symbol=${sym}&limit=3`),
+      fmpGet(`insider-trading?symbol=${sym}&limit=10`),
+      fmpGet(`discounted-cash-flow?symbol=${sym}`),
+      fmpGet(`treasury?from=2024-01-01&to=2025-12-31`),
     ]);
 
     const get = r => r.status === "fulfilled" ? r.value : null;
-    const p = get(profile)?.[0];
-    if (!p) {
-      const raw = get(profile);
-      const detail = raw?.["Error Message"] || raw?.["message"] || (Array.isArray(raw) && raw.length===0 ? "Ticker not found on FMP" : "No data");
-      throw new Error("Profile failed: " + detail);
+    const profRaw = get(profile);
+    const p = Array.isArray(profRaw) ? profRaw[0] : (profRaw?.profile || profRaw);
+    if (!p || !p.symbol) {
+      throw new Error("Ticker not found. Please check the symbol and try again.");
     }
 
-    const ia = get(incomeA) || [];
-    const ba = get(balanceA) || [];
-    const ca = get(cashflowA) || [];
-    const rat = get(ratios)?.[0] || {};
-    const km = get(keyMetrics)?.[0] || {};
-    const q = get(quote)?.[0] || {};
-    const ae = get(analystEst) || [];
-    const ins = get(insiderTx) || [];
-    const dcfRef = get(dcfFmp)?.[0] || {};
-    const tData = get(treasury) || [];
+    const iaRaw = get(incomeA); const ia = Array.isArray(iaRaw) ? iaRaw : (iaRaw?.financials || iaRaw?.data || []);
+    const baRaw = get(balanceA); const ba = Array.isArray(baRaw) ? baRaw : (baRaw?.financials || baRaw?.data || []);
+    const caRaw = get(cashflowA); const ca = Array.isArray(caRaw) ? caRaw : (caRaw?.financials || caRaw?.data || []);
+    const ratRaw = get(ratios);
+    const rat = Array.isArray(ratRaw) ? ratRaw[0] : (ratRaw || {});
+    const kmRaw = get(keyMetrics);
+    const km = Array.isArray(kmRaw) ? kmRaw[0] : (kmRaw || {});
+    const quoteRaw = get(quote);
+    const q = Array.isArray(quoteRaw) ? quoteRaw[0] : (quoteRaw || {});
+    const aeRaw = get(analystEst); const ae = Array.isArray(aeRaw) ? aeRaw : [];
+    const insRaw = get(insiderTx); const ins = Array.isArray(insRaw) ? insRaw : (insRaw?.data || []);
+    const dcfRaw = get(dcfFmp); const dcfRef = Array.isArray(dcfRaw) ? (dcfRaw[0]||{}) : (dcfRaw||{});
+    const tRaw = get(treasury); const tData = Array.isArray(tRaw) ? tRaw : [];
 
     const li = ia[0]||{}, lb = ba[0]||{}, lc = ca[0]||{};
     const rfr = tData.length ? (tData[tData.length-1]?.year10||4.3)/100 : 0.043;
