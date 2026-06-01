@@ -182,45 +182,39 @@ async function buildCo(tk){
   var rc=rv.length>=2?cagr(rv[rv.length-1].r,rv[0].r,rv.length-1):null;
   var ev=px*mc0+nd0,fy=ev>0?af0/ev:0;
 
-  // ── WACC calculation ──────────────────────────────────────────
-  var rfr=0.043,erp=0.046;
-  var beta=+(p.beta||1.0);
-  var ke=rfr+beta*erp;
-  var grossDebt=(+(gf(bs0,'longTermDebt'))++(gf(bs0,'shortTermDebt')))/1e6;
-  var cashEq=(+(gf(bs0,'cashAndCashEquivalents'))++(gf(bs0,'shortTermInvestments')))/1e6;
+  // ── WACC & Quality (injected) ─────────────────────────────────────────
+  var rfr=0.043,erp=0.046,betaV=+(p.beta||1.0);
+  var ke=rfr+betaV*erp;
   var inc0=incA[0]||{};
-  var intExp=Math.abs(gf(inc0,'interestExpense'))/1e6;
-  var kdPre=grossDebt>0?intExp/grossDebt:0;
-  var preTax=gf(inc0,'incomeBeforeTax'),taxExp=gf(inc0,'incomeTaxExpense');
-  var taxRate=preTax>0?Math.max(0,Math.min(0.35,taxExp/preTax)):0.21;
-  var kdPost=kdPre*(1-taxRate);
-  var mktCapM=(mcap||0)/1e6;
-  var totCapM=mktCapM+grossDebt;
-  var we=totCapM>0?mktCapM/totCapM:1, wd=totCapM>0?grossDebt/totCapM:0;
-  var wacc=we*ke+wd*kdPost;
-  // ROIC
-  var ebit=gf(inc0,'operatingIncome')/1e6;
-  var nopat=ebit*(1-taxRate);
-  var equity=gf(bs0,'totalStockholdersEquity')/1e6;
-  var ic=equity+grossDebt-cashEq;
-  var roic=ic>0?nopat/ic:null;
-  // FCF conversion
-  var ni0=gf(inc0,'netIncome')/1e6;
-  var fcf0=cfoH.length?cfoH[0].v:0;
-  var fcfConv=ni0>0?fcf0/ni0:null;
-  // Quality flags
+  var grossDebtM=(+(gf(bs0,'longTermDebt'))++(gf(bs0,'shortTermDebt')))/1e6;
+  var cashEqM=(+(gf(bs0,'cashAndCashEquivalents'))++(gf(bs0,'shortTermInvestments')))/1e6;
+  var intExpM=Math.abs(gf(inc0,'interestExpense'))/1e6;
+  var kdPre=grossDebtM>0?intExpM/grossDebtM:0;
+  var preTaxI=gf(inc0,'incomeBeforeTax'),taxExpI=gf(inc0,'incomeTaxExpense');
+  var taxRateI=preTaxI>0?Math.max(0,Math.min(0.35,taxExpI/preTaxI)):0.21;
+  var kdPost=kdPre*(1-taxRateI);
+  var mktCapM2=(mcap||0)/1e6;
+  var totCapM2=mktCapM2+grossDebtM;
+  var weI=totCapM2>0?mktCapM2/totCapM2:1,wdI=totCapM2>0?grossDebtM/totCapM2:0;
+  var waccI=weI*ke+wdI*kdPost;
+  var ebitM=gf(inc0,'operatingIncome')/1e6;
+  var nopatM=ebitM*(1-taxRateI);
+  var icM=(gf(bs0,'totalStockholdersEquity')/1e6)+grossDebtM-cashEqM;
+  var roicI=icM>0?nopatM/icM:null;
+  var niM=gf(inc0,'netIncome')/1e6;
+  var ebitdaM=gf(inc0,'ebitda')/1e6||ebitM;
   var qflags=[];
-  if(roic!=null&&roic-wacc>0.02)qflags.push({t:'ok',m:'ROIC ('+(roic*100).toFixed(1)+'%) exceeds WACC ('+(wacc*100).toFixed(1)+'%) — value creating'});
-  if(roic!=null&&roic-wacc<-0.02)qflags.push({t:'bad',m:'ROIC ('+(roic*100).toFixed(1)+'%) below WACC ('+(wacc*100).toFixed(1)+'%) — destroying capital'});
-  if(fcfConv!=null&&fcfConv<0.7)qflags.push({t:'warn',m:'FCF conversion '+(fcfConv*100).toFixed(0)+'% < 70% — earnings quality concern'});
-  if(fcfConv!=null&&fcfConv>=0.9)qflags.push({t:'ok',m:'FCF conversion '+(fcfConv*100).toFixed(0)+'% — strong earnings quality'});
-  var nd0b=grossDebt-cashEq;
-  var ebitda0=gf(inc0,'ebitda')/1e6||ebit;
-  if(ebitda0>0&&nd0b/ebitda0>4)qflags.push({t:'bad',m:'Net leverage '+(nd0b/ebitda0).toFixed(1)+'x > 4x EBITDA — elevated credit risk'});
-  ST.wacc={rfr:rfr,rfrSrc:'FMP stable/treasury (fallback 4.3%)',erp:erp,beta:beta,ke:ke,grossDebt:grossDebt,cashEq:cashEq,intExp:intExp,kdPre:kdPre,taxRate:taxRate,kdPost:kdPost,we:we,wd:wd,wacc:wacc};
-  ST.qflags=qflags;
+  if(roicI!=null&&roicI-waccI>0.02)qflags.push({t:'ok',m:'ROIC ('+(roicI*100).toFixed(1)+'%) exceeds WACC ('+(waccI*100).toFixed(1)+'%) — value creating'});
+  if(roicI!=null&&roicI-waccI<-0.02)qflags.push({t:'bad',m:'ROIC ('+(roicI*100).toFixed(1)+'%) below WACC ('+(waccI*100).toFixed(1)+'%) — destroying capital'});
+  var fcf0M=cfA.length&&cfA[0]?+((gf(cfA[0],'operatingCashFlow')-gf(cfA[0],'stockBasedCompensation')-Math.abs(gf(cfA[0],'capitalExpenditure'))*(isL?0.5:0.7))/1e6).toFixed(1):0;
+  var fcfConvI=niM>0?fcf0M/niM:null;
+  if(fcfConvI!=null&&fcfConvI<0.7)qflags.push({t:'warn',m:'FCF conversion '+(fcfConvI*100).toFixed(0)+'% < 70% — earnings quality concern'});
+  if(fcfConvI!=null&&fcfConvI>=0.9)qflags.push({t:'ok',m:'FCF conversion '+(fcfConvI*100).toFixed(0)+'% — strong earnings quality'});
+  var ndM=grossDebtM-cashEqM;
+  if(ebitdaM>0&&ndM/ebitdaM>4)qflags.push({t:'bad',m:'Net leverage '+(ndM/ebitdaM).toFixed(1)+'x > 4x EBITDA — elevated credit risk'});
+  var waccData={rfr:rfr,erp:erp,beta:betaV,ke:ke,grossDebt:grossDebtM,cashEq:cashEqM,intExp:intExpM,kdPre:kdPre,taxRate:taxRateI,kdPost:kdPost,we:weI,wd:wdI,wacc:waccI,roic:roicI,fcfConv:fcfConvI};
 
-    return{
+  return{
     t:p.symbol||tk,n:p.companyName||tk,p:px,pd:new Date().toISOString().split('T')[0],
     sh:mc0,ca:+((gf(bs0,'cashAndShortTermInvestments')||gf(bs0,'cashAndCashEquivalents'))/1e6).toFixed(1),
     de:+((gf(bs0,'shortTermDebt')+gf(bs0,'longTermDebt'))/1e6).toFixed(1),
@@ -230,6 +224,7 @@ async function buildCo(tk){
     af:af0,ev:ev,fy2:fy,rc:rc,nd:nd0,a3f:a3f,a5f:a5f,
     sec:sec,exch:p.exchangeFullName||p.exchange||'',industry:p.industry||'',
     _tbv:+(Math.max(0,(gf(bs0,'totalStockholdersEquity')-gf(bs0,'goodwillAndIntangibleAssets')-gf(bs0,'intangibleAssets')))/1e6).toFixed(1),
+    waccData:waccData,qflags:qflags,
   };
 }
 
@@ -489,91 +484,83 @@ function render(){
   h+='</div><div class="cs"><b class="s">Three valuation lenses:</b><br><br><b>M1 FCF Yield:</b> Current EV divided by shares. Represents what you\'re paying for today\'s cash generation.<br><br><b>M2 DCF:</b> Discounted future FCF + terminal value. Forward-looking, sensitive to growth assumptions.<br><br><b>M3 Book Value:</b> Tangible asset floor. Most relevant for capital-heavy businesses.<br><br><b class="s">Margin of Safety bands:</b><br>🟢 ≥100% ready<br>🟡 50–100% watch<br>🔴 &lt;50% avoid</div></div></div>';
 
   
-  // ── WACC BUILD SECTION ──────────────────────────────────────────────────
-  h+='<div class="card"><div class="ci"><div class="cm">';
-  h+='<div class="ct">WACC — Full Build (Sourced)</div>';
-  if(ST.wacc){
-    var w=ST.wacc;
-    function wr(lbl,val,src){return '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--ib);font-size:11px"><span style="color:#94a3b8">'+lbl+'</span><span><b style="font-family:var(--m)">'+val+'</b><span style="font-size:9px;color:var(--dm);margin-left:6px">['+src+']</span></span></div>';}
-    h+=wr('Risk-Free Rate (10Y UST)',pc(w.rfr),w.rfrSrc);
+  // ── WACC SECTION ─────────────────────────────────────────────────────────
+  var w=d.waccData;
+  if(w){
+    function wr(lbl,val,src){return '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid var(--ib);font-size:11px"><span style="color:var(--lb)">'+lbl+'</span><span><b style="font-family:var(--m);color:var(--br)">'+val+'</b>'+(src?'<span style="font-size:9px;color:var(--dm);margin-left:6px">['+src+']</span>':'')+'</span></div>';}
+    h+='<div class="card"><div class="ci"><div class="cm">';
+    h+='<div class="ct">WACC — Full Build</div>';
+    h+=wr('Risk-Free Rate (10Y UST)',pc(w.rfr),'Fallback 4.3% — UST');
     h+=wr('Equity Risk Premium',pc(w.erp),'Damodaran Jan 2024');
     h+=wr('Beta (5Y monthly)',w.beta.toFixed(2),'FMP stable/profile');
-    h+=wr('Cost of Equity (Ke = Rf + β×ERP)',pc(w.ke),'Calc: CAPM');
+    h+=wr('Cost of Equity Ke = Rf + β×ERP',pc(w.ke),'CAPM calc');
     h+='<div style="height:1px;background:var(--bd);margin:6px 0"></div>';
-    h+=wr('Gross Debt',D(w.grossDebt),'FMP stable/balance-sheet-statement [LT+ST debt]');
-    h+=wr('Interest Expense',D(w.intExp),'FMP stable/income-statement');
+    h+=wr('Gross Debt',D(w.grossDebt),'FMP balance-sheet [LT+ST debt]');
+    h+=wr('Interest Expense',D(w.intExp),'FMP income-statement');
     h+=wr('Pre-tax Cost of Debt',pc(w.kdPre),'Calc: Interest ÷ Gross Debt');
-    h+=wr('Effective Tax Rate',pc(w.taxRate),'Calc: Tax Expense ÷ Pre-tax Income');
-    h+=wr('After-tax Cost of Debt (Kd)',pc(w.kdPost),'Calc: Kd×(1−T)');
+    h+=wr('Effective Tax Rate',pc(w.taxRate),'Calc: Tax Exp ÷ Pre-tax Income');
+    h+=wr('After-tax Cost of Debt Kd',pc(w.kdPost),'Calc: Kd×(1−T)');
     h+='<div style="height:1px;background:var(--bd);margin:6px 0"></div>';
-    h+=wr('Market Cap (E)','$'+((ST.d.sh*(ST.d.p||0)).toFixed(0))+'M','Live price × shares');
-    h+=wr('Equity Weight (E/V)',pc(w.we),'Calc');
-    h+=wr('Debt Weight (D/V)',pc(w.wd),'Calc');
-    h+='<div style="margin-top:8px;padding:8px;background:#0a0e18;border-radius:5px;border:1px solid var(--bd)">';
-    h+='<span style="font-size:12px;color:var(--dm)">WACC = </span>';
-    h+='<span style="font-family:var(--m);font-size:16px;font-weight:700;color:var(--bl)">'+pc(w.wacc)+'</span>';
-    h+='<span style="font-size:10px;color:var(--dm);margin-left:8px">= ('+pc(w.we)+'×'+pc(w.ke)+') + ('+pc(w.wd)+'×'+pc(w.kdPost)+')</span>';
+    h+=wr('Equity Weight (E/V)',pc(w.we),'Calc: MktCap ÷ (MktCap+Debt)');
+    h+=wr('Debt Weight (D/V)',pc(w.wd),'Calc: Debt ÷ (MktCap+Debt)');
+    h+='<div style="margin-top:8px;padding:8px 12px;background:#0a0e18;border-radius:5px;border:1px solid var(--bd);display:flex;align-items:center;gap:12px">';
+    h+='<span style="font-size:11px;color:var(--dm)">WACC =</span>';
+    h+='<span style="font-family:var(--m);font-size:18px;font-weight:800;color:var(--bl)">'+pc(w.wacc)+'</span>';
+    h+='<span style="font-size:9px;color:var(--dm)">('+pc(w.we)+'×'+pc(w.ke)+') + ('+pc(w.wd)+'×'+pc(w.kdPost)+')</span>';
     h+='</div>';
+    if(w.roic!=null){h+=wr('ROIC',pc(w.roic),'NOPAT ÷ Invested Capital');h+=wr('ROIC − WACC',pc(w.roic-w.wacc),'Value creation if positive');}
+    h+='</div><div class="cs"><b class="s">WACC inputs:</b><br><br><b>Rf:</b> 10Y US Treasury.<br><br><b>ERP:</b> Damodaran Jan 2024 implied (4.6%).<br><br><b>Beta:</b> 5Y monthly vs index.<br><br><b>Kd:</b> Actual interest expense ÷ gross debt from filings — not assumed.<br><br><b>Tax:</b> Effective rate from income statement.</div></div></div>';
   }
-  h+='</div><div class="cs"><b class="s">WACC sources:</b><br><br>Risk-free rate = 10Y UST from FMP treasury endpoint.<br><br>ERP = Damodaran Jan 2024 implied premium (4.6%).<br><br>Beta = 5Y monthly regression vs index from FMP profile.<br><br>Cost of debt = actual Interest Expense ÷ Gross Debt from filings, not assumed.<br><br>Tax rate = effective rate from income statement.</div></div></div>';
 
-  // ── QUALITY FLAGS ────────────────────────────────────────────────────────
-  if(ST.qflags && ST.qflags.length){
-    h+='<div class="card"><div style="padding:12px 16px"><div class="ct">Quality Flags & Signals</div>';
+  // ── QUALITY FLAGS ─────────────────────────────────────────────────────────
+  if(d.qflags&&d.qflags.length){
     var fc={ok:'var(--gn)',warn:'var(--yw)',bad:'var(--rd)'};
     var fi={ok:'✓',warn:'⚠',bad:'✗'};
-    ST.qflags.forEach(function(f){
-      h+='<div style="padding:6px 10px;margin-bottom:6px;border-radius:5px;background:'+fc[f.t]+'18;border:1px solid '+fc[f.t]+'44;color:'+fc[f.t]+';font-size:12px;display:flex;gap:8px"><span>'+fi[f.t]+'</span><span>'+f.m+'</span></div>';
-    });
+    h+='<div class="card"><div style="padding:12px 16px"><div class="ct">Quality Flags</div>';
+    d.qflags.forEach(function(f){h+='<div style="padding:6px 10px;margin-bottom:5px;border-radius:5px;background:'+fc[f.t]+'18;border:1px solid '+fc[f.t]+'44;color:'+fc[f.t]+';font-size:12px;display:flex;gap:8px"><span>'+fi[f.t]+'</span><span>'+f.m+'</span></div>';});
     h+='</div></div>';
   }
 
-  // ── SENSITIVITY TABLE ────────────────────────────────────────────────────
-  if(ST.wacc && calcDCF()){
-    var dcfS=calcDCF();
-    var wBase=ST.wacc.wacc, tgBase=ST.dcf.tg/100;
-    var waccs=[wBase-0.02,wBase-0.01,wBase,wBase+0.01,wBase+0.02];
-    var tgs=[0.01,0.015,0.02,0.025,0.03];
-    h+='<div class="card"><div style="padding:12px 16px"><div class="ct">DCF Sensitivity — Intrinsic Value per Share</div>';
-    h+='<div style="font-size:9px;color:var(--dm);margin-bottom:8px">WACC (columns) × Terminal Growth Rate (rows). Green = above current price '+pr(ST.d.p)+'</div>';
-    h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:11px;font-family:var(--m)">';
-    h+='<thead><tr><th style="background:#0f172a;color:var(--dm);padding:4px 8px;text-align:center">WACC→/g↓</th>';
-    waccs.forEach(function(w){h+='<th style="background:#0f172a;color:var(--bl);padding:4px 8px;text-align:center">'+(w*100).toFixed(1)+'%</th>';});
+  // ── SENSITIVITY TABLE ─────────────────────────────────────────────────────
+  var dcfSens=calcDCF();
+  if(w&&dcfSens){
+    var wBase=w.wacc,waccs=[wBase-0.02,wBase-0.01,wBase,wBase+0.01,wBase+0.02];
+    var tgs2=[0.01,0.015,0.02,0.025,0.03];
+    h+='<div class="card"><div style="padding:12px 16px"><div class="ct">DCF Sensitivity — Intrinsic Value / Share</div>';
+    h+='<div style="font-size:9px;color:var(--dm);margin-bottom:8px">WACC (columns) × Terminal Growth Rate (rows). <span style="color:var(--gn)">Green</span> = above current price '+pr(d.p)+'</div>';
+    h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:11px;font-family:var(--m);width:100%">';
+    h+='<thead><tr><th style="background:var(--ib);color:var(--dm);padding:4px 8px;text-align:center;border:1px solid var(--bd)">g \ WACC</th>';
+    waccs.forEach(function(ww){h+='<th style="background:var(--ib);color:var(--bl);padding:4px 8px;text-align:center;border:1px solid var(--bd)">'+(ww*100).toFixed(1)+'%</th>';});
     h+='</tr></thead><tbody>';
-    tgs.forEach(function(g){
-      h+='<tr><td style="background:#0f172a;color:var(--bl);padding:4px 8px;text-align:center">'+(g*100).toFixed(1)+'%</td>';
-      waccs.forEach(function(w){
-        if(w<=g){h+='<td style="background:#1e293b;color:var(--dm);text-align:center;padding:4px 8px">N/A</td>';return;}
-        // Recalc DCF at this wacc/tg
-        var baseFCF=dcfS.pFcf[4]/(1+ST.dcf.tg/100); // approximate base from year 5
-        // Use last projected FCF and terminal
-        var pv5=0;
-        for(var i=0;i<5;i++){pv5+=dcfS.pFcf[i]/Math.pow(1+w,i+1);}
-        var tv=(dcfS.pFcf[4]*(1+g))/(w-g);
-        var pvtv=tv/Math.pow(1+w,5);
-        var nd=ST.d.de-ST.d.ca;
-        var eq=(pv5+pvtv-nd);
-        var shares=ST.dcf.sh5||ST.d.sh;
-        var iv=shares>0?eq/shares:0;
-        var above=iv>ST.d.p;
-        h+='<td style="background:'+(iv<0?'var(--rd)18':above?'var(--gn)18':'var(--ib)')+';color:'+(iv<0?'var(--rd)':'var(--br)')+';text-align:center;padding:4px 8px">'+pr(iv)+'</td>';
+    tgs2.forEach(function(g){
+      h+='<tr><td style="background:var(--ib);color:var(--bl);padding:4px 8px;text-align:center;border:1px solid var(--bd)">'+(g*100).toFixed(1)+'%</td>';
+      waccs.forEach(function(ww){
+        if(ww<=g){h+='<td style="padding:4px 8px;text-align:center;border:1px solid var(--bd);color:var(--dm)">N/A</td>';return;}
+        var pv5=0;for(var i=0;i<5;i++){pv5+=dcfSens.pFcf[i]/Math.pow(1+ww,i+1);}
+        var tv=(dcfSens.pFcf[4]*(1+g))/(ww-g);
+        var pvtv=tv/Math.pow(1+ww,5);
+        var ndS=d.de-d.ca;
+        var shS=ST.dcf.sh5||d.sh;
+        var ivS=shS>0?(pv5+pvtv-ndS)/shS:0;
+        var col=ivS>d.p?'var(--gn)':ivS<0?'var(--rd)':'var(--br)';
+        var bg=ivS>d.p?'var(--gn)18':ivS<0?'var(--rd)18':'var(--ib)';
+        h+='<td style="padding:4px 8px;text-align:center;border:1px solid var(--bd);background:'+bg+';color:'+col+'">'+pr(ivS)+'</td>';
       });
       h+='</tr>';
     });
     h+='</tbody></table></div>';
-    h+='<div style="font-size:9px;color:var(--dm);margin-top:6px">Base case: WACC '+(ST.wacc.wacc*100).toFixed(1)+'%, g '+(tgBase*100).toFixed(1)+'%</div>';
+    h+='<div style="font-size:9px;color:var(--dm);margin-top:4px">Base: WACC '+(wBase*100).toFixed(1)+'%, g '+(ST.dcf.tg||3)+'%</div>';
     h+='</div></div>';
   }
 
   // ── AI ANALYST ────────────────────────────────────────────────────────────
-  h+='<div class="card"><div style="padding:12px 16px">';
-  h+='<div class="ct">AI Analyst Summary</div>';
-  h+='<div style="font-size:11px;color:var(--dm);margin-bottom:10px">Powered by Claude Sonnet — based strictly on sourced data above, no hallucinated figures.</div>';
-  h+='<button onclick="runAI()" id="aibtn" style="background:linear-gradient(135deg,var(--bl),var(--pu));border:none;border-radius:6px;padding:8px 20px;color:#fff;font-weight:700;font-size:12px;cursor:pointer">Run AI Analyst</button>';
-  h+='<div id="aiout" style="margin-top:12px;font-size:12px;color:#cbd5e1;line-height:1.7;white-space:pre-wrap"></div>';
+  h+='<div class="card"><div style="padding:12px 16px"><div class="ct">AI Analyst (Claude)</div>';
+  h+='<div style="font-size:10px;color:var(--dm);margin-bottom:10px">Opinion based strictly on data above — no hallucinated figures.</div>';
+  h+='<button id="aibtn" onclick="runAI()" style="background:linear-gradient(135deg,var(--bl),var(--pu));border:none;border-radius:6px;padding:8px 18px;color:#fff;font-weight:700;font-size:12px;cursor:pointer;font-family:var(--f)">Run AI Analyst</button>';
+  h+='<div id="aiout" style="margin-top:12px;font-size:12px;color:#cbd5e1;line-height:1.8;white-space:pre-wrap"></div>';
   h+='</div></div>';
 
-
+  
   h+='<div style="font-size:9px;color:#2a3040;padding-top:8px;border-top:1px solid var(--bd)">Adj FCF = CFO − SBC − Maint CapEx · EV = MCap + Net Debt · Data: FMP (SEC 10-K) · <a href="https://valuetimeovermoney.github.io/valuation-screener/" style="color:var(--dm)">← Back to Screener</a></div>';
 
   document.getElementById('out').innerHTML=h;
@@ -597,41 +584,24 @@ function calcTri(){
 }
 
 async function runAI(){
-  var d=ST.d;if(!d)return;
+  var d=ST.d; if(!d)return;
   var btn=document.getElementById('aibtn');
-  if(btn){btn.disabled=true;btn.textContent='Analyzing…';}
   var out=document.getElementById('aiout');
+  if(btn){btn.disabled=true;btn.textContent='Analyzing…';}
   if(out)out.textContent='';
-  var dcfV=calcDCF();
-  var summary={
-    ticker:d.t,name:d.n,sector:d.sec,price:d.p,
-    revCAGR:d.rc,fcfYield:d.fy2,
-    wacc:ST.wacc?ST.wacc.wacc:null,
-    roic:ST.wacc?ST.wacc.ke:null,
-    netLeverage:d.de>0&&d.cfo>0?d.de/d.cfo:null,
-    intrinsicPerShare:dcfV?dcfV.iv:null,
-    marginOfSafety:dcfV?dcfV.mos:null,
-    flags:ST.qflags?ST.qflags.map(function(f){return f.m;}):[]
-  };
+  var dcfR=calcDCF();
+  var w=d.waccData||{};
+  var summary={ticker:d.t,name:d.n,sector:d.sec,price:d.p,revCAGR:d.rc,fcfYield:d.fy2,wacc:w.wacc,roic:w.roic,netLeverageXEbitda:(d.de-d.ca)>0&&d.cfo>0?(d.de-d.ca)/d.cfo:null,intrinsicPerShare:dcfR?dcfR.iv:null,marginOfSafety:dcfR?dcfR.mos:null,flags:d.qflags?d.qflags.map(function(f){return f.m;}):[]};
   try{
-    var res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:800,
-        messages:[{role:'user',content:'You are a senior buy-side analyst. Based only on this sourced data, write a concise 3-4 paragraph investment opinion. Be direct. No made up numbers:\n\n'+JSON.stringify(summary,null,2)}]
-      })
-    });
+    var res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:'You are a senior buy-side analyst. Write a concise 3-4 paragraph investment opinion based ONLY on this data. Be direct about risks and opportunities. No made-up numbers:\n\n'+JSON.stringify(summary,null,2)}]})});
     var j=await res.json();
-    if(j.error){
-      if(out)out.textContent='Note: The AI Analyst requires the Anthropic API to be called from a server, not directly from a browser, due to CORS restrictions. To enable this, the app would need a small backend proxy. The data above contains all the key metrics for your own analysis.';
+    if(j.error||j.type==='error'){
+      if(out)out.textContent='⚠ AI call blocked by browser CORS policy. Anthropic API requires a server-side proxy to work in a web app. All the key metrics are shown above for your analysis.';
     } else {
-      var txt=j.content?j.content.map(function(b){return b.text||'';}).join('\n'):'No response';
-      if(out)out.textContent=txt;
+      if(out)out.textContent=(j.content||[]).map(function(b){return b.text||'';}).join('\n');
     }
   }catch(e){
-    if(out)out.textContent='AI call failed: '+e.message+'. Note: Anthropic API blocks direct browser requests (CORS). All analysis data is shown above.';
+    if(out)out.textContent='⚠ AI unavailable from browser (CORS): '+e.message+'. All analysis data is shown above.';
   }
   if(btn){btn.disabled=false;btn.textContent='Run AI Analyst';}
 }
