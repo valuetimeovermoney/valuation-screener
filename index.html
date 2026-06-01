@@ -779,6 +779,25 @@ function render(){
   }else{
     h+='<div style="background:#0a0e18;border:1px solid var(--bd);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--dm)">No dividend — reinvests earnings or buys back stock.</div>';
   }
+  // Buyback summary
+  var _buyArr=(d.buyH||[]).filter(function(x){return x&&x.v>0;});
+  if(_buyArr.length>0){
+    var _totBuy=_buyArr.reduce(function(s,x){return s+(x.v||0);},0);
+    var _latBuy=_buyArr[0]?_buyArr[0].v:0;
+    var _buyMc=c.mc>0?_latBuy/c.mc:0;
+    var _soTrend=d.soH&&d.soH.length>=2?(d.soH[0].v-d.soH[d.soH.length-1].v)/d.soH[d.soH.length-1].v:0;
+    h+='<div style="background:#0a0e18;border:1px solid var(--bd);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px">';
+    h+='<div style="font-weight:700;color:var(--tl);margin-bottom:4px">🔄 Share Buybacks</div>';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:10px 20px;font-size:11px">';
+    h+='<span style="color:var(--lb)">Latest yr: <b>'+D(_latBuy)+'</b></span>';
+    h+='<span style="color:var(--lb)">Buyback Yield: <b style="color:'+(_buyMc>0.05?'var(--gn)':_buyMc>0.02?'var(--tl)':'var(--dm)')+'">'+pc(_buyMc)+'</b></span>';
+    h+='<span style="color:var(--lb)">5Y Total: <b>'+D(_totBuy)+'</b></span>';
+    if(_soTrend<0)h+='<span style="color:var(--gn)">▲ Shares reduced '+pc(Math.abs(_soTrend))+' over 5Y</span>';
+    h+='<span style="color:var(--lb)">History: ';
+    (_buyArr||[]).slice(0,5).reverse().forEach(function(x){h+='<b>'+D(x.v)+'</b> ';});
+    h+='</span>';
+    h+='</div></div>';
+  }
 
   // ── PRICE CHART ───────────────────────────────────────────
   var _ph=ST.priceHist||[];
@@ -964,15 +983,10 @@ function render(){
     // ── INCOME ─────────────────────────
     h+='<tr style="border-top:2px solid var(--bd)"><td colspan="'+(fsN+3+(hasTTM?1:0))+'" style="font-size:9px;font-weight:700;color:var(--dm);letter-spacing:1px;padding:5px 5px 3px;text-transform:uppercase">Income Statement</td></tr>';
     hlRow('Revenue',fsRv,'r',true,'var(--bl)',hasTTM?ttmRev:null);yoyHL(fsRv,'r');
-    pctRowHL('Gross Margin',fsGm,fsRv.map(function(r){return{r:1};}),function(v){return v?pc(v):pc(null);});
-    // Fix: gross margin uses gm.v directly, not ratio to rev
-    h+='</tbody><tbody>'; // reset for clean gross margin
-    // Actually let me just show it simply
     h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:10px">Gross Margin</td>';
     fsGm.forEach(function(x){h+='<td>'+pc(x?x.v:null)+'</td>';});
     if(hasTTM)h+='<td style="color:var(--bl)">'+pc(ttmGM)+'</td>';
     h+='<td>'+pc(av(fsGm.map(function(x){return x?x.v:null;})))+'</td><td></td></tr>';
-    // remove the bad pctRow for gross margin above — actually it was already output, let me just continue
     hlRow('Net Income',fsNi,'v',false,'',hasTTM?ttmNI:null);yoyHL(fsNi,'v');
     pctRowHL('NI Margin',fsNi,fsRv,null);
 
@@ -1052,13 +1066,7 @@ function render(){
       fsDiv.forEach(function(x,i){var mc=mcapVals[i];h+='<td style="color:'+(mc&&x&&x.v/mc>=0.02?'var(--tl)':'var(--dm)')+'">'+pc(mc&&x?x.v/mc:null)+'</td>';});
       h+='<td></td><td></td></tr>';
     }
-    // Total Shareholder Yield
-    if(fsBuy.some(function(x){return x&&x.v>0;})||fsDiv.some(function(x){return x&&x.v>0;})){
-      h+='<tr style="border-top:1px solid var(--bd)"><td style="font-weight:600">Total Shareholder Yield</td>';
-      fsRv.forEach(function(r,i){var mc=mcapVals[i];var dy=mc&&fsDiv[i]&&fsDiv[i].v?fsDiv[i].v/mc:0;var by=mc&&fsBuy[i]&&fsBuy[i].v?fsBuy[i].v/mc:0;var ty=dy+by;
-        h+='<td style="font-weight:600;color:'+(ty>=0.05?'var(--tl)':ty>=0.02?'var(--yw)':'var(--dm)')+'">'+pc(ty||null)+'</td>';});
-      h+='<td></td><td></td></tr>';
-    }
+
 
     h+='</tbody></table></div>';
   }
@@ -1157,7 +1165,7 @@ function render(){
     h+='<td style="color:var(--lb)">'+D(ndAvg)+'</td><td></td>';
     h+='<td style="color:'+(ndArr[ndArr.length-1]>0?'var(--gn)':'var(--rd)')+'">'+((ndArr[ndArr.length-1]||0)>0?'✓ Net Cash':'⚠ Net Debt')+(ndUp?' ↑':' ↓')+'</td></tr>';
     // Current Ratio
-    h+='<tr><td>Current Ratio</td>';
+    h+='<tr><td>Current Ratio <span style="font-size:8px;color:var(--dm)">(Curr.Assets÷Curr.Liab)</span></td>';
     bsRaw.forEach(function(y){var cr=bv(y,'totalCurrentLiabilities')>0?bv(y,'totalCurrentAssets')/bv(y,'totalCurrentLiabilities'):null;h+='<td style="color:'+(cr>1.5?'var(--gn)':cr>1?'var(--yw)':'var(--rd)')+'">'+pc(cr)+'</td>';});
     var _lCR=bv(latBsR,'totalCurrentLiabilities')>0?bv(latBsR,'totalCurrentAssets')/bv(latBsR,'totalCurrentLiabilities'):null;
     h+='<td></td><td></td><td>'+(_lCR>1.5?'✓ Healthy':_lCR>1?'◐ OK':'⚠ Tight')+'</td></tr>';
@@ -1172,7 +1180,7 @@ function render(){
     var _lDAF2=latFcfV2>0?(bv(latBsR,'shortTermDebt','currentDebt')+bv(latBsR,'longTermDebt'))/1e6/latFcfV2:null;
     h+='<td></td><td></td><td>'+(_lDAF2!=null?(_lDAF2<2?'✓ <2yr':_lDAF2<4?'◐ 2–4yr':'⚠ >4yr'):'—')+'</td></tr>';
     // Interest Coverage
-    h+='<tr><td style="font-weight:600">Interest Coverage (EBIT/IntEx)</td>';
+    h+='<tr><td style="font-weight:600">Interest Coverage <span style="font-size:8px;color:var(--dm)">(EBIT÷IntEx · latest='+(incH2[incH2.length-1]?incH2[incH2.length-1].yr:'')+')</span></td>';
     var _icL=null;
     incH2.forEach(function(y){
       // Try ebit first, then operatingIncome from raw income data
