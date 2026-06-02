@@ -257,9 +257,11 @@ async function buildCo(tk){
     var da2=gf(y,'depreciationAndAmortization');
     var cx2=Math.abs(gf(y,'capitalExpenditure'));
     var sbc2=gf(y,'stockBasedCompensation');
-    var dwc2=gf(y,'changeInWorkingCapital')||0;  // FMP provides this directly
-    // OE = NI + D&A - full CapEx - SBC - ΔWC (negative ΔWC = capital consumed)
-    var oe=(ni2+da2-cx2-sbc2+dwc2)/1e6;  // +dwc because FMP's changeInWC is already signed
+    var dwc2=gf(y,'changeInWorkingCapital')||0;
+    // OE = NI + D&A − Maintenance CapEx − SBC ± ΔWC
+    // Maintenance CapEx = CapEx × maint% (same as Adj FCF; proxy for sustaining existing earning power)
+    var maintCx=cx2*(isL?0.5:0.7);  // same sector-based default as Adj FCF
+    var oe=(ni2+da2-maintCx-sbc2+dwc2)/1e6;
     return{y:yrOf(y),v:+oe.toFixed(1)};
   });
   var sbcH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+((gf(y,'stockBasedCompensation'))/1e6).toFixed(1)};});
@@ -855,13 +857,16 @@ function render(){
     var _daLv=d.incH&&d.incH.length?(d.incH[d.incH.length-1]||{}).da||0:0;
     var _cxL=d.cx||0;var _sbcL=d.sbc||0;
     var _dwcL=(d.dwcH||[])[0]?d.dwcH[0].v:0;
+    var _fsMp2=ST.mpOver!=null?ST.mpOver:(d.mp||50);
+    var _maintCxL=+((_cxL*_fsMp2/100)).toFixed(1);
     h+=mkRo('Net Income',D(_niL),0,'+');
     h+=mkRo('+ D&A',D(_daLv),0,'+');
-    h+=mkRo('− Full CapEx',D(_cxL),0,'−');
+    h+=mkRo('− Maint CapEx ('+_fsMp2+'% of '+D(_cxL)+')',D(_maintCxL),0,'−');
     h+=mkRo('− SBC',D(_sbcL),0,'−');
     h+=mkRo((_dwcL<0?'− WC consumed':'+ WC released'),D(Math.abs(_dwcL)),0,_dwcL>=0?'+':'−');
     h+=mkRo('Owner Earnings',D(c.af),1,null,1);
-    h+='<div style="font-size:9px;color:var(--dm);margin-top:4px">OE = NI + D&A − CapEx − SBC ± ΔWC</div>';
+    h+='<div style="font-size:9px;color:var(--dm);margin-top:4px">OE = NI + D&A − Maint CapEx − SBC ± ΔWC</div>';
+    h+='<div style="font-size:9px;color:var(--dm)">Maint CapEx = CapEx × '+_fsMp2+'% (adjust % in Adj FCF view)</div>';
   }
   // ΔWC warning flag
   var _dwcArr=(d.dwcH||[]).slice(0,3).map(function(x){return x?x.v:0;});
