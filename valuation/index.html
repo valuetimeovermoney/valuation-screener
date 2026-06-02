@@ -101,7 +101,7 @@ var ST={d:null,showDCF:true,showTri:true,
        cx1:0,cx2:0,cx3:0,cx4:0,cx5:0,
        mp:50,
        sh1:0,sh2:0,sh3:0,sh4:0,sh5:0,
-       wacc:9,tg:3,_seeded:false}};
+       wacc:10,tg:3,_seeded:false}};
 
 function togS(k){ST['show'+k]=!ST['show'+k];render();}
 
@@ -455,6 +455,36 @@ function render(){
       h+=rr('Lynch Upside/Downside',pc(lynchUpside),lynchUpside>0?'Undervalued by Lynch':'Overvalued by Lynch',lynchUpside>0?'var(--gn)':'var(--rd)');
     }
 
+    // ── SBC-Adjusted + Payback ──
+    var sbcLTM=d.sbcH&&d.sbcH[0]?+(d.sbcH[0].v||0):0;
+    var adjNI=niLTM-sbcLTM;
+    var adjEPS=d.sh>0?adjNI/d.sh:0;
+    var adjPE=adjEPS>0?d.p/adjEPS:null;
+    h+=rr('SBC (LTM)',D(sbcLTM),'Stock-based compensation');
+    h+=rr('SBC-Adj Net Income',D(adjNI),'NI '+D(niLTM)+' - SBC '+D(sbcLTM));
+    h+=rr('SBC-Adj P/E',adjPE!=null?adjPE.toFixed(1)+'x':'N/A','Real earnings P/E (GAAP P/E: '+(pe!=null?pe.toFixed(1)+'x':'N/A')+')',adjPE!=null&&pe!=null&&adjPE>pe*1.3?'var(--rd)':'var(--br)');
+
+    // Payback Period
+    var paybackYrs=fcfPS>0?d.p/fcfPS:null;
+    h+=rr('Payback Period',paybackYrs!=null?paybackYrs.toFixed(1)+' yrs':'N/A','Price / FCF per share. How long to recoup investment',paybackYrs!=null?(paybackYrs<10?'var(--gn)':paybackYrs<20?'var(--yw)':'var(--rd)'):'var(--dm)');
+
+    // Share dilution
+    var soArr=(d.soH||[]).slice(0,3);
+    var shDilution=null;
+    if(soArr.length>=2&&soArr[soArr.length-1]&&soArr[0]){
+      var shOld=+(soArr[soArr.length-1].v||0),shNew=+(soArr[0].v||0);
+      if(shOld>0)shDilution=(shNew/shOld-1)/(soArr.length-1);
+    }
+    if(shDilution!=null){
+      h+=rr('Share Count Trend (ann.)',pc(shDilution),shDilution>0.01?'Diluting >1%/yr — SBC eating ownership':shDilution<-0.01?'Buying back shares — positive signal':'Roughly stable',shDilution>0.01?'var(--rd)':shDilution<-0.01?'var(--gn)':'var(--br)');
+    }
+
+    // Rule of 40
+    var revGrowth=d.rc||0;
+    var fcfMargin=d.rv&&d.rv[0]&&d.rv[0].r>0?fcfLTM/d.rv[0].r:0;
+    var rule40=revGrowth+fcfMargin;
+    h+=rr('Rule of 40',Math.round(rule40*100),'Rev Growth '+pc(revGrowth)+' + FCF Margin '+pc(fcfMargin)+'. ≥40 = healthy growth co.',rule40>=0.4?'var(--gn)':rule40>=0.25?'var(--yw)':'var(--rd)');
+
     // ── Reverse DCF Section ──
     h+='<div style="height:1px;background:var(--bd);margin:12px 0"></div>';
     h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:6px">REVERSE DCF — IMPLIED EXPECTATIONS</div>';
@@ -491,6 +521,9 @@ function render(){
     if(yieldSpread>0.02)bullCount++;else if(yieldSpread<0)bearCount++;
     if(impliedG!=null&&epsGrowth!=null&&impliedG<epsGrowth)bullCount++;else if(impliedG!=null&&epsGrowth!=null)bearCount++;
     if(lynchFairPrice!=null&&d.p<=lynchFairPrice)bullCount++;else if(lynchFairPrice!=null)bearCount++;
+    if(paybackYrs!=null&&paybackYrs<15)bullCount++;else if(paybackYrs!=null)bearCount++;
+    if(shDilution!=null&&shDilution<-0.005)bullCount++;else if(shDilution!=null&&shDilution>0.01)bearCount++;
+    if(rule40>=0.4)bullCount++;else if(rule40<0.25)bearCount++;
     var verdict=bullCount>bearCount?'Undervalued signals dominate':bearCount>bullCount?'Overvalued signals dominate':'Mixed signals';
     var verdictColor=bullCount>bearCount?'var(--gn)':bearCount>bullCount?'var(--rd)':'var(--yw)';
     h+='<div style="font-size:12px;margin-bottom:4px"><b>Quick Verdict:</b> <span style="color:'+verdictColor+';font-weight:700">'+verdict+'</span>';
@@ -808,6 +841,14 @@ function render(){
   if(_fcfc!=null&&_fcfc>=0.9)_qfl.push({t:'ok',m:'FCF conversion '+(_fcfc*100).toFixed(0)+'% strong'});
   var _nd2=_gd-_ceq,_eb=+(d.ebitdaM||0);
   if(_eb>0&&_nd2/_eb>4)_qfl.push({t:'bad',m:'Net leverage '+(_nd2/_eb).toFixed(1)+'x > 4x EBITDA'});
+  var _soArr=(d.soH||[]).slice(0,3);
+  var _shDil=null;
+  if(_soArr.length>=2&&_soArr[_soArr.length-1]&&_soArr[0]){
+    var _shO=+(_soArr[_soArr.length-1].v||0),_shN=+(_soArr[0].v||0);
+    if(_shO>0)_shDil=(_shN/_shO-1)/(_soArr.length-1);
+  }
+  if(_shDil!=null&&_shDil>0.02)_qfl.push({t:'warn',m:'Share dilution '+pc(_shDil)+'/yr — SBC eroding ownership'});
+  if(_shDil!=null&&_shDil<-0.02)_qfl.push({t:'ok',m:'Buybacks '+pc(Math.abs(_shDil))+'/yr — reducing share count'});
   if(_qfl.length){
     var _qc={ok:'var(--gn)',warn:'var(--yw)',bad:'var(--rd)'},_qi={ok:'✓',warn:'⚠',bad:'✗'};
     h+='<div class="card"><div style="padding:12px 16px"><div class="ct" style="margin-bottom:8px">Quality Flags</div>';
