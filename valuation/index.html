@@ -52,7 +52,7 @@ b.s{color:var(--lb)}
       <div style="font-size:9px;font-weight:800;letter-spacing:3px;color:var(--bl)">VALUATION TOOL</div>
       <h1>DCF & Valuation Triangle</h1>
       <div style="font-size:10px;color:var(--dm);margin-top:2px">
-        ← <a href="https://valuetimeovermoney.github.io/valuation-screener/" style="color:var(--bl)">Back to Screener</a>
+        ← <a id="scrlink" href="https://valuetimeovermoney.github.io/valuation-screener/" style="color:var(--bl)">Back to Screener</a>
       </div>
     </div>
     <button class="tmbtn" onclick="toggleTheme()" id="thbtn">☀️ Day</button>
@@ -1011,10 +1011,108 @@ function render(){
   h+='</div></div>';
 
   
+  
+  // ── INVESTMENT VERDICT ──────────────────────────────────────────────────
+  (function(){
+    if(!d.p||!d.sh||d.sh<=0)return;
+    var dcfV=calcDCF();if(!dcfV)return;
+    var sigs=[],bull=0,bear=0;
+    function sg(label,isBull,wt){sigs.push({l:label,b:isBull,w:wt||1});if(isBull)bull+=(wt||1);else bear+=(wt||1);}
+
+    var mos=dcfV.mos||0;
+    if(mos>=1)sg('DCF: '+pc(mos)+' margin of safety (excellent)',true,3);
+    else if(mos>=0.5)sg('DCF: '+pc(mos)+' margin of safety (good)',true,2);
+    else if(mos>=0.15)sg('DCF: '+pc(mos)+' margin of safety (thin)',true,1);
+    else if(mos>=-0.1)sg('Near fair value ('+pc(mos)+')',true,0);
+    else sg('DCF: '+pc(mos)+' overvalued',false,2);
+
+    var _r2=0.043,_e2=0.046,_b2= +(d.betaV||1.0),_k2=_r2+_b2*_e2;
+    var _g2= +(d.de||0),_c2= +(d.ca||0),_i2= +(d.intExpM||0);
+    var _kp2=_g2>0?_i2/_g2:0,_t2= +(d.taxRateV||0.21),_ko2=_kp2*(1-_t2);
+    var _m2= +(d.sh)* +(d.p),_tt2=_m2+_g2;
+    var _w2=_tt2>0?_m2/_tt2:1,_d2=_tt2>0?_g2/_tt2:0,_wc2=_w2*_k2+_d2*_ko2;
+    var _eb2= +(d.ebitM||0),_np2=_eb2*(1-_t2),_ic2= +(d._tbv||0)+_g2-_c2,_ro2=_ic2>0?_np2/_ic2:null;
+    if(_ro2!=null){
+      if(_ro2-_wc2>0.05)sg('ROIC '+pc(_ro2)+' >> WACC '+pc(_wc2)+' (strong moat)',true,2);
+      else if(_ro2-_wc2>0.02)sg('ROIC > WACC (value creating)',true,1);
+      else if(_ro2-_wc2<-0.02)sg('ROIC < WACC (destroying value)',false,2);
+    }
+
+    var _fc2= +(d.niLTM||0)>0? +(d.af||0)/ +(d.niLTM):null;
+    if(_fc2!=null){if(_fc2>=0.9)sg('FCF conversion '+pc(_fc2)+' (high quality)',true,1);else if(_fc2<0.6)sg('FCF conversion '+pc(_fc2)+' (poor quality)',false,2);}
+
+    var niA=(d.ni||[]).slice(0,4),epsGr=null;
+    if(niA.length>=3){var nO= +niA[niA.length-1].v,nN= +niA[0].v;if(nO>0&&nN>0)epsGr=Math.pow(nN/nO,1/(niA.length-1))-1;}
+    var eps2=d.sh>0? +(d.niLTM||0)/d.sh:0;
+    var pe2=eps2>0?d.p/eps2:null;
+    var peg2=(pe2!=null&&epsGr!=null&&epsGr>0)?pe2/(epsGr*100):null;
+    if(peg2!=null){if(peg2<0.8)sg('PEG '+peg2.toFixed(1)+' (Lynch: cheap)',true,2);else if(peg2<=1.2)sg('PEG '+peg2.toFixed(1)+' (fair)',true,1);else if(peg2>2)sg('PEG '+peg2.toFixed(1)+' (expensive)',false,2);}
+
+    var evM2=_m2+_g2-_c2;
+    var fcfY2=evM2>0? +(d.af||0)/evM2:0;
+    if(fcfY2>0.08)sg('FCF yield '+pc(fcfY2)+' (very attractive)',true,2);
+    else if(fcfY2>0.05)sg('FCF yield '+pc(fcfY2)+' (decent)',true,1);
+    else if(fcfY2<0.02)sg('FCF yield '+pc(fcfY2)+' (expensive)',false,1);
+
+    var _nd3=_g2-_c2,_eb3= +(d.ebitdaM||0);
+    if(_eb3>0&&_nd3/_eb3>4)sg('Leverage '+(_nd3/_eb3).toFixed(1)+'x EBITDA (risky)',false,2);
+    else if(_eb3>0&&_nd3/_eb3<1)sg('Low leverage '+(_nd3/_eb3).toFixed(1)+'x (strong B/S)',true,1);
+
+    var rC= +(d.ca||0)+ +(d.netRecv||0)*0.95+ +(d.inventory||0)*0.85+ +(d.ppeNet||0)+ +(d.otherCA||0)+ +(d.sgaM||0)*1.5+ +(d.rdM||0)*2;
+    var rPS=d.sh>0?(rC - +(d.totLiab||0))/d.sh:0;
+    if(rPS>0&&d.p<rPS*0.8)sg('Below replacement value (Buffett discount)',true,2);
+
+    var soA=(d.soH||[]).slice(0,3);
+    if(soA.length>=2){var sO= +(soA[soA.length-1].v||0),sN= +(soA[0].v||0);if(sO>0){var dl=(sN/sO-1)/(soA.length-1);if(dl>0.02)sg('Dilution '+pc(dl)+'/yr',false,1);else if(dl<-0.02)sg('Buybacks '+pc(Math.abs(dl))+'/yr',true,1);}}
+
+    var score=bull-bear;
+    var action,acCol,sizing,next;
+    if(score>=6){action='STRONG BUY';acCol='var(--gn)';sizing='5-8% of portfolio (high conviction)';next='Build full position. Consider adding on any 10%+ pullback.';}
+    else if(score>=3){action='BUY';acCol='var(--gn)';sizing='3-5% of portfolio';next='Initiate position. Scale in over 2-3 tranches.';}
+    else if(score>=1){action='ADD';acCol='#66bb6a';sizing='2-3% (build gradually)';next='Add to existing position on weakness. Set alerts at -10% for additional buy.';}
+    else if(score>=-1){action='HOLD';acCol='var(--yw)';sizing='Maintain current';next='Hold position. Re-evaluate if fundamentals deteriorate or price rises 20%+.';}
+    else if(score>=-3){action='TRIM';acCol='#ff9800';sizing='Reduce to 1-2%';next='Take profits. Reallocate to higher-conviction names.';}
+    else{action='SELL';acCol='var(--rd)';sizing='Exit position';next='Exit and redeploy capital. Multiple valuation frameworks signal overvaluation.';}
+
+    h+='<div class="card"><div style="padding:16px">';
+    h+='<div class="ct" style="margin-bottom:12px">Investment Verdict</div>';
+    h+='<div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;flex-wrap:wrap">';
+    h+='<div style="background:'+acCol+';color:#000;font-size:20px;font-weight:800;padding:8px 20px;border-radius:8px;font-family:var(--m);letter-spacing:1px">'+action+'</div>';
+    h+='<div><div style="font-size:11px;color:var(--dm)">Position Sizing</div><div style="font-size:13px;font-weight:600;color:var(--lb)">'+sizing+'</div></div>';
+    h+='<div><div style="font-size:11px;color:var(--dm)">Score</div><div style="font-size:13px;font-weight:600;color:var(--lb)">'+bull+' bull / '+bear+' bear (net '+(score>0?'+':'')+score+')</div></div>';
+    h+='</div>';
+
+    h+='<div style="padding:8px 12px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd);margin-bottom:12px">';
+    h+='<div style="font-size:10px;color:var(--yw);font-weight:700;margin-bottom:4px">NEXT STEPS</div>';
+    h+='<div style="font-size:12px;color:var(--lb)">'+next+'</div></div>';
+
+    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:6px">KEY SIGNALS</div>';
+    sigs.sort(function(a,b){return b.w-a.w;});
+    sigs.forEach(function(s){
+      var c=s.b?'var(--gn)':'var(--rd)';
+      h+='<div style="padding:4px 0;font-size:11px;display:flex;align-items:baseline;gap:6px;border-bottom:1px solid var(--ib)">';
+      h+='<span style="color:'+c+';font-size:9px">'+(s.b?'▲':'▼')+'</span>';
+      h+='<span style="color:var(--lb);flex:1">'+s.l+'</span>';
+      if(s.w>1)h+='<span style="font-size:9px;color:var(--dm)">×'+s.w+'</span>';
+      h+='</div>';
+    });
+
+    h+='<div style="margin-top:10px;padding:8px 12px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd);font-size:11px;line-height:1.6">';
+    h+='<b style="color:var(--yw)">Valuation Range</b><br>';
+    h+='DCF intrinsic: <b style="color:var(--pu)">'+pr(dcfV.iv)+'</b> ('+pc(mos)+' MoS) &nbsp;|&nbsp; Price: <b>'+pr(d.p)+'</b>';
+    if(rPS>0)h+=' &nbsp;|&nbsp; Replacement: <b>'+pr(rPS)+'</b>';
+    h+='</div>';
+
+    h+='<div style="font-size:8px;color:var(--dm);margin-top:6px">Weighted signals from DCF, ROIC, PEG, FCF quality, leverage, replacement value, dilution. Not investment advice.</div>';
+    h+='</div></div>';
+  })();
+
+  
     h+='<div style="font-size:9px;color:#2a3040;padding-top:8px;border-top:1px solid var(--bd)">Adj FCF = CFO − SBC − Maint CapEx · EV = MCap + Net Debt · Data: FMP (SEC 10-K) · <a href="https://valuetimeovermoney.github.io/valuation-screener/" style="color:var(--dm)">← Back to Screener</a></div>';
 
   document.getElementById('out').innerHTML=h;
   updateSaveBtn();
+  var _sl=document.getElementById('scrlink');if(_sl&&d&&d.t)_sl.href='https://valuetimeovermoney.github.io/valuation-screener/?t='+encodeURIComponent(d.t);
 }
 
 function calcTri(){
@@ -1140,6 +1238,7 @@ document.getElementById('qi').addEventListener('keydown',function(e){if(e.key===
 
 async function go(sym){
   var t=sym?sym.toUpperCase():document.getElementById('qi').value.trim().toUpperCase();if(!t)return;
+  try{localStorage.setItem('active_ticker',t);}catch(e){}
   document.getElementById('gb').disabled=true;document.getElementById('gb').textContent='…';
   document.getElementById('ld').style.display='block';
   document.getElementById('er').style.display='none';
@@ -1160,7 +1259,7 @@ async function go(sym){
     document.getElementById('gb').textContent='Analyze';
   }
 }
-document.getElementById('qi').focus();
+(function(){var p=new URLSearchParams(window.location.search);var t=p.get('t');if(!t){try{t=localStorage.getItem('active_ticker');}catch(e){}}if(t){document.getElementById('qi').value=t.toUpperCase();go(t.toUpperCase());}else{document.getElementById('qi').focus();}})();
 </script>
 </body>
 </html>
