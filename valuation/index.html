@@ -366,7 +366,150 @@ function render(){
   })();
 
   
-    // ── DCF SECTION ──────────────────────────────────────────────
+  
+  // ── WHAT'S PRICED IN? — Reverse Engineering the Stock Price ──────────────
+  (function(){
+    if(!d.p||!d.sh||d.sh<=0)return;
+    var mktCap=d.p*d.sh; // $M
+    var evM=mktCap+(+(d.de||0))-(+(d.ca||0)); // EV in $M
+    var fcfLTM=+(d.af||0); // adj FCF $M
+    var niLTM=+(d.niLTM||0);
+    var eps=d.sh>0?niLTM/d.sh:0;
+    var pe=eps>0?d.p/eps:null;
+    var fcfPS=d.sh>0?fcfLTM/d.sh:0;
+    var fcfYield=evM>0?fcfLTM/evM:0;
+
+    // Earnings CAGR (3Y)
+    var niArr=(d.ni||[]).slice(0,4);
+    var epsGrowth=null;
+    if(niArr.length>=3&&niArr[niArr.length-1]&&niArr[0]){
+      var niOld=+niArr[niArr.length-1].v,niNew=+niArr[0].v;
+      if(niOld>0&&niNew>0)epsGrowth=Math.pow(niNew/niOld,1/(niArr.length-1))-1;
+    }
+
+    // PEG Ratio (Lynch)
+    var peg=(pe!=null&&epsGrowth!=null&&epsGrowth>0)?pe/(epsGrowth*100):null;
+
+    // Lynch fair P/E = earnings growth rate
+    var lynchFairPE=epsGrowth!=null?epsGrowth*100:null;
+    var lynchFairPrice=lynchFairPE!=null&&eps>0?lynchFairPE*eps:null;
+
+    // Earnings Power Value (zero growth, Greenwald)
+    var wacc0=ST.dcf.wacc/100;
+    var epv=wacc0>0?fcfLTM/wacc0:0; // perpetuity of current FCF at WACC
+    var epvPS=d.sh>0?(epv-(+(d.de||0))+(+(d.ca||0)))/d.sh:0;
+
+    // Reverse DCF: what FCF growth makes DCF = current price?
+    var impliedG=null;
+    var tg0=ST.dcf.tg/100;
+    if(fcfLTM>0&&wacc0>tg0){
+      var lo=-0.2,hi=0.5;
+      for(var iter=0;iter<50;iter++){
+        var mid=(lo+hi)/2;
+        var pv=0,cfLast=fcfLTM;
+        for(var yi=1;yi<=5;yi++){cfLast=fcfLTM*Math.pow(1+mid,yi);pv+=cfLast/Math.pow(1+wacc0,yi);}
+        var tv2=cfLast*(1+tg0)/(wacc0-tg0);
+        var pvtv2=tv2/Math.pow(1+wacc0,5);
+        var eqV=pv+pvtv2-(+(d.de||0))+(+(d.ca||0));
+        var ivCalc=d.sh>0?eqV/d.sh:0;
+        if(ivCalc>d.p)hi=mid;else lo=mid;
+      }
+      impliedG=(lo+hi)/2;
+    }
+
+    // Years of growth priced in: how many years at current growth until EPV = price?
+    var yearsGrowth=null;
+    if(epvPS>0&&epvPS<d.p&&epsGrowth!=null&&epsGrowth>0){
+      // Price = EPV * (1+g)^n => n = ln(Price/EPV) / ln(1+g)
+      yearsGrowth=Math.log(d.p/epvPS)/Math.log(1+epsGrowth);
+      if(yearsGrowth<0||yearsGrowth>50)yearsGrowth=null;
+    }
+
+    // FCF yield vs 10Y Treasury
+    var riskFree=0.043;
+    var yieldSpread=fcfYield-riskFree;
+
+    // ── Render ──────────────────────────────────────────────────
+    function rr(lbl,val,note,color){
+      return '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--ib)">'+
+        '<span style="color:var(--lb);font-size:12px">'+lbl+'</span>'+
+        '<span><b style="font-family:var(--m);font-size:14px;color:'+(color||'var(--br)')+'">'+val+'</b>'+
+        (note?'<span style="font-size:9px;color:var(--dm);margin-left:6px">'+note+'</span>':'')+'</span></div>';
+    }
+
+    h+='<div class="card"><div class="ci"><div class="cm">';
+    h+='<div class="ct" style="margin-bottom:4px">What\'s Priced In?</div>';
+    h+='<div style="font-size:10px;color:var(--dm);margin-bottom:12px">Reverse-engineering the current stock price to understand market expectations.</div>';
+
+    // ── Lynch Section ──
+    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:6px">PETER LYNCH FRAMEWORK</div>';
+    h+=rr('EPS (LTM)',pr(eps),'NI '+D(niLTM)+' / Shares '+SH(d.sh));
+    h+=rr('P/E Ratio',pe!=null?pe.toFixed(1)+'x':'N/A','Price '+pr(d.p)+' / EPS '+pr(eps));
+    h+=rr('Earnings Growth (3Y CAGR)',epsGrowth!=null?pc(epsGrowth):'N/A','from NI history');
+    var pegColor=peg!=null?(peg<=1?'var(--gn)':peg<=2?'var(--yw)':'var(--rd)'):'var(--dm)';
+    h+=rr('PEG Ratio',peg!=null?peg.toFixed(2):'N/A','P/E / Growth. Lynch rule: PEG '+'\u2264'+' 1 = fair',pegColor);
+    var lynchColor=lynchFairPrice!=null?(d.p<=lynchFairPrice?'var(--gn)':'var(--rd)'):'var(--dm)';
+    h+=rr('Lynch Fair Price',lynchFairPrice!=null?pr(lynchFairPrice):'N/A','= Growth% x EPS. "P/E should '+'\u2264'+' growth rate"',lynchColor);
+    if(lynchFairPrice!=null&&d.p>0){
+      var lynchUpside=(lynchFairPrice-d.p)/d.p;
+      h+=rr('Lynch Upside/Downside',pc(lynchUpside),lynchUpside>0?'Undervalued by Lynch':'Overvalued by Lynch',lynchUpside>0?'var(--gn)':'var(--rd)');
+    }
+
+    // ── Reverse DCF Section ──
+    h+='<div style="height:1px;background:var(--bd);margin:12px 0"></div>';
+    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:6px">REVERSE DCF — IMPLIED EXPECTATIONS</div>';
+    var implColor=impliedG!=null?(impliedG>0.20?'var(--rd)':impliedG>0.10?'var(--yw)':'var(--gn)'):'var(--dm)';
+    h+=rr('Implied FCF Growth Rate',impliedG!=null?pc(impliedG):'N/A','Growth the market is pricing in at WACC '+ST.dcf.wacc+'%, tg '+ST.dcf.tg+'%',implColor);
+    if(impliedG!=null&&epsGrowth!=null){
+      var implVsHist=impliedG-epsGrowth;
+      h+=rr('Implied vs Historical Growth',pc(implVsHist),implVsHist>0.05?'Market expects acceleration':'Market expects deceleration or similar',implVsHist>0.05?'var(--rd)':implVsHist<-0.05?'var(--gn)':'var(--yw)');
+    }
+
+    // ── EPV Section ──
+    h+='<div style="height:1px;background:var(--bd);margin:12px 0"></div>';
+    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:6px">ZERO-GROWTH VALUATION</div>';
+    h+=rr('Earnings Power Value (EPV/share)',pr(epvPS),'Perpetuity of current FCF '+D(fcfLTM)+' at WACC '+ST.dcf.wacc+'%');
+    var epvVsPrice=d.p>0?(epvPS-d.p)/d.p:0;
+    h+=rr('EPV vs Current Price',pc(epvVsPrice),epvVsPrice>0?'Worth more than price even with NO growth':'Price includes growth expectations',epvVsPrice>0?'var(--gn)':'var(--yw)');
+    if(yearsGrowth!=null){
+      h+=rr('Years of Growth Priced In',yearsGrowth.toFixed(1)+' yrs','At current earnings growth, how many years to justify price',yearsGrowth>10?'var(--rd)':yearsGrowth>5?'var(--yw)':'var(--gn)');
+    }
+
+    // ── Yield Section ──
+    h+='<div style="height:1px;background:var(--bd);margin:12px 0"></div>';
+    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:6px">YIELD COMPARISON</div>';
+    h+=rr('FCF Yield (FCF/EV)',pc(fcfYield),'Adj FCF '+D(fcfLTM)+' / EV '+D(evM));
+    h+=rr('10Y Treasury Rate',pc(riskFree),'Risk-free benchmark');
+    h+=rr('Yield Spread over Treasury',pc(yieldSpread),yieldSpread>0?'Being paid for equity risk':'Negative spread \u2014 demanding valuation',yieldSpread>0.02?'var(--gn)':yieldSpread>0?'var(--yw)':'var(--rd)');
+    h+=rr('FCF Per Share',pr(fcfPS),'Adj FCF / Shares');
+
+    // ── Verdict ──
+    h+='<div style="margin-top:12px;padding:10px 14px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd)">';
+    var bullCount=0,bearCount=0;
+    if(peg!=null&&peg<=1)bullCount++;else if(peg!=null)bearCount++;
+    if(epvVsPrice>0)bullCount++;else bearCount++;
+    if(yieldSpread>0.02)bullCount++;else if(yieldSpread<0)bearCount++;
+    if(impliedG!=null&&epsGrowth!=null&&impliedG<epsGrowth)bullCount++;else if(impliedG!=null&&epsGrowth!=null)bearCount++;
+    if(lynchFairPrice!=null&&d.p<=lynchFairPrice)bullCount++;else if(lynchFairPrice!=null)bearCount++;
+    var verdict=bullCount>bearCount?'Undervalued signals dominate':bearCount>bullCount?'Overvalued signals dominate':'Mixed signals';
+    var verdictColor=bullCount>bearCount?'var(--gn)':bearCount>bullCount?'var(--rd)':'var(--yw)';
+    h+='<div style="font-size:12px;margin-bottom:4px"><b>Quick Verdict:</b> <span style="color:'+verdictColor+';font-weight:700">'+verdict+'</span>';
+    h+=' <span style="font-size:10px;color:var(--dm)">('+bullCount+' bull / '+bearCount+' bear)</span></div>';
+    h+='<div style="font-size:9px;color:var(--dm)">Based on PEG, Lynch fair value, EPV, yield spread, and implied growth vs historical. Not investment advice \u2014 verify assumptions below in DCF.</div>';
+    h+='</div>';
+
+    h+='</div>';
+    h+='<div class="cs"><b class="s">Framework:</b><br><br>';
+    h+='<b>PEG (Lynch):</b> P/E \u00f7 earnings growth %. PEG \u2264 1 means you\'re paying fair price for growth. "Never pay more for a stock than its growth rate."<br><br>';
+    h+='<b>Implied FCF Growth:</b> Reverse-solves the DCF \u2014 what annual FCF growth makes intrinsic value = current price? If it\'s higher than historical, the market is pricing in acceleration.<br><br>';
+    h+='<b>EPV (Greenwald):</b> Value with zero growth \u2014 perpetuity of current FCF at WACC. If EPV > price, you\'re getting growth for free.<br><br>';
+    h+='<b>Years Priced In:</b> How many years of current earnings growth does the market assume? <5 = conservative, >10 = aggressive.<br><br>';
+    h+='<b>FCF Yield Spread:</b> FCF/EV minus 10Y Treasury. Positive = equity is generating more cash than bonds. Negative = you\'re paying a premium over risk-free.</div>';
+    h+='</div></div>';
+  })();
+
+  
+  // ── DCF SECTION ──────────────────────────────────────────────
   h+='<div class="card"><div class="ci"><div class="cm">';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
   h+='<div class="ct" style="margin-bottom:0">5-Year DCF Projection</div>';
