@@ -58,9 +58,10 @@ b.s{color:var(--lb)}
     <button class="tmbtn" onclick="toggleTheme()" id="thbtn">☀️ Day</button>
   </div>
   <div class="sb">
-    <input id="qi" placeholder="Company or ticker (e.g. Apple, AAPL)"/>
+    <input id="qi" placeholder="Company or ticker (e.g. Apple, AAPL)" autocomplete="off" spellcheck="false"/>
     <button id="gb" onclick="go()">Analyze</button>
   </div>
+  <div id="wl" style="margin-bottom:8px"></div>
   <div id="sr" style="display:none;background:var(--cd);border:1px solid var(--bd);border-radius:8px;margin-top:2px;margin-bottom:8px;max-height:280px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.5)"></div>
   <div id="ld" style="display:none;text-align:center;padding:50px 0;color:var(--dm)"><div class="sp"></div><div>Fetching…</div></div>
   <div id="er" style="display:none;background:#450a0a;border:1px solid #dc2626;border-radius:6px;padding:12px;color:#fca5a5;font-size:13px;margin-bottom:16px"></div>
@@ -255,7 +256,7 @@ function render(){
 
   // Header card
   h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;background:var(--cd);border-radius:8px;padding:14px 16px;border:1px solid var(--bd);margin-bottom:12px">';
-  h+='<div><div style="font-size:18px;font-weight:800;color:var(--br)">'+d.n+'</div>';
+  h+='<div><div style="display:flex;align-items:center;gap:10px"><span style="font-size:18px;font-weight:800;color:var(--br)">'+d.n+'</span><button id="savebtn" style="font-size:11px;padding:4px 10px;border-radius:5px;border:1px solid var(--bd);cursor:pointer;font-family:var(--f);font-weight:600;transition:all 0.15s">'+(isInWL(d.t)?'\u2605 Saved':'\u2606 Save')+'</button></div></div>';
   h+='<div style="font-size:11px;color:var(--dm)">'+d.t+' · '+d.sec+' · '+d.industry+' · '+d.fy+'</div>';
   h+='<div style="font-size:10px;color:var(--dm);margin-top:4px">';
   h+='EV: <b>'+D(d.ev)+'</b> &nbsp;|&nbsp; Adj FCF: <b>'+D(d.af)+'</b> &nbsp;|&nbsp; FCF/EV: <b>'+pc(d.fy2)+'</b> &nbsp;|&nbsp; Rev CAGR: <b>'+pc(d.rc)+'</b>';
@@ -1013,6 +1014,7 @@ function render(){
     h+='<div style="font-size:9px;color:#2a3040;padding-top:8px;border-top:1px solid var(--bd)">Adj FCF = CFO − SBC − Maint CapEx · EV = MCap + Net Debt · Data: FMP (SEC 10-K) · <a href="https://valuetimeovermoney.github.io/valuation-screener/" style="color:var(--dm)">← Back to Screener</a></div>';
 
   document.getElementById('out').innerHTML=h;
+  updateSaveBtn();
 }
 
 function calcTri(){
@@ -1034,6 +1036,54 @@ function calcTri(){
 
 
 // ── Search ────────────────────────────────────────────────────────────────
+// ── Watchlist ─────────────────────────────────────────────────────────────
+function getWL(){try{return JSON.parse(localStorage.getItem('val_watchlist')||'[]');}catch(e){return [];}}
+function saveWL(list){try{localStorage.setItem('val_watchlist',JSON.stringify(list));}catch(e){}}
+function addToWL(){
+  var d=ST.d;if(!d)return;
+  var wl=getWL();
+  var idx=wl.findIndex(function(x){return x.s===d.t;});
+  if(idx>=0)wl[idx]={s:d.t,n:d.n,p:d.p,t:new Date().toISOString()};
+  else wl.unshift({s:d.t,n:d.n,p:d.p,t:new Date().toISOString()});
+  saveWL(wl);renderWL();updateSaveBtn();
+}
+function removeWL(sym){
+  saveWL(getWL().filter(function(x){return x.s!==sym;}));
+  renderWL();updateSaveBtn();
+}
+function isInWL(sym){return getWL().some(function(x){return x.s===sym;});}
+function updateSaveBtn(){
+  var btn=document.getElementById('savebtn');if(!btn||!ST.d)return;
+  var saved=isInWL(ST.d.t);
+  btn.textContent=saved?'\u2605 Saved':'\u2606 Save';
+  btn.style.background=saved?'var(--yw)':'var(--ib)';
+  btn.style.color=saved?'#000':'var(--lb)';
+  btn.onclick=saved?function(){removeWL(ST.d.t);}:addToWL;
+}
+function renderWL(){
+  var el=document.getElementById('wl');if(!el)return;
+  var wl=getWL();
+  if(!wl.length){el.innerHTML='';return;}
+  var h2='<div style="background:var(--cd);border:1px solid var(--bd);border-radius:8px;padding:10px 14px">';
+  h2+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;font-weight:700;color:var(--yw);letter-spacing:1px">\u2605 WATCHLIST</span><span style="font-size:9px;color:var(--dm)">'+wl.length+' saved</span></div>';
+  h2+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
+  wl.forEach(function(w){
+    var dt=new Date(w.t);
+    var ago=Math.round((Date.now()-dt.getTime())/86400000);
+    var agoTxt=ago===0?'today':ago===1?'1d ago':ago+'d ago';
+    h2+='<div style="background:var(--ib);border:1px solid var(--bd);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;gap:6px;transition:background 0.15s" onmouseover="this.style.background=\'var(--bd)\'" onmouseout="this.style.background=\'var(--ib)\'" onclick="go(\''+w.s+'\')">';
+    h2+='<b style="color:var(--bl)">'+w.s+'</b>';
+    h2+='<span style="color:var(--dm);font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+w.n+'</span>';
+    if(w.p)h2+='<span style="color:var(--lb);font-size:9px">$'+w.p.toFixed(0)+'</span>';
+    h2+='<span style="color:var(--dm);font-size:8px">'+agoTxt+'</span>';
+    h2+='<span onclick="event.stopPropagation();removeWL(\''+w.s+'\');" style="color:var(--rd);cursor:pointer;font-size:10px;margin-left:2px" title="Remove">\u2717</span>';
+    h2+='</div>';
+  });
+  h2+='</div></div>';
+  el.innerHTML=h2;
+}
+renderWL();
+
 async function fmpSearch(q){
   var results=[];
   var urls=[BASE+'search?query='+encodeURIComponent(q)+'&limit=15&apikey='+AK,BASE+'search-name?name='+encodeURIComponent(q)+'&limit=15&apikey='+AK];
@@ -1065,7 +1115,7 @@ document.getElementById('qi').addEventListener('input',function(){
   _act=setTimeout(function(){fmpSearch(v).then(function(res){
     if(res&&res.length)showSR(res);
     else if(sr)sr.innerHTML='<div style="padding:12px;color:var(--dm);font-size:11px;text-align:center">No matches. Try ticker (e.g. AAPL)</div>';
-  }).catch(function(){if(sr)sr.style.display='none';});},400);
+  }).catch(function(){if(sr)sr.style.display='none';});},200);
 });
 document.addEventListener('click',function(e){var sr=document.getElementById('sr');if(sr&&!e.target.closest('#sr')&&!e.target.closest('.sb'))sr.style.display='none';});
 
@@ -1086,7 +1136,7 @@ async function runAI(){
   if(btn){btn.disabled=false;btn.textContent='Run AI Analyst';}
 }
 
-document.getElementById('qi').addEventListener('keydown',function(e){if(e.key==='Enter')go();});
+document.getElementById('qi').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();var sr=document.getElementById('sr');if(sr)sr.style.display='none';if(_act)clearTimeout(_act);go();}});
 
 async function go(sym){
   var t=sym?sym.toUpperCase():document.getElementById('qi').value.trim().toUpperCase();if(!t)return;
@@ -1100,6 +1150,7 @@ async function go(sym){
     ST.dcf._seeded=false; // re-seed for new ticker
     seedDCF(ST.d);
     render();
+    renderWL();
   }catch(e){
     document.getElementById('er').textContent=e.message;
     document.getElementById('er').style.display='block';
@@ -1109,6 +1160,7 @@ async function go(sym){
     document.getElementById('gb').textContent='Analyze';
   }
 }
+document.getElementById('qi').focus();
 </script>
 </body>
 </html>
