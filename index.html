@@ -1644,8 +1644,9 @@ function render(){
 
 
   
-  h+='<div style="font-size:9px;color:#2a3040;padding-top:8px;border-top:1px solid var(--bd)">Quality ≥25% 🟢 | Adj FCF = CFO − SBC − Maint CapEx | Data: FMP (SEC 10-K) | <a href="/valuation-screener/valuation/" style="color:#4a5568">DCF & Valuation Model →</a></div>';
+  h+='<div style="font-size:9px;color:#2a3040;padding-top:8px;border-top:1px solid var(--bd)">Quality ≥25% 🟢 | Adj FCF = CFO − SBC − Maint CapEx | Data: FMP (SEC 10-K) | <a id="vallink" href="/valuation-screener/valuation/" style="color:#4a5568">DCF & Valuation Model →</a></div>';
   document.getElementById('out').innerHTML=h;
+  var _vl=document.getElementById('vallink');if(_vl){var _tk=document.getElementById('qi').value.trim().toUpperCase();if(_tk)_vl.href='/valuation-screener/valuation/?t='+encodeURIComponent(_tk);}
   window.scrollTo(0,_scrollY);
   // Restore focus to prevent scroll jump
   if(_focId){var _el=document.getElementById(_focId);if(_el){_el.focus({preventScroll:true});if(_focVal!=null)_el.value=_focVal;if(_focPos!=null)try{_el.setSelectionRange(_focPos,_focPos);}catch(e){}}}
@@ -1685,6 +1686,7 @@ function showSearchResults(results){
 
 async function go(forceSymbol){
   var raw=forceSymbol||document.getElementById('qi').value.trim();if(!raw)return;
+  try{localStorage.setItem('active_ticker',raw.toUpperCase());}catch(e){}
   var t=raw.toUpperCase();
   if(forceSymbol){
     t=forceSymbol;
@@ -1736,6 +1738,8 @@ async function go(forceSymbol){
   }catch(e){document.getElementById('er').innerHTML=e.message+'<br><span style="font-size:9px;color:#888">Tip: Open browser console (F12) for details. Try the ticker with exchange suffix (e.g. AIM.TO for TSX)</span>';document.getElementById('er').style.display='block';
   }finally{document.getElementById('ld').style.display='none';document.getElementById('gb').disabled=false;document.getElementById('gb').textContent='Analyze';}
 }
+
+(function(){var p=new URLSearchParams(window.location.search);var t=p.get('t');if(t){document.getElementById('qi').value=t;go(t);}})();
 </script>
 </body>
 </html>
