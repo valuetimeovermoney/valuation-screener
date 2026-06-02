@@ -207,7 +207,13 @@ function calcM(d){
   if(gap>0){var nf=0.25-(rc||0);if(nf>0)np=sh>0?(af/nf-nd)/sh:null;nr=(0.25-fy)*100;}
   var sbcP=(_getR(revs[0])>0)?sbc/_getR(revs[0]):0;
   var _useOE=ST&&ST.fcfMethod==='oe';
-  var fh=(_useOE&&d.oeH?d.oeH:d.fcf||d.fcfHist||[]).filter(function(x){return x!=null;});
+  var _userMp=(ST&&ST.mpOver!=null?ST.mpOver:d.mp||50)/100;
+  // For OE, recompute using user's maint% (overrides buildCo's sector default)
+  var fh=(_useOE&&d.oeH?d.oeH.map(function(x){
+    if(!x||x.ni==null)return x;  // no component data, use as-is
+    var adjOE=x.ni+(x.da||0)-(x.cx||0)*_userMp-(x.sbc||0)-(x.dwc||0);
+    return{y:x.y,v:+adjOE.toFixed(1)};
+  }):d.fcf||d.fcfHist||[]).filter(function(x){return x!=null;});
   var fya=(fh||[]).map(function(x){return ev>0?(x.v||0)/ev:0;});
   var a3y=av((fya||[]).slice(0,3)),a5y=av((fya||[]).slice(0,5));
   var evF=af>0?ev/af:null;
@@ -252,17 +258,28 @@ async function buildCo(tk){
   // Owner Earnings: NI + D&A - CapEx (full) - SBC - ΔWC
   // ΔWC = change in working capital (incl. fintech loan book growth)
   var bsArr=(bsA||[]).filter(Boolean).slice(0,6);  // one extra for delta
+  // Owner Earnings: NI + D&A - Maint CapEx - SBC ± ΔWC
+  // ΔWC from cash flow statement (multiple field names) OR derived from BS changes
+  var bsArr2=(bsA||[]).filter(Boolean);
   var oeH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y,i){
     var ni2=gf(y,'netIncome');
     var da2=gf(y,'depreciationAndAmortization');
     var cx2=Math.abs(gf(y,'capitalExpenditure'));
     var sbc2=gf(y,'stockBasedCompensation');
-    var dwc2=gf(y,'changeInWorkingCapital')||0;
-    // OE = NI + D&A − Maintenance CapEx − SBC ± ΔWC
-    // Maintenance CapEx = CapEx × maint% (same as Adj FCF; proxy for sustaining existing earning power)
-    var maintCx=cx2*(isL?0.5:0.7);  // same sector-based default as Adj FCF
-    var oe=(ni2+da2-maintCx-sbc2+dwc2)/1e6;
-    return{y:yrOf(y),v:+oe.toFixed(1)};
+    // Try multiple FMP field names for working capital change
+    var dwc2=gf(y,'changeInWorkingCapital')||gf(y,'changesInWorkingCapital')||
+             gf(y,'changeInOtherWorkingCapital')||0;
+    // If still 0, derive from balance sheet YoY change
+    if(dwc2===0&&bsArr2[i]&&bsArr2[i+1]){
+      var wcCurr=(gf(bsArr2[i],'totalCurrentAssets')-gf(bsArr2[i],'totalCurrentLiabilities'));
+      var wcPrev=(gf(bsArr2[i+1],'totalCurrentAssets')-gf(bsArr2[i+1],'totalCurrentLiabilities'));
+      dwc2=wcCurr-wcPrev;  // positive = WC increased (capital consumed), negative = WC released
+    }
+    // Maint CapEx uses same sector default as Adj FCF (will be overridden by user's mpOver in calcM)
+    var maintCx=cx2*(isL?0.5:0.7);
+    // OE = NI + D&A - MaintCapEx - SBC - ΔWC (subtract because WC increase = cash used)
+    var oe=(ni2+da2-maintCx-sbc2-dwc2)/1e6;
+    return{y:yrOf(y),v:+oe.toFixed(1),ni:ni2/1e6,da:da2/1e6,cx:cx2/1e6,sbc:sbc2/1e6,dwc:dwc2/1e6};
   });
   var sbcH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+((gf(y,'stockBasedCompensation'))/1e6).toFixed(1)};});
   var capexH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+(Math.abs(gf(y,'capitalExpenditure'))/1e6).toFixed(1)};});
@@ -338,7 +355,15 @@ async function buildCo(tk){
     cx:+(capex/1e6).toFixed(1),mp:mpct,
     fy:'FY'+(yrOf(cf0)||''),fyEnd:fyEnd,bsDate:(bs0.date||'').slice(0,10),filingLink:cf0.finalLink||cf0.link||'',
     rv:rev,ni:ni,gm:gm,oeH:oeH,cfoH:cfoH,
-    dwcH:(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+(gf(y,'changeInWorkingCapital')/1e6).toFixed(1)};}),cfiH:cfiH,cffH:cffH,ncH:ncH,fcf:fcfH,sbcH:sbcH,capexH:capexH,soH:soH,divH:divH,buyH:buyH,
+    dwcH:(cfA||[]).filter(Boolean).slice(0,5).map(function(y,i){
+      var v=gf(y,'changeInWorkingCapital')||gf(y,'changesInWorkingCapital')||0;
+      if(v===0&&bsArr2[i]&&bsArr2[i+1]){
+        var wcC=gf(bsArr2[i],'totalCurrentAssets')-gf(bsArr2[i],'totalCurrentLiabilities');
+        var wcP=gf(bsArr2[i+1],'totalCurrentAssets')-gf(bsArr2[i+1],'totalCurrentLiabilities');
+        v=wcC-wcP;
+      }
+      return{y:yrOf(y),v:+(v/1e6).toFixed(1)};
+    }),cfiH:cfiH,cffH:cffH,ncH:ncH,fcf:fcfH,sbcH:sbcH,capexH:capexH,soH:soH,divH:divH,buyH:buyH,
     _ta:+((gf(bs0,'totalAssets'))/1e6).toFixed(1),
     _ppe:+((gf(bs0,'propertyPlantAndEquipmentNet','propertyPlantAndEquipment'))/1e6).toFixed(1),
     _intang:+((gf(bs0,'goodwillAndIntangibleAssets','intangibleAssets'))/1e6).toFixed(1),
@@ -856,7 +881,8 @@ function render(){
     var _daL=(d.incH||[])[0]?d.incH[0].da:0;  // wait - incH has da from recent
     var _daLv=d.incH&&d.incH.length?(d.incH[d.incH.length-1]||{}).da||0:0;
     var _cxL=d.cx||0;var _sbcL=d.sbc||0;
-    var _dwcL=(d.dwcH||[])[0]?d.dwcH[0].v:0;
+    var _oeComp=(d.oeH||[])[0]||(d.oeH||[])[0]||{};
+    var _dwcL=_oeComp.dwc!=null?_oeComp.dwc:((d.dwcH||[])[0]?d.dwcH[0].v:0);
     var _fsMp2=ST.mpOver!=null?ST.mpOver:(d.mp||50);
     var _maintCxL=+((_cxL*_fsMp2/100)).toFixed(1);
     h+=mkRo('Net Income',D(_niL),0,'+');
