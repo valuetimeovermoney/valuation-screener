@@ -250,7 +250,123 @@ function render(){
   h+='</div></div>';
   h+='<div style="text-align:right"><div style="font-size:24px;font-weight:800;font-family:var(--m);color:var(--bl)">'+pr(d.p)+'</div><div style="font-size:10px;color:var(--dm)">'+d.pd+'</div></div></div>';
 
-  // ── DCF SECTION ──────────────────────────────────────────────
+
+  // ── MARKET IMPLIED ASSUMPTIONS (Reverse DCF / Peter Lynch) ──────────────
+  (function(){
+    var latRev=d.rv&&d.rv[0]?d.rv[0].r:0;
+    var latNi=d.ni&&d.ni[0]?+d.ni[0].v:0;
+    var latFcf=+(d.af||0);
+    var shares=+(d.sh||0);
+    var price=+(d.p||0);
+    var mktCap=shares*price;
+    var nd=+(d.de||0)-+(d.ca||0);
+    var evNow=mktCap+nd;
+
+    // P/E and Earnings Yield
+    var epsLTM=shares>0?latNi/shares:0;
+    var pe=epsLTM>0?price/epsLTM:null;
+    var earningsYield=pe>0?1/pe:null;
+    var riskFree=0.043;
+
+    // Historical CAGR
+    var histRevCAGR=d.rc;
+    var niArr=(d.ni||[]).slice(0,5).filter(function(x){return x&&x.v>0;});
+    var histEpsCAGR=niArr.length>=2?cagr(niArr[niArr.length-1].v,niArr[0].v,niArr.length-1):null;
+
+    // PEG ratio (Peter Lynch)
+    var epsGrowth=histEpsCAGR!=null?histEpsCAGR*100:null;
+    var peg=pe&&epsGrowth&&epsGrowth>0?pe/epsGrowth:null;
+
+    // Reverse DCF: solve for implied revenue growth
+    // Hold current margins constant, use WACC from input
+    var wacc=ST.dcf.wacc/100,tg=ST.dcf.tg/100;
+    var fcfMargin=latRev>0?latFcf/latRev:0;
+    // Binary search for implied growth that produces current EV
+    var impliedG=null;
+    if(latRev>0&&fcfMargin>0&&wacc>tg){
+      var lo=-0.2,hi=0.5;
+      for(var iter=0;iter<50;iter++){
+        var mid=(lo+hi)/2;
+        var sumPv=0,cR=latRev;
+        for(var yr=1;yr<=5;yr++){
+          cR=cR*(1+mid);
+          var fcfYr=cR*fcfMargin;
+          sumPv+=fcfYr/Math.pow(1+wacc,yr);
+        }
+        var tvFcf=cR*(1+mid)*fcfMargin*(1+tg);
+        var tv=tvFcf/(wacc-tg);
+        var tvPv=tv/Math.pow(1+wacc,5);
+        var impliedEV=sumPv+tvPv;
+        if(impliedEV<evNow)lo=mid;else hi=mid;
+      }
+      impliedG=(lo+hi)/2;
+    }
+
+    // FCF Yield
+    var fcfYield=mktCap>0?latFcf/mktCap:null;
+
+    // Peter Lynch: price CAGR should < earnings CAGR
+    // Estimate: if you buy at current P/E and earnings grow at histEpsCAGR,
+    // your return = earnings growth (assuming P/E stays constant)
+
+    function mRow(lbl,val,ref,verdict){
+      return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--ib);font-size:12px">'+
+        '<span style="color:var(--lb)">'+lbl+'</span>'+
+        '<span style="display:flex;gap:12px;align-items:center">'+
+        '<b style="font-family:var(--m)">'+val+'</b>'+
+        (ref?'<span style="font-size:10px;color:var(--dm)">'+ref+'</span>':'')+
+        (verdict?'<span style="font-size:10px;font-weight:700;color:'+verdict[0]+'">'+verdict[1]+'</span>':'')+
+        '</span></div>';
+    }
+
+    h+='<div class="card"><div class="ci"><div class="cm">';
+    h+='<div class="ct" style="margin-bottom:10px">What Does the Price Imply?</div>';
+    h+='<div style="font-size:10px;color:var(--dm);margin-bottom:12px">Reverse-engineering the current price to see what growth the market is assuming. Compare with historical actuals to judge if optimistic or pessimistic.</div>';
+
+    // Implied Growth vs Historical
+    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);margin-bottom:6px;letter-spacing:1px">REVERSE DCF — IMPLIED GROWTH</div>';
+    var igColor=impliedG!=null&&histRevCAGR!=null?(impliedG<=histRevCAGR?'var(--gn)':'var(--rd)'):'var(--dm)';
+    var igVerdict=impliedG!=null&&histRevCAGR!=null?(impliedG<=histRevCAGR?[igColor,'✓ Below historical']:[igColor,'⚠ Above historical']):null;
+    h+=mRow('Implied Revenue Growth (to justify price)',impliedG!=null?pc(impliedG):'N/A','at current margins & WACC '+pc(wacc),igVerdict);
+    h+=mRow('Historical Revenue CAGR (3Y)',histRevCAGR!=null?pc(histRevCAGR):'N/A','actual delivered','');
+    var gap=impliedG!=null&&histRevCAGR!=null?impliedG-histRevCAGR:null;
+    h+=mRow('Growth Gap (implied - historical)',gap!=null?pc(gap):'N/A','',gap!=null?(gap<=0?['var(--gn)','✓ Market expects less than history']:gap<0.05?['var(--yw)','Close to historical']:['var(--rd)','⚠ Market expects acceleration']):null);
+
+    // Peter Lynch
+    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);margin:14px 0 6px;letter-spacing:1px">PETER LYNCH CHECK</div>';
+    var pegColor=peg!=null?(peg<1?'var(--gn)':peg<2?'var(--yw)':'var(--rd)'):'var(--dm)';
+    var pegVerdict=peg!=null?(peg<1?[pegColor,'✓ Undervalued']:peg<2?[pegColor,'Fair']:['var(--rd)','⚠ Expensive']):null;
+    h+=mRow('P/E Ratio',pe!=null?pe.toFixed(1)+'x':'N/A','LTM earnings','');
+    h+=mRow('Earnings Growth (3Y CAGR)',histEpsCAGR!=null?pc(histEpsCAGR):'N/A','net income CAGR','');
+    h+=mRow('PEG Ratio (P/E ÷ Growth)',peg!=null?peg.toFixed(2)+'x':'N/A','<1 undervalued, 1-2 fair, >2 expensive',pegVerdict);
+    h+='<div style="font-size:9px;color:var(--dm);margin-top:4px;padding:6px 8px;background:#0a0e18;border-radius:4px">';
+    h+='<b>Lynch\'s Rule:</b> Never pay more for a stock than its earnings growth rate. ';
+    if(pe!=null&&epsGrowth!=null){
+      if(pe<=epsGrowth) h+='P/E ('+pe.toFixed(1)+') ≤ EPS Growth ('+epsGrowth.toFixed(1)+'%) — <span style="color:var(--gn)">Passes</span>';
+      else h+='P/E ('+pe.toFixed(1)+') > EPS Growth ('+epsGrowth.toFixed(1)+'%) — <span style="color:var(--rd)">Fails</span>';
+    }
+    h+='</div>';
+
+    // Yield Comparison
+    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);margin:14px 0 6px;letter-spacing:1px">YIELD REALITY CHECK</div>';
+    var eyColor=earningsYield!=null?(earningsYield>riskFree?'var(--gn)':'var(--rd)'):'var(--dm)';
+    h+=mRow('Earnings Yield (E/P)',earningsYield!=null?pc(earningsYield):'N/A','inverse of P/E',earningsYield!=null?(earningsYield>riskFree?[eyColor,'✓ Above risk-free']:[eyColor,'⚠ Below risk-free — needs growth']):null);
+    h+=mRow('FCF Yield (FCF/MktCap)',fcfYield!=null?pc(fcfYield):'N/A','cash actually generated',fcfYield!=null?(fcfYield>riskFree?['var(--gn)','✓ Above risk-free']:['var(--rd)','⚠ Below risk-free']):null);
+    h+=mRow('10Y Treasury (risk-free)',pc(riskFree),'opportunity cost','');
+    h+=mRow('EV / EBITDA',d.ebitdaM>0?(evNow/d.ebitdaM).toFixed(1)+'x':'N/A','','');
+    h+=mRow('EV / Adj FCF',latFcf>0?(evNow/latFcf).toFixed(1)+'x':'N/A','','');
+
+    h+='</div>';
+    h+='<div class="cs"><b class="s">How to read this:</b><br><br>';
+    h+='<b>Implied Growth:</b> The revenue CAGR the stock price requires (holding current margins constant). If this exceeds the historical CAGR, the market is betting on acceleration — you need a thesis for why.<br><br>';
+    h+='<b>PEG:</b> Peter Lynch\'s shorthand. P/E divided by earnings growth %. Below 1 = you\'re getting growth cheap. Above 2 = you\'re overpaying.<br><br>';
+    h+='<b>Yield Check:</b> If earnings yield is below risk-free (10Y Treasury), you need significant growth to beat a government bond. FCF yield shows what the business actually generates in cash.<br><br>';
+    h+='<b>Green</b> = favorable, <b>Yellow</b> = borderline, <b>Red</b> = demanding.</div>';
+    h+='</div></div>';
+  })();
+
+  
+    // ── DCF SECTION ──────────────────────────────────────────────
   h+='<div class="card"><div class="ci"><div class="cm">';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
   h+='<div class="ct" style="margin-bottom:0">5-Year DCF Projection</div>';
