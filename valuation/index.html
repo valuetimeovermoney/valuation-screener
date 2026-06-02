@@ -101,7 +101,7 @@ var ST={d:null,showDCF:true,showTri:true,
        cx1:0,cx2:0,cx3:0,cx4:0,cx5:0,
        mp:50,
        sh1:0,sh2:0,sh3:0,sh4:0,sh5:0,
-       wacc:10,tg:3,_seeded:false}};
+       wacc:10,tg:3,ar_hc:5,inv_hc:15,ppe_adj:0,brand_yrs:3,rd_yrs:4,_seeded:false}};
 
 function togS(k){ST['show'+k]=!ST['show'+k];render();}
 
@@ -117,6 +117,7 @@ function updDCF(){
   var mp=document.getElementById('d__mp');if(mp)v.mp=parseFloat(mp.value)||50;
   var wc=document.getElementById('d__wacc');if(wc)v.wacc=parseFloat(wc.value)||9;
   var tg=document.getElementById('d__tg');if(tg)v.tg=parseFloat(tg.value)||3;
+  ['ar_hc','inv_hc','ppe_adj','brand_yrs','rd_yrs'].forEach(function(k){var e=document.getElementById('d_'+k);if(e)v[k]=parseFloat(e.value)||0;});
   render();
 }
 
@@ -199,6 +200,17 @@ async function buildCo(tk){
     ebitM:gf(incA[0]||{},'operatingIncome')/1e6,
     ebitdaM:(gf(incA[0]||{},'ebitda')||0)/1e6,
     niLTM:gf(incA[0]||{},'netIncome')/1e6,
+    curAssets:gf(bs0,'totalCurrentAssets')/1e6,
+    totLiab:gf(bs0,'totalLiabilities')/1e6,
+    totAssets:gf(bs0,'totalAssets')/1e6,
+    netRecv:gf(bs0,'netReceivables')/1e6,
+    inventory:gf(bs0,'inventory')/1e6,
+    ppeNet:gf(bs0,'propertyPlantEquipmentNet')/1e6,
+    goodwill:gf(bs0,'goodwill')/1e6,
+    otherCA:gf(bs0,'otherCurrentAssets')/1e6,
+    sgaM:gf(incA[0]||{},'sellingGeneralAndAdministrative','generalAndAdministrativeExpenses')/1e6,
+    rdM:gf(incA[0]||{},'researchAndDevelopmentExpenses','researchAndDevelopment')/1e6,
+    totalEquity:gf(bs0,'totalStockholdersEquity')/1e6,
   };
 }
 
@@ -366,6 +378,116 @@ function render(){
   })();
 
   
+  
+
+  // ── ASSET-BASED VALUATION ───────────────────────────────────────────────
+  (function(){
+    if(!d.p||!d.sh||d.sh<=0)return;
+    var mktCap=d.p*d.sh;
+    var v2=ST.dcf;
+    function ar(lbl,val,note,color){
+      return '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--ib)"><span style="color:var(--lb);font-size:12px">'+lbl+'</span><span><b style="font-family:var(--m);font-size:13px;color:'+(color||'var(--br)')+'">'+val+'</b>'+(note?'<span style="font-size:9px;color:var(--dm);margin-left:5px">'+note+'</span>':'')+'</span></div>';
+    }
+    function ai2(key,val,w){return dcfInp(key,val,w||36);}
+
+    h+='<div class="card"><div class="ci"><div class="cm">';
+    h+='<div class="ct" style="margin-bottom:4px">Asset-Based Valuation</div>';
+    h+='<div style="font-size:10px;color:var(--dm);margin-bottom:12px">Graham net-net, Lynch asset play, Buffett/Greenwald replacement cost. All $ in millions.</div>';
+
+    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:6px">BENJAMIN GRAHAM \u2014 NET-NET</div>';
+    var ncav= +(d.curAssets||0) - +(d.totLiab||0);
+    var ncavPS=d.sh>0?ncav/d.sh:0;
+    var ncavDisc=ncavPS>0?d.p/ncavPS:null;
+    h+=ar('Current Assets',D(d.curAssets),'FMP balance-sheet');
+    h+=ar('Total Liabilities',D(d.totLiab),'FMP balance-sheet');
+    h+=ar('NCAV (Curr Assets \u2212 Total Liab)',D(ncav),ncav>0?'Positive \u2014 liquidation floor':'Negative \u2014 no net-net margin',ncav>0?'var(--gn)':'var(--rd)');
+    h+=ar('NCAV Per Share',pr(ncavPS),'');
+    if(ncavDisc!=null&&ncavPS>0){
+      h+=ar('Price / NCAV',ncavDisc.toFixed(2)+'x',ncavDisc<0.67?'Graham buy (<0.67x)':ncavDisc<1?'Below liquidation':'Above NCAV',ncavDisc<0.67?'var(--gn)':ncavDisc<1?'var(--yw)':'var(--rd)');
+    }
+
+    h+='<div style="height:1px;background:var(--bd);margin:12px 0"></div>';
+    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:6px">PETER LYNCH \u2014 ASSET PLAY</div>';
+    var cashPS=d.sh>0? +(d.ca||0)/d.sh:0;
+    var cashPct=d.p>0?cashPS/d.p:0;
+    var evPS=d.sh>0?(mktCap + +(d.de||0) - +(d.ca||0))/d.sh:0;
+    var tbvPS=d.sh>0? +(d._tbv||0)/d.sh:0;
+    var pTBV=tbvPS>0?d.p/tbvPS:null;
+    h+=ar('Cash Per Share',pr(cashPS),pc(cashPct)+' of price'+(cashPct>0.3?' \u2014 cash cushion':''));
+    h+=ar('EV Per Share',pr(evPS),'What you pay for the business');
+    h+=ar('Tangible Book / Share',pr(tbvPS),'Equity minus goodwill & intangibles');
+    if(pTBV!=null){
+      h+=ar('Price / TBV',pTBV.toFixed(2)+'x',pTBV<1?'Below book \u2014 asset play':pTBV<2?'Moderate':'Premium',pTBV<1?'var(--gn)':pTBV<2?'var(--yw)':'var(--br)');
+    }
+
+    h+='<div style="height:1px;background:var(--bd);margin:12px 0"></div>';
+    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:6px">BUFFETT / GREENWALD \u2014 REPLACEMENT COST</div>';
+    h+='<div style="font-size:9px;color:var(--dm);margin-bottom:8px">What would a competitor pay to rebuild this business? Adjust assumptions below.</div>';
+    h+='<div style="background:#0d1520;padding:8px 10px;border-radius:5px;margin-bottom:10px;font-size:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">';
+    h+='<span style="color:var(--yw)">Adjust: </span>';
+    h+='<span style="color:var(--dm)">AR Haircut</span>'+ai2('ar_hc',v2.ar_hc,28)+'%';
+    h+='<span style="color:var(--dm);margin-left:4px">Inv Markdown</span>'+ai2('inv_hc',v2.inv_hc,28)+'%';
+    h+='<span style="color:var(--dm);margin-left:4px">PP&E Adj</span>'+ai2('ppe_adj',v2.ppe_adj,28)+'%';
+    h+='<span style="color:var(--dm);margin-left:4px">Brand yrs</span>'+ai2('brand_yrs',v2.brand_yrs,24);
+    h+='<span style="color:var(--dm);margin-left:4px">R&D yrs</span>'+ai2('rd_yrs',v2.rd_yrs,24);
+    h+='</div>';
+
+    var adjCash= +(d.ca||0);
+    var adjRecv= +(d.netRecv||0)*(1-(v2.ar_hc||5)/100);
+    var adjInv= +(d.inventory||0)*(1-(v2.inv_hc||15)/100);
+    var adjPPE= +(d.ppeNet||0)*(1+(v2.ppe_adj||0)/100);
+    var oCA= +(d.otherCA||0);
+    var totTang=adjCash+adjRecv+adjInv+adjPPE+oCA;
+    var brandV= +(d.sgaM||0)*(v2.brand_yrs||3)*0.5;
+    var rdV= +(d.rdM||0)*(v2.rd_yrs||4)*0.5;
+    var totIntan=brandV+rdV;
+    var totRepl=totTang+totIntan;
+    var replEq=totRepl - +(d.totLiab||0);
+    var replPS=d.sh>0?replEq/d.sh:0;
+    var replVsP=d.p>0?(replPS-d.p)/d.p:0;
+
+    h+='<div style="font-size:10px;color:var(--tl);font-weight:600;margin:4px 0">Tangible Assets (Adjusted)</div>';
+    h+=ar('Cash & Investments',D(adjCash),'Face value');
+    h+=ar('Receivables (adj)',D(adjRecv),'Book '+D(d.netRecv)+' x (1\u2212'+(v2.ar_hc||5)+'%)');
+    h+=ar('Inventory (adj)',D(adjInv),'Book '+D(d.inventory)+' x (1\u2212'+(v2.inv_hc||15)+'%)');
+    h+=ar('PP&E Net (adj)',D(adjPPE),'Book '+D(d.ppeNet));
+    h+=ar('Other Current Assets',D(oCA),'Book');
+    h+=ar('Total Adj Tangible',D(totTang),'','var(--bl)');
+
+    h+='<div style="height:1px;background:var(--bd);margin:8px 0"></div>';
+    h+='<div style="font-size:10px;color:var(--tl);font-weight:600;margin-bottom:4px">Intangible Replacement Cost</div>';
+    h+=ar('Brand / Customer Value',D(brandV),'SGA '+D(d.sgaM)+' x '+(v2.brand_yrs||3)+'yr x 50% avg life');
+    h+=ar('Technology / IP Value',D(rdV),'R&D '+D(d.rdM)+' x '+(v2.rd_yrs||4)+'yr x 50% avg life');
+    h+=ar('Total Intangible',D(totIntan),'','var(--bl)');
+
+    h+='<div style="height:1px;background:var(--bd);margin:8px 0"></div>';
+    h+=ar('Gross Replacement Cost',D(totRepl),'Tangible + Intangible','var(--bl)');
+    h+=ar('Less: Total Liabilities','('+D(d.totLiab)+')','');
+    h+=ar('Replacement Equity Value',D(replEq),'','var(--pu)');
+    h+=ar('Replacement Value / Share',pr(replPS),'','var(--pu)');
+    h+=ar('Current Price',pr(d.p),'');
+    h+=ar('Premium / (Discount)',pc(replVsP),replVsP>0?'Cheaper than rebuilding':'Premium over replacement',replVsP>0.1?'var(--gn)':replVsP>-0.1?'var(--yw)':'var(--rd)');
+
+    h+='<div style="margin-top:12px;padding:10px 14px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd);font-size:11px;line-height:1.7">';
+    h+='<b style="color:var(--yw)">Asset Summary</b><br>';
+    [{n:'NCAV/share',v:ncavPS},{n:'TBV/share',v:tbvPS},{n:'Replacement/share',v:replPS}].forEach(function(x){
+      if(x.v!=null&&!isNaN(x.v)){var vs=d.p>0?(x.v-d.p)/d.p:0;h+='\u2022 '+x.n+': <b style="color:'+(vs>0?'var(--gn)':'var(--rd)')+'">'+pr(x.v)+'</b> <span style="font-size:9px;color:var(--dm)">('+pc(vs)+' vs price)</span><br>';}
+    });
+    h+='<span style="font-size:9px;color:var(--dm)">"Price is what you pay, value is what you get." \u2014 Buffett</span>';
+    h+='</div>';
+
+    h+='</div>';
+    h+='<div class="cs"><b class="s">Methodology:</b><br><br>';
+    h+='<b>Net-Net (Graham):</b> Current Assets \u2212 ALL liabilities. Price < 2/3 NCAV = Graham buy.<br><br>';
+    h+='<b>Asset Play (Lynch):</b> Hidden value in cash or assets worth more than market cap.<br><br>';
+    h+='<b>Replacement Value (Buffett/Greenwald):</b><br>';
+    h+='\u2022 Tangible assets at realizable value (haircuts for bad debts, obsolescence)<br>';
+    h+='\u2022 Brand = cumulative SGA spend depreciated over useful life<br>';
+    h+='\u2022 Technology = cumulative R&D depreciated faster<br>';
+    h+='\u2022 Price < replacement = competitor would buy vs build ("moat at a discount")</div>';
+    h+='</div></div>';
+  })();
+
   
   // ── WHAT'S PRICED IN? — Reverse Engineering the Stock Price ──────────────
   (function(){
