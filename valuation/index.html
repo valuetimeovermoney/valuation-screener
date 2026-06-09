@@ -354,6 +354,92 @@ function render(){
     if(rPS>0)h+=' &nbsp;|&nbsp; Replacement: <b>'+pr(rPS)+'</b>';
     h+='</div>';
 
+
+    // ── SIGNAL CONFLICT ANALYSIS ────────────────────────────────────────
+    var conflicts=[];
+
+    // 1. Path to 25% vs verdict direction
+    var path25Bull=_totalAnn>=0.25;
+    var verdictBull=score>=1;
+    var verdictBear=score<=-1;
+    if(path25Bull&&verdictBear){
+      conflicts.push({
+        title:'Math says Go, Signals say Caution',
+        type:'warn',
+        detail:'The FCF/EV+growth+re-rating formula projects '+pc(_totalAnn)+' annual return, but quality signals are net negative ('+bear+' bear vs '+bull+' bull). This usually means the stock looks cheap on price/multiple metrics but fundamental quality is deteriorating — a classic value trap setup. Ask: is the FCF yield real? Is growth sustainable? Check FCF conversion and ROIC trend before acting on the math.'
+      });
+    } else if(!path25Bull&&verdictBull){
+      conflicts.push({
+        title:'Quality Signals Strong, But Math is Tight',
+        type:'info',
+        detail:'Weighted signals score '+bull+' bull vs '+bear+' bear (net +'+score+'), suggesting a quality business — but the path to 25% only projects '+pc(_totalAnn)+'. This is a "wonderful company at a fair/high price" situation (Buffett). It is not a value buy at current levels, but may be a hold if already owned. The re-rating component ('+pc(_reRate)+') may be overstated if the current multiple ('+fx(_curMult)+'x) is already full. Consider waiting for a pullback to improve the math.'
+      });
+    }
+
+    // 2. DCF cheap but ROIC < WACC (potential value trap)
+    if(mos>=0.2&&_ro2!=null&&_ro2-_wc2<-0.02){
+      conflicts.push({
+        title:'DCF Looks Cheap But ROIC < WACC',
+        type:'warn',
+        detail:'DCF shows '+pc(mos)+' margin of safety — but ROIC ('+pc(_ro2)+') is below WACC ('+pc(_wc2)+'). This is a red flag: the business is not earning above its cost of capital. A low ROIC often means the DCF growth assumptions are too optimistic — growth that destroys capital is not worth paying for. Greenwald would say: treat this as a no-growth EPV, not a DCF. Consider whether the ROIC is structurally low (commoditised industry, bad management) or temporarily depressed (investment phase, macro headwind).'
+      });
+    }
+
+    // 3. ROIC > WACC but PEG > 2 (quality priced in)
+    if(_ro2!=null&&_ro2-_wc2>0.05&&peg2!=null&&peg2>2){
+      conflicts.push({
+        title:'Strong Moat Already Priced In',
+        type:'info',
+        detail:'ROIC ('+pc(_ro2)+') is well above WACC — this is a quality compounding machine. But PEG of '+peg2.toFixed(1)+'x means the market already knows it. You are paying a significant premium for quality. Lynch would say the P/E ('+pe2.toFixed(0)+'x) has run too far ahead of the earnings growth rate. Great business, but the upside from here depends on growth acceleration or multiple expansion — both of which are hard to count on. Better entry points may come.'
+      });
+    }
+
+    // 4. Good FCF yield but heavy dilution (FCF per share story is eroding)
+    var _soA2=(d.soH||[]).slice(0,3);
+    var _shDil2=null;
+    if(_soA2.length>=2){var _sO2=+(_soA2[_soA2.length-1].v||0),_sN2=+(_soA2[0].v||0);if(_sO2>0)_shDil2=(_sN2/_sO2-1)/(_soA2.length-1);}
+    if(_fcfYield>0.06&&_shDil2!=null&&_shDil2>0.03){
+      conflicts.push({
+        title:'FCF Yield Attractive But Dilution is Eroding It',
+        type:'warn',
+        detail:'FCF/EV yield of '+pc(_fcfYield)+' looks attractive, but shares are diluting at '+pc(_shDil2)+'/yr — primarily from SBC. The FCF per share (what you actually own) is growing more slowly than headline FCF. For the Path to 25% to work, you need FCF per share growth, not just total FCF growth. Adjust the growth estimate down by ~'+pc(_shDil2)+'/yr for the dilution drag, making the effective return closer to '+pc(Math.max(0,_totalAnn-_shDil2))+'.'
+      });
+    }
+
+    // 5. FCF conversion < 70% with high DCF MoS (earnings quality risk)
+    if(_fc2!=null&&_fc2<0.7&&mos>=0.3){
+      conflicts.push({
+        title:'Valuation Looks Cheap But Earnings Quality is Low',
+        type:'warn',
+        detail:'DCF margin of safety is '+pc(mos)+', but FCF conversion is only '+pc(_fc2)+' — meaning only '+pc(_fc2)+' of every dollar of net income becomes real cash. The apparent cheapness may be based on accrual earnings that never fully convert to cash. Graham would require a high FCF conversion before accepting a net income-based valuation. Check: is the gap due to heavy capex (possibly good — investing in growth), SBC (permanent dilution cost), or working capital build (watch receivables).'
+      });
+    }
+
+    // 6. No conflicts — signals aligned
+    if(conflicts.length===0){
+      if(Math.abs(score)>=2){
+        conflicts.push({
+          title:'Signals Are Aligned',
+          type:'ok',
+          detail:'Both the Path to 25% ('+pc(_totalAnn)+') and the weighted signals ('+bull+' bull / '+bear+' bear, net '+(score>0?'+':'')+score+') point in the same direction. This is higher-conviction than when signals diverge. The main risk is not conflicting signals — it is shared assumptions. All signals rely on current FCF and growth continuing; a business model disruption would invalidate all of them simultaneously. Confirm your variant view on the key driver.'
+        });
+      }
+    }
+
+    // ── Render conflicts ──
+    if(conflicts.length){
+      h+='<div style="height:1px;background:var(--bd);margin:12px 0"></div>';
+      h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:8px">SIGNAL CONFLICT ANALYSIS</div>';
+      var _cc={warn:'var(--rd)',info:'var(--bl)',ok:'var(--gn)'};
+      var _ci={warn:'⚠',info:'ℹ',ok:'✓'};
+      conflicts.forEach(function(cf){
+        h+='<div style="margin-bottom:10px;padding:10px 12px;border-radius:6px;background:'+_cc[cf.type]+'0d;border:1px solid '+_cc[cf.type]+'44">';
+        h+='<div style="font-size:11px;font-weight:700;color:'+_cc[cf.type]+';margin-bottom:6px">'+_ci[cf.type]+' '+cf.title+'</div>';
+        h+='<div style="font-size:11px;color:var(--lb);line-height:1.6">'+cf.detail+'</div>';
+        h+='</div>';
+      });
+    }
+
     h+='<div style="font-size:8px;color:var(--dm);margin-top:6px">Weighted signals from DCF, ROIC, PEG, FCF quality, leverage, replacement value, dilution. Not investment advice.</div>';
     h+='</div></div>';
   })();
