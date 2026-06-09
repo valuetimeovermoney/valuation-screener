@@ -263,233 +263,101 @@ function render(){
   h+='</div></div>';
   h+='<div style="text-align:right"><div style="font-size:24px;font-weight:800;font-family:var(--m);color:var(--bl)">'+pr(d.p)+'</div><div style="font-size:10px;color:var(--dm)">'+d.pd+'</div></div></div>';
 
-
-  // ── MARKET IMPLIED ASSUMPTIONS (Reverse DCF / Peter Lynch) ──────────────
-  (function(){
-    var latRev=d.rv&&d.rv[0]?d.rv[0].r:0;
-    var latNi=d.ni&&d.ni[0]?+d.ni[0].v:0;
-    var latFcf=+(d.af||0);
-    var shares=+(d.sh||0);
-    var price=+(d.p||0);
-    var mktCap=shares*price;
-    var nd=+(d.de||0)-+(d.ca||0);
-    var evNow=mktCap+nd;
-
-    // P/E and Earnings Yield
-    var epsLTM=shares>0?latNi/shares:0;
-    var pe=epsLTM>0?price/epsLTM:null;
-    var earningsYield=pe>0?1/pe:null;
-    var riskFree=0.043;
-
-    // Historical CAGR
-    var histRevCAGR=d.rc;
-    var niArr=(d.ni||[]).slice(0,5).filter(function(x){return x&&x.v>0;});
-    var histEpsCAGR=niArr.length>=2?cagr(niArr[niArr.length-1].v,niArr[0].v,niArr.length-1):null;
-
-    // PEG ratio (Peter Lynch)
-    var epsGrowth=histEpsCAGR!=null?histEpsCAGR*100:null;
-    var peg=pe&&epsGrowth&&epsGrowth>0?pe/epsGrowth:null;
-
-    // Reverse DCF: solve for implied revenue growth
-    // Hold current margins constant, use WACC from input
-    var wacc=ST.dcf.wacc/100,tg=ST.dcf.tg/100;
-    var fcfMargin=latRev>0?latFcf/latRev:0;
-    // Binary search for implied growth that produces current EV
-    var impliedG=null;
-    if(latRev>0&&fcfMargin>0&&wacc>tg){
-      var lo=-0.2,hi=0.5;
-      for(var iter=0;iter<50;iter++){
-        var mid=(lo+hi)/2;
-        var sumPv=0,cR=latRev;
-        for(var yr=1;yr<=5;yr++){
-          cR=cR*(1+mid);
-          var fcfYr=cR*fcfMargin;
-          sumPv+=fcfYr/Math.pow(1+wacc,yr);
-        }
-        var tvFcf=cR*(1+mid)*fcfMargin*(1+tg);
-        var tv=tvFcf/(wacc-tg);
-        var tvPv=tv/Math.pow(1+wacc,5);
-        var impliedEV=sumPv+tvPv;
-        if(impliedEV<evNow)lo=mid;else hi=mid;
-      }
-      impliedG=(lo+hi)/2;
-    }
-
-    // FCF Yield
-    var fcfYield=mktCap>0?latFcf/mktCap:null;
-
-    // Peter Lynch: price CAGR should < earnings CAGR
-    // Estimate: if you buy at current P/E and earnings grow at histEpsCAGR,
-    // your return = earnings growth (assuming P/E stays constant)
-
-    function mRow(lbl,val,ref,verdict){
-      return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--ib);font-size:12px">'+
-        '<span style="color:var(--lb)">'+lbl+'</span>'+
-        '<span style="display:flex;gap:12px;align-items:center">'+
-        '<b style="font-family:var(--m)">'+val+'</b>'+
-        (ref?'<span style="font-size:10px;color:var(--dm)">'+ref+'</span>':'')+
-        (verdict?'<span style="font-size:10px;font-weight:700;color:'+verdict[0]+'">'+verdict[1]+'</span>':'')+
-        '</span></div>';
-    }
-
-    h+='<div class="card"><div class="ci"><div class="cm">';
-    h+='<div class="ct" style="margin-bottom:10px">What Does the Price Imply?</div>';
-    h+='<div style="font-size:10px;color:var(--dm);margin-bottom:12px">Reverse-engineering the current price to see what growth the market is assuming. Compare with historical actuals to judge if optimistic or pessimistic.</div>';
-
-    // Implied Growth vs Historical
-    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);margin-bottom:6px;letter-spacing:1px">REVERSE DCF — IMPLIED GROWTH</div>';
-    var igColor=impliedG!=null&&histRevCAGR!=null?(impliedG<=histRevCAGR?'var(--gn)':'var(--rd)'):'var(--dm)';
-    var igVerdict=impliedG!=null&&histRevCAGR!=null?(impliedG<=histRevCAGR?[igColor,'✓ Below historical']:[igColor,'⚠ Above historical']):null;
-    h+=mRow('Implied Revenue Growth (to justify price)',impliedG!=null?pc(impliedG):'N/A','at current margins & WACC '+pc(wacc),igVerdict);
-    h+=mRow('Historical Revenue CAGR (3Y)',histRevCAGR!=null?pc(histRevCAGR):'N/A','actual delivered','');
-    var gap=impliedG!=null&&histRevCAGR!=null?impliedG-histRevCAGR:null;
-    h+=mRow('Growth Gap (implied - historical)',gap!=null?pc(gap):'N/A','',gap!=null?(gap<=0?['var(--gn)','✓ Market expects less than history']:gap<0.05?['var(--yw)','Close to historical']:['var(--rd)','⚠ Market expects acceleration']):null);
-
-    // Peter Lynch
-    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);margin:14px 0 6px;letter-spacing:1px">PETER LYNCH CHECK</div>';
-    var pegColor=peg!=null?(peg<1?'var(--gn)':peg<2?'var(--yw)':'var(--rd)'):'var(--dm)';
-    var pegVerdict=peg!=null?(peg<1?[pegColor,'✓ Undervalued']:peg<2?[pegColor,'Fair']:['var(--rd)','⚠ Expensive']):null;
-    h+=mRow('P/E Ratio',pe!=null?pe.toFixed(1)+'x':'N/A','LTM earnings','');
-    h+=mRow('Earnings Growth (3Y CAGR)',histEpsCAGR!=null?pc(histEpsCAGR):'N/A','net income CAGR','');
-    h+=mRow('PEG Ratio (P/E ÷ Growth)',peg!=null?peg.toFixed(2)+'x':'N/A','<1 undervalued, 1-2 fair, >2 expensive',pegVerdict);
-    h+='<div style="font-size:9px;color:var(--dm);margin-top:4px;padding:6px 8px;background:#0a0e18;border-radius:4px">';
-    h+='<b>Lynch\'s Rule:</b> Never pay more for a stock than its earnings growth rate. ';
-    if(pe!=null&&epsGrowth!=null){
-      if(pe<=epsGrowth) h+='P/E ('+pe.toFixed(1)+') ≤ EPS Growth ('+epsGrowth.toFixed(1)+'%) — <span style="color:var(--gn)">Passes</span>';
-      else h+='P/E ('+pe.toFixed(1)+') > EPS Growth ('+epsGrowth.toFixed(1)+'%) — <span style="color:var(--rd)">Fails</span>';
-    }
-    h+='</div>';
-
-    // Yield Comparison
-    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);margin:14px 0 6px;letter-spacing:1px">YIELD REALITY CHECK</div>';
-    var eyColor=earningsYield!=null?(earningsYield>riskFree?'var(--gn)':'var(--rd)'):'var(--dm)';
-    h+=mRow('Earnings Yield (E/P)',earningsYield!=null?pc(earningsYield):'N/A','inverse of P/E',earningsYield!=null?(earningsYield>riskFree?[eyColor,'✓ Above risk-free']:[eyColor,'⚠ Below risk-free — needs growth']):null);
-    h+=mRow('FCF Yield (FCF/MktCap)',fcfYield!=null?pc(fcfYield):'N/A','cash actually generated',fcfYield!=null?(fcfYield>riskFree?['var(--gn)','✓ Above risk-free']:['var(--rd)','⚠ Below risk-free']):null);
-    h+=mRow('10Y Treasury (risk-free)',pc(riskFree),'opportunity cost','');
-    h+=mRow('EV / EBITDA',d.ebitdaM>0?(evNow/d.ebitdaM).toFixed(1)+'x':'N/A','','');
-    h+=mRow('EV / Adj FCF',latFcf>0?(evNow/latFcf).toFixed(1)+'x':'N/A','','');
-
-    h+='</div>';
-    h+='<div class="cs"><b class="s">How to read this:</b><br><br>';
-    h+='<b>Implied Growth:</b> The revenue CAGR the stock price requires (holding current margins constant). If this exceeds the historical CAGR, the market is betting on acceleration — you need a thesis for why.<br><br>';
-    h+='<b>PEG:</b> Peter Lynch\'s shorthand. P/E divided by earnings growth %. Below 1 = you\'re getting growth cheap. Above 2 = you\'re overpaying.<br><br>';
-    h+='<b>Yield Check:</b> If earnings yield is below risk-free (10Y Treasury), you need significant growth to beat a government bond. FCF yield shows what the business actually generates in cash.<br><br>';
-    h+='<b>Green</b> = favorable, <b>Yellow</b> = borderline, <b>Red</b> = demanding.</div>';
-    h+='</div></div>';
-  })();
-
-  
-  
-
-  // ── ASSET-BASED VALUATION ───────────────────────────────────────────────
+  // ── INVESTMENT VERDICT ──────────────────────────────────────────────────
   (function(){
     if(!d.p||!d.sh||d.sh<=0)return;
-    var mktCap=d.p*d.sh;
-    var v2=ST.dcf;
-    function ar(lbl,val,note,color){
-      return '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--ib)"><span style="color:var(--lb);font-size:12px">'+lbl+'</span><span><b style="font-family:var(--m);font-size:13px;color:'+(color||'var(--br)')+'">'+val+'</b>'+(note?'<span style="font-size:9px;color:var(--dm);margin-left:5px">'+note+'</span>':'')+'</span></div>';
-    }
-    function ai2(key,val,w){return dcfInp(key,val,w||36);}
+    var dcfV=calcDCF();if(!dcfV)return;
+    var sigs=[],bull=0,bear=0;
+    function sg(label,isBull,wt){sigs.push({l:label,b:isBull,w:wt||1});if(isBull)bull+=(wt||1);else bear+=(wt||1);}
 
-    h+='<div class="card"><div class="ci"><div class="cm">';
-    h+='<div class="ct" style="margin-bottom:4px">Asset-Based Valuation</div>';
-    h+='<div style="font-size:10px;color:var(--dm);margin-bottom:12px">Graham net-net, Lynch asset play, Buffett/Greenwald replacement cost. All $ in millions.</div>';
+    var mos=dcfV.mos||0;
+    if(mos>=1)sg('DCF: '+pc(mos)+' margin of safety (excellent)',true,3);
+    else if(mos>=0.5)sg('DCF: '+pc(mos)+' margin of safety (good)',true,2);
+    else if(mos>=0.15)sg('DCF: '+pc(mos)+' margin of safety (thin)',true,1);
+    else if(mos>=-0.1)sg('Near fair value ('+pc(mos)+')',true,0);
+    else sg('DCF: '+pc(mos)+' overvalued',false,2);
 
-    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:6px">BENJAMIN GRAHAM \u2014 NET-NET</div>';
-    var ncav= +(d.curAssets||0) - +(d.totLiab||0);
-    var ncavPS=d.sh>0?ncav/d.sh:0;
-    var ncavDisc=ncavPS>0?d.p/ncavPS:null;
-    h+=ar('Current Assets',D(d.curAssets),'FMP balance-sheet');
-    h+=ar('Total Liabilities',D(d.totLiab),'FMP balance-sheet');
-    h+=ar('NCAV (Curr Assets \u2212 Total Liab)',D(ncav),ncav>0?'Positive \u2014 liquidation floor':'Negative \u2014 no net-net margin',ncav>0?'var(--gn)':'var(--rd)');
-    h+=ar('NCAV Per Share',pr(ncavPS),'');
-    if(ncavDisc!=null&&ncavPS>0){
-      h+=ar('Price / NCAV',ncavDisc.toFixed(2)+'x',ncavDisc<0.67?'Graham buy (<0.67x)':ncavDisc<1?'Below liquidation':'Above NCAV',ncavDisc<0.67?'var(--gn)':ncavDisc<1?'var(--yw)':'var(--rd)');
-    }
-
-    h+='<div style="height:1px;background:var(--bd);margin:12px 0"></div>';
-    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:6px">PETER LYNCH \u2014 ASSET PLAY</div>';
-    var cashPS=d.sh>0? +(d.ca||0)/d.sh:0;
-    var cashPct=d.p>0?cashPS/d.p:0;
-    var evPS=d.sh>0?(mktCap + +(d.de||0) - +(d.ca||0))/d.sh:0;
-    var tbvPS=d.sh>0? +(d._tbv||0)/d.sh:0;
-    var pTBV=tbvPS>0?d.p/tbvPS:null;
-    h+=ar('Cash Per Share',pr(cashPS),pc(cashPct)+' of price'+(cashPct>0.3?' \u2014 cash cushion':''));
-    h+=ar('EV Per Share',pr(evPS),'What you pay for the business');
-    h+=ar('Tangible Book / Share',pr(tbvPS),'Equity minus goodwill & intangibles');
-    if(pTBV!=null){
-      h+=ar('Price / TBV',pTBV.toFixed(2)+'x',pTBV<1?'Below book \u2014 asset play':pTBV<2?'Moderate':'Premium',pTBV<1?'var(--gn)':pTBV<2?'var(--yw)':'var(--br)');
+    var _r2=0.043,_e2=0.046,_b2= +(d.betaV||1.0),_k2=_r2+_b2*_e2;
+    var _g2= +(d.de||0),_c2= +(d.ca||0),_i2= +(d.intExpM||0);
+    var _kp2=_g2>0?_i2/_g2:0,_t2= +(d.taxRateV||0.21),_ko2=_kp2*(1-_t2);
+    var _m2= +(d.sh)* +(d.p),_tt2=_m2+_g2;
+    var _w2=_tt2>0?_m2/_tt2:1,_d2=_tt2>0?_g2/_tt2:0,_wc2=_w2*_k2+_d2*_ko2;
+    var _eb2= +(d.ebitM||0),_np2=_eb2*(1-_t2),_ic2= +(d._tbv||0)+_g2-_c2,_ro2=_ic2>0?_np2/_ic2:null;
+    if(_ro2!=null){
+      if(_ro2-_wc2>0.05)sg('ROIC '+pc(_ro2)+' >> WACC '+pc(_wc2)+' (strong moat)',true,2);
+      else if(_ro2-_wc2>0.02)sg('ROIC > WACC (value creating)',true,1);
+      else if(_ro2-_wc2<-0.02)sg('ROIC < WACC (destroying value)',false,2);
     }
 
-    h+='<div style="height:1px;background:var(--bd);margin:12px 0"></div>';
-    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:6px">BUFFETT / GREENWALD \u2014 REPLACEMENT COST</div>';
-    h+='<div style="font-size:9px;color:var(--dm);margin-bottom:8px">What would a competitor pay to rebuild this business? Adjust assumptions below.</div>';
-    h+='<div style="background:#0d1520;padding:8px 10px;border-radius:5px;margin-bottom:10px;font-size:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">';
-    h+='<span style="color:var(--yw)">Adjust: </span>';
-    h+='<span style="color:var(--dm)">AR Haircut</span>'+ai2('ar_hc',v2.ar_hc,28)+'%';
-    h+='<span style="color:var(--dm);margin-left:4px">Inv Markdown</span>'+ai2('inv_hc',v2.inv_hc,28)+'%';
-    h+='<span style="color:var(--dm);margin-left:4px">PP&E Adj</span>'+ai2('ppe_adj',v2.ppe_adj,28)+'%';
-    h+='<span style="color:var(--dm);margin-left:4px">Brand yrs</span>'+ai2('brand_yrs',v2.brand_yrs,24);
-    h+='<span style="color:var(--dm);margin-left:4px">R&D yrs</span>'+ai2('rd_yrs',v2.rd_yrs,24);
+    var _fc2= +(d.niLTM||0)>0? +(d.af||0)/ +(d.niLTM):null;
+    if(_fc2!=null){if(_fc2>=0.9)sg('FCF conversion '+pc(_fc2)+' (high quality)',true,1);else if(_fc2<0.6)sg('FCF conversion '+pc(_fc2)+' (poor quality)',false,2);}
+
+    var niA=(d.ni||[]).slice(0,4),epsGr=null;
+    if(niA.length>=3){var nO= +niA[niA.length-1].v,nN= +niA[0].v;if(nO>0&&nN>0)epsGr=Math.pow(nN/nO,1/(niA.length-1))-1;}
+    var eps2=d.sh>0? +(d.niLTM||0)/d.sh:0;
+    var pe2=eps2>0?d.p/eps2:null;
+    var peg2=(pe2!=null&&epsGr!=null&&epsGr>0)?pe2/(epsGr*100):null;
+    if(peg2!=null){if(peg2<0.8)sg('PEG '+peg2.toFixed(1)+' (Lynch: cheap)',true,2);else if(peg2<=1.2)sg('PEG '+peg2.toFixed(1)+' (fair)',true,1);else if(peg2>2)sg('PEG '+peg2.toFixed(1)+' (expensive)',false,2);}
+
+    var evM2=_m2+_g2-_c2;
+    var fcfY2=evM2>0? +(d.af||0)/evM2:0;
+    if(fcfY2>0.08)sg('FCF yield '+pc(fcfY2)+' (very attractive)',true,2);
+    else if(fcfY2>0.05)sg('FCF yield '+pc(fcfY2)+' (decent)',true,1);
+    else if(fcfY2<0.02)sg('FCF yield '+pc(fcfY2)+' (expensive)',false,1);
+
+    var _nd3=_g2-_c2,_eb3= +(d.ebitdaM||0);
+    if(_eb3>0&&_nd3/_eb3>4)sg('Leverage '+(_nd3/_eb3).toFixed(1)+'x EBITDA (risky)',false,2);
+    else if(_eb3>0&&_nd3/_eb3<1)sg('Low leverage '+(_nd3/_eb3).toFixed(1)+'x (strong B/S)',true,1);
+
+    var rC= +(d.ca||0)+ +(d.netRecv||0)*0.95+ +(d.inventory||0)*0.85+ +(d.ppeNet||0)+ +(d.otherCA||0)+ +(d.sgaM||0)*1.5+ +(d.rdM||0)*2;
+    var rPS=d.sh>0?(rC - +(d.totLiab||0))/d.sh:0;
+    if(rPS>0&&d.p<rPS*0.8)sg('Below replacement value (Buffett discount)',true,2);
+
+    var soA=(d.soH||[]).slice(0,3);
+    if(soA.length>=2){var sO= +(soA[soA.length-1].v||0),sN= +(soA[0].v||0);if(sO>0){var dl=(sN/sO-1)/(soA.length-1);if(dl>0.02)sg('Dilution '+pc(dl)+'/yr',false,1);else if(dl<-0.02)sg('Buybacks '+pc(Math.abs(dl))+'/yr',true,1);}}
+
+    var score=bull-bear;
+    var action,acCol,sizing,next;
+    if(score>=6){action='STRONG BUY';acCol='var(--gn)';sizing='5-8% of portfolio (high conviction)';next='Build full position. Consider adding on any 10%+ pullback.';}
+    else if(score>=3){action='BUY';acCol='var(--gn)';sizing='3-5% of portfolio';next='Initiate position. Scale in over 2-3 tranches.';}
+    else if(score>=1){action='ADD';acCol='#66bb6a';sizing='2-3% (build gradually)';next='Add to existing position on weakness. Set alerts at -10% for additional buy.';}
+    else if(score>=-1){action='HOLD';acCol='var(--yw)';sizing='Maintain current';next='Hold position. Re-evaluate if fundamentals deteriorate or price rises 20%+.';}
+    else if(score>=-3){action='TRIM';acCol='#ff9800';sizing='Reduce to 1-2%';next='Take profits. Reallocate to higher-conviction names.';}
+    else{action='SELL';acCol='var(--rd)';sizing='Exit position';next='Exit and redeploy capital. Multiple valuation frameworks signal overvaluation.';}
+
+    h+='<div class="card"><div style="padding:16px">';
+    h+='<div class="ct" style="margin-bottom:12px">Investment Verdict</div>';
+    h+='<div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;flex-wrap:wrap">';
+    h+='<div style="background:'+acCol+';color:#000;font-size:20px;font-weight:800;padding:8px 20px;border-radius:8px;font-family:var(--m);letter-spacing:1px">'+action+'</div>';
+    h+='<div><div style="font-size:11px;color:var(--dm)">Position Sizing</div><div style="font-size:13px;font-weight:600;color:var(--lb)">'+sizing+'</div></div>';
+    h+='<div><div style="font-size:11px;color:var(--dm)">Score</div><div style="font-size:13px;font-weight:600;color:var(--lb)">'+bull+' bull / '+bear+' bear (net '+(score>0?'+':'')+score+')</div></div>';
     h+='</div>';
 
-    var adjCash= +(d.ca||0);
-    var adjRecv= +(d.netRecv||0)*(1-(v2.ar_hc||5)/100);
-    var adjInv= +(d.inventory||0)*(1-(v2.inv_hc||15)/100);
-    var adjPPE= +(d.ppeNet||0)*(1+(v2.ppe_adj||0)/100);
-    var oCA= +(d.otherCA||0);
-    var totTang=adjCash+adjRecv+adjInv+adjPPE+oCA;
-    var brandV= +(d.sgaM||0)*(v2.brand_yrs||3)*0.5;
-    var rdV= +(d.rdM||0)*(v2.rd_yrs||4)*0.5;
-    var totIntan=brandV+rdV;
-    var totRepl=totTang+totIntan;
-    var replEq=totRepl - +(d.totLiab||0);
-    var replPS=d.sh>0?replEq/d.sh:0;
-    var replVsP=d.p>0?(replPS-d.p)/d.p:0;
+    h+='<div style="padding:8px 12px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd);margin-bottom:12px">';
+    h+='<div style="font-size:10px;color:var(--yw);font-weight:700;margin-bottom:4px">NEXT STEPS</div>';
+    h+='<div style="font-size:12px;color:var(--lb)">'+next+'</div></div>';
 
-    h+='<div style="font-size:10px;color:var(--tl);font-weight:600;margin:4px 0">Tangible Assets (Adjusted)</div>';
-    h+=ar('Cash & Investments',D(adjCash),'Face value');
-    h+=ar('Receivables (adj)',D(adjRecv),'Book '+D(d.netRecv)+' x (1\u2212'+(v2.ar_hc||5)+'%)');
-    h+=ar('Inventory (adj)',D(adjInv),'Book '+D(d.inventory)+' x (1\u2212'+(v2.inv_hc||15)+'%)');
-    h+=ar('PP&E Net (adj)',D(adjPPE),'Book '+D(d.ppeNet));
-    h+=ar('Other Current Assets',D(oCA),'Book');
-    h+=ar('Total Adj Tangible',D(totTang),'','var(--bl)');
-
-    h+='<div style="height:1px;background:var(--bd);margin:8px 0"></div>';
-    h+='<div style="font-size:10px;color:var(--tl);font-weight:600;margin-bottom:4px">Intangible Replacement Cost</div>';
-    h+=ar('Brand / Customer Value',D(brandV),'SGA '+D(d.sgaM)+' x '+(v2.brand_yrs||3)+'yr x 50% avg life');
-    h+=ar('Technology / IP Value',D(rdV),'R&D '+D(d.rdM)+' x '+(v2.rd_yrs||4)+'yr x 50% avg life');
-    h+=ar('Total Intangible',D(totIntan),'','var(--bl)');
-
-    h+='<div style="height:1px;background:var(--bd);margin:8px 0"></div>';
-    h+=ar('Gross Replacement Cost',D(totRepl),'Tangible + Intangible','var(--bl)');
-    h+=ar('Less: Total Liabilities','('+D(d.totLiab)+')','');
-    h+=ar('Replacement Equity Value',D(replEq),'','var(--pu)');
-    h+=ar('Replacement Value / Share',pr(replPS),'','var(--pu)');
-    h+=ar('Current Price',pr(d.p),'');
-    h+=ar('Premium / (Discount)',pc(replVsP),replVsP>0?'Cheaper than rebuilding':'Premium over replacement',replVsP>0.1?'var(--gn)':replVsP>-0.1?'var(--yw)':'var(--rd)');
-
-    h+='<div style="margin-top:12px;padding:10px 14px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd);font-size:11px;line-height:1.7">';
-    h+='<b style="color:var(--yw)">Asset Summary</b><br>';
-    [{n:'NCAV/share',v:ncavPS},{n:'TBV/share',v:tbvPS},{n:'Replacement/share',v:replPS}].forEach(function(x){
-      if(x.v!=null&&!isNaN(x.v)){var vs=d.p>0?(x.v-d.p)/d.p:0;h+='\u2022 '+x.n+': <b style="color:'+(vs>0?'var(--gn)':'var(--rd)')+'">'+pr(x.v)+'</b> <span style="font-size:9px;color:var(--dm)">('+pc(vs)+' vs price)</span><br>';}
+    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:6px">KEY SIGNALS</div>';
+    sigs.sort(function(a,b){return b.w-a.w;});
+    sigs.forEach(function(s){
+      var c=s.b?'var(--gn)':'var(--rd)';
+      h+='<div style="padding:4px 0;font-size:11px;display:flex;align-items:baseline;gap:6px;border-bottom:1px solid var(--ib)">';
+      h+='<span style="color:'+c+';font-size:9px">'+(s.b?'▲':'▼')+'</span>';
+      h+='<span style="color:var(--lb);flex:1">'+s.l+'</span>';
+      if(s.w>1)h+='<span style="font-size:9px;color:var(--dm)">×'+s.w+'</span>';
+      h+='</div>';
     });
-    h+='<span style="font-size:9px;color:var(--dm)">"Price is what you pay, value is what you get." \u2014 Buffett</span>';
+
+    h+='<div style="margin-top:10px;padding:8px 12px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd);font-size:11px;line-height:1.6">';
+    h+='<b style="color:var(--yw)">Valuation Range</b><br>';
+    h+='DCF intrinsic: <b style="color:var(--pu)">'+pr(dcfV.iv)+'</b> ('+pc(mos)+' MoS) &nbsp;|&nbsp; Price: <b>'+pr(d.p)+'</b>';
+    if(rPS>0)h+=' &nbsp;|&nbsp; Replacement: <b>'+pr(rPS)+'</b>';
     h+='</div>';
 
-    h+='</div>';
-    h+='<div class="cs"><b class="s">Methodology:</b><br><br>';
-    h+='<b>Net-Net (Graham):</b> Current Assets \u2212 ALL liabilities. Price < 2/3 NCAV = Graham buy.<br><br>';
-    h+='<b>Asset Play (Lynch):</b> Hidden value in cash or assets worth more than market cap.<br><br>';
-    h+='<b>Replacement Value (Buffett/Greenwald):</b><br>';
-    h+='\u2022 Tangible assets at realizable value (haircuts for bad debts, obsolescence)<br>';
-    h+='\u2022 Brand = cumulative SGA spend depreciated over useful life<br>';
-    h+='\u2022 Technology = cumulative R&D depreciated faster<br>';
-    h+='\u2022 Price < replacement = competitor would buy vs build ("moat at a discount")</div>';
+    h+='<div style="font-size:8px;color:var(--dm);margin-top:6px">Weighted signals from DCF, ROIC, PEG, FCF quality, leverage, replacement value, dilution. Not investment advice.</div>';
     h+='</div></div>';
   })();
 
-  
   // ── WHAT'S PRICED IN? — Reverse Engineering the Stock Price ──────────────
   (function(){
     if(!d.p||!d.sh||d.sh<=0)return;
@@ -635,36 +503,116 @@ function render(){
     h+=rr('10Y Treasury Rate',pc(riskFree),'Risk-free benchmark');
     h+=rr('Yield Spread over Treasury',pc(yieldSpread),yieldSpread>0?'Being paid for equity risk':'Negative spread \u2014 demanding valuation',yieldSpread>0.02?'var(--gn)':yieldSpread>0?'var(--yw)':'var(--rd)');
     h+=rr('FCF Per Share',pr(fcfPS),'Adj FCF / Shares');
+  })();
 
-    // ── Verdict ──
-    h+='<div style="margin-top:12px;padding:10px 14px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd)">';
-    var bullCount=0,bearCount=0;
-    if(peg!=null&&peg<=1)bullCount++;else if(peg!=null)bearCount++;
-    if(epvVsPrice>0)bullCount++;else bearCount++;
-    if(yieldSpread>0.02)bullCount++;else if(yieldSpread<0)bearCount++;
-    if(impliedG!=null&&epsGrowth!=null&&impliedG<epsGrowth)bullCount++;else if(impliedG!=null&&epsGrowth!=null)bearCount++;
-    if(lynchFairPrice!=null&&d.p<=lynchFairPrice)bullCount++;else if(lynchFairPrice!=null)bearCount++;
-    if(paybackYrs!=null&&paybackYrs<15)bullCount++;else if(paybackYrs!=null)bearCount++;
-    if(shDilution!=null&&shDilution<-0.005)bullCount++;else if(shDilution!=null&&shDilution>0.01)bearCount++;
-    if(rule40>=0.4)bullCount++;else if(rule40<0.25)bearCount++;
-    var verdict=bullCount>bearCount?'Undervalued signals dominate':bearCount>bullCount?'Overvalued signals dominate':'Mixed signals';
-    var verdictColor=bullCount>bearCount?'var(--gn)':bearCount>bullCount?'var(--rd)':'var(--yw)';
-    h+='<div style="font-size:12px;margin-bottom:4px"><b>Quick Verdict:</b> <span style="color:'+verdictColor+';font-weight:700">'+verdict+'</span>';
-    h+=' <span style="font-size:10px;color:var(--dm)">('+bullCount+' bull / '+bearCount+' bear)</span></div>';
-    h+='<div style="font-size:9px;color:var(--dm)">Based on PEG, Lynch fair value, EPV, yield spread, and implied growth vs historical. Not investment advice \u2014 verify assumptions below in DCF.</div>';
+  // ── ASSET-BASED VALUATION ───────────────────────────────────────────────
+  (function(){
+    if(!d.p||!d.sh||d.sh<=0)return;
+    var mktCap=d.p*d.sh;
+    var v2=ST.dcf;
+    function ar(lbl,val,note,color){
+      return '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--ib)"><span style="color:var(--lb);font-size:12px">'+lbl+'</span><span><b style="font-family:var(--m);font-size:13px;color:'+(color||'var(--br)')+'">'+val+'</b>'+(note?'<span style="font-size:9px;color:var(--dm);margin-left:5px">'+note+'</span>':'')+'</span></div>';
+    }
+    function ai2(key,val,w){return dcfInp(key,val,w||36);}
+
+    h+='<div class="card"><div class="ci"><div class="cm">';
+    h+='<div class="ct" style="margin-bottom:4px">Asset-Based Valuation</div>';
+    h+='<div style="font-size:10px;color:var(--dm);margin-bottom:12px">Graham net-net, Lynch asset play, Buffett/Greenwald replacement cost. All $ in millions.</div>';
+
+    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:6px">BENJAMIN GRAHAM \u2014 NET-NET</div>';
+    var ncav= +(d.curAssets||0) - +(d.totLiab||0);
+    var ncavPS=d.sh>0?ncav/d.sh:0;
+    var ncavDisc=ncavPS>0?d.p/ncavPS:null;
+    h+=ar('Current Assets',D(d.curAssets),'FMP balance-sheet');
+    h+=ar('Total Liabilities',D(d.totLiab),'FMP balance-sheet');
+    h+=ar('NCAV (Curr Assets \u2212 Total Liab)',D(ncav),ncav>0?'Positive \u2014 liquidation floor':'Negative \u2014 no net-net margin',ncav>0?'var(--gn)':'var(--rd)');
+    h+=ar('NCAV Per Share',pr(ncavPS),'');
+    if(ncavDisc!=null&&ncavPS>0){
+      h+=ar('Price / NCAV',ncavDisc.toFixed(2)+'x',ncavDisc<0.67?'Graham buy (<0.67x)':ncavDisc<1?'Below liquidation':'Above NCAV',ncavDisc<0.67?'var(--gn)':ncavDisc<1?'var(--yw)':'var(--rd)');
+    }
+
+    h+='<div style="height:1px;background:var(--bd);margin:12px 0"></div>';
+    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:6px">PETER LYNCH \u2014 ASSET PLAY</div>';
+    var cashPS=d.sh>0? +(d.ca||0)/d.sh:0;
+    var cashPct=d.p>0?cashPS/d.p:0;
+    var evPS=d.sh>0?(mktCap + +(d.de||0) - +(d.ca||0))/d.sh:0;
+    var tbvPS=d.sh>0? +(d._tbv||0)/d.sh:0;
+    var pTBV=tbvPS>0?d.p/tbvPS:null;
+    h+=ar('Cash Per Share',pr(cashPS),pc(cashPct)+' of price'+(cashPct>0.3?' \u2014 cash cushion':''));
+    h+=ar('EV Per Share',pr(evPS),'What you pay for the business');
+    h+=ar('Tangible Book / Share',pr(tbvPS),'Equity minus goodwill & intangibles');
+    if(pTBV!=null){
+      h+=ar('Price / TBV',pTBV.toFixed(2)+'x',pTBV<1?'Below book \u2014 asset play':pTBV<2?'Moderate':'Premium',pTBV<1?'var(--gn)':pTBV<2?'var(--yw)':'var(--br)');
+    }
+
+    h+='<div style="height:1px;background:var(--bd);margin:12px 0"></div>';
+    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:6px">BUFFETT / GREENWALD \u2014 REPLACEMENT COST</div>';
+    h+='<div style="font-size:9px;color:var(--dm);margin-bottom:8px">What would a competitor pay to rebuild this business? Adjust assumptions below.</div>';
+    h+='<div style="background:#0d1520;padding:8px 10px;border-radius:5px;margin-bottom:10px;font-size:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">';
+    h+='<span style="color:var(--yw)">Adjust: </span>';
+    h+='<span style="color:var(--dm)">AR Haircut</span>'+ai2('ar_hc',v2.ar_hc,28)+'%';
+    h+='<span style="color:var(--dm);margin-left:4px">Inv Markdown</span>'+ai2('inv_hc',v2.inv_hc,28)+'%';
+    h+='<span style="color:var(--dm);margin-left:4px">PP&E Adj</span>'+ai2('ppe_adj',v2.ppe_adj,28)+'%';
+    h+='<span style="color:var(--dm);margin-left:4px">Brand yrs</span>'+ai2('brand_yrs',v2.brand_yrs,24);
+    h+='<span style="color:var(--dm);margin-left:4px">R&D yrs</span>'+ai2('rd_yrs',v2.rd_yrs,24);
+    h+='</div>';
+
+    var adjCash= +(d.ca||0);
+    var adjRecv= +(d.netRecv||0)*(1-(v2.ar_hc||5)/100);
+    var adjInv= +(d.inventory||0)*(1-(v2.inv_hc||15)/100);
+    var adjPPE= +(d.ppeNet||0)*(1+(v2.ppe_adj||0)/100);
+    var oCA= +(d.otherCA||0);
+    var totTang=adjCash+adjRecv+adjInv+adjPPE+oCA;
+    var brandV= +(d.sgaM||0)*(v2.brand_yrs||3)*0.5;
+    var rdV= +(d.rdM||0)*(v2.rd_yrs||4)*0.5;
+    var totIntan=brandV+rdV;
+    var totRepl=totTang+totIntan;
+    var replEq=totRepl - +(d.totLiab||0);
+    var replPS=d.sh>0?replEq/d.sh:0;
+    var replVsP=d.p>0?(replPS-d.p)/d.p:0;
+
+    h+='<div style="font-size:10px;color:var(--tl);font-weight:600;margin:4px 0">Tangible Assets (Adjusted)</div>';
+    h+=ar('Cash & Investments',D(adjCash),'Face value');
+    h+=ar('Receivables (adj)',D(adjRecv),'Book '+D(d.netRecv)+' x (1\u2212'+(v2.ar_hc||5)+'%)');
+    h+=ar('Inventory (adj)',D(adjInv),'Book '+D(d.inventory)+' x (1\u2212'+(v2.inv_hc||15)+'%)');
+    h+=ar('PP&E Net (adj)',D(adjPPE),'Book '+D(d.ppeNet));
+    h+=ar('Other Current Assets',D(oCA),'Book');
+    h+=ar('Total Adj Tangible',D(totTang),'','var(--bl)');
+
+    h+='<div style="height:1px;background:var(--bd);margin:8px 0"></div>';
+    h+='<div style="font-size:10px;color:var(--tl);font-weight:600;margin-bottom:4px">Intangible Replacement Cost</div>';
+    h+=ar('Brand / Customer Value',D(brandV),'SGA '+D(d.sgaM)+' x '+(v2.brand_yrs||3)+'yr x 50% avg life');
+    h+=ar('Technology / IP Value',D(rdV),'R&D '+D(d.rdM)+' x '+(v2.rd_yrs||4)+'yr x 50% avg life');
+    h+=ar('Total Intangible',D(totIntan),'','var(--bl)');
+
+    h+='<div style="height:1px;background:var(--bd);margin:8px 0"></div>';
+    h+=ar('Gross Replacement Cost',D(totRepl),'Tangible + Intangible','var(--bl)');
+    h+=ar('Less: Total Liabilities','('+D(d.totLiab)+')','');
+    h+=ar('Replacement Equity Value',D(replEq),'','var(--pu)');
+    h+=ar('Replacement Value / Share',pr(replPS),'','var(--pu)');
+    h+=ar('Current Price',pr(d.p),'');
+    h+=ar('Premium / (Discount)',pc(replVsP),replVsP>0?'Cheaper than rebuilding':'Premium over replacement',replVsP>0.1?'var(--gn)':replVsP>-0.1?'var(--yw)':'var(--rd)');
+
+    h+='<div style="margin-top:12px;padding:10px 14px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd);font-size:11px;line-height:1.7">';
+    h+='<b style="color:var(--yw)">Asset Summary</b><br>';
+    [{n:'NCAV/share',v:ncavPS},{n:'TBV/share',v:tbvPS},{n:'Replacement/share',v:replPS}].forEach(function(x){
+      if(x.v!=null&&!isNaN(x.v)){var vs=d.p>0?(x.v-d.p)/d.p:0;h+='\u2022 '+x.n+': <b style="color:'+(vs>0?'var(--gn)':'var(--rd)')+'">'+pr(x.v)+'</b> <span style="font-size:9px;color:var(--dm)">('+pc(vs)+' vs price)</span><br>';}
+    });
+    h+='<span style="font-size:9px;color:var(--dm)">"Price is what you pay, value is what you get." \u2014 Buffett</span>';
     h+='</div>';
 
     h+='</div>';
-    h+='<div class="cs"><b class="s">Framework:</b><br><br>';
-    h+='<b>PEG (Lynch):</b> P/E \u00f7 earnings growth %. PEG \u2264 1 means you\'re paying fair price for growth. "Never pay more for a stock than its growth rate."<br><br>';
-    h+='<b>Implied FCF Growth:</b> Reverse-solves the DCF \u2014 what annual FCF growth makes intrinsic value = current price? If it\'s higher than historical, the market is pricing in acceleration.<br><br>';
-    h+='<b>EPV (Greenwald):</b> Value with zero growth \u2014 perpetuity of current FCF at WACC. If EPV > price, you\'re getting growth for free.<br><br>';
-    h+='<b>Years Priced In:</b> How many years of current earnings growth does the market assume? <5 = conservative, >10 = aggressive.<br><br>';
-    h+='<b>FCF Yield Spread:</b> FCF/EV minus 10Y Treasury. Positive = equity is generating more cash than bonds. Negative = you\'re paying a premium over risk-free.</div>';
+    h+='<div class="cs"><b class="s">Methodology:</b><br><br>';
+    h+='<b>Net-Net (Graham):</b> Current Assets \u2212 ALL liabilities. Price < 2/3 NCAV = Graham buy.<br><br>';
+    h+='<b>Asset Play (Lynch):</b> Hidden value in cash or assets worth more than market cap.<br><br>';
+    h+='<b>Replacement Value (Buffett/Greenwald):</b><br>';
+    h+='\u2022 Tangible assets at realizable value (haircuts for bad debts, obsolescence)<br>';
+    h+='\u2022 Brand = cumulative SGA spend depreciated over useful life<br>';
+    h+='\u2022 Technology = cumulative R&D depreciated faster<br>';
+    h+='\u2022 Price < replacement = competitor would buy vs build ("moat at a discount")</div>';
     h+='</div></div>';
   })();
 
-  
   // ── DCF SECTION ──────────────────────────────────────────────
   h+='<div class="card"><div class="ci"><div class="cm">';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
@@ -891,41 +839,6 @@ function render(){
   }
   h+='</div></div></div>';
 
-  // ── VALUATION TRIANGLE ───────────────────────────────────────
-  h+='<div class="card"><div class="ci"><div class="cm">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
-  h+='<div class="ct" style="margin-bottom:0">Valuation Triangle — Weighted Average</div>';
-  h+='<span class="tog'+(ST.showTri?' on':'')+'" onclick="togS(\'Tri\')">'+(ST.showTri?'▼ Hide':'▶ Expand')+'</span></div>';
-  if(ST.showTri){
-    var dcfV=calcDCF();
-    var m1=d.ev>0&&d.sh>0?d.ev/d.sh:null;
-    var m2=dcfV?dcfV.iv:null;
-    var m3=d._tbv&&d._tbv>0&&d.sh>0?d._tbv/d.sh:null;
-    h+='<div class="g3" style="margin-top:10px;margin-bottom:14px">';
-    h+='<div class="val-box"><div class="val-label">Method 1: FCF Yield</div>';
-    h+='<div class="val-num">'+(m1?pr(m1):'—')+'</div>';
-    h+='<div class="val-note" style="margin-top:6px">EV ÷ shares at current yield '+pc(d.fy2)+'<br>Weight: <input id="tw1" type="number" value="33" min="0" max="100" oninput="calcTri()" style="width:36px;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:1px 3px;color:var(--br);font-family:var(--m);outline:none;text-align:center"/>%</div></div>';
-    h+='<div class="val-box"><div class="val-label">Method 2: DCF 5-Year</div>';
-    h+='<div class="val-num">'+(m2?pr(m2):'Expand DCF ↑')+'</div>';
-    h+='<div class="val-note" style="margin-top:6px">Discounted FCF + terminal value<br>MOS: <span style="color:'+(dcfV&&dcfV.mos>=1?'var(--gn)':dcfV&&dcfV.mos>=0.5?'var(--yw)':'var(--rd)')+'">'+pc(dcfV?dcfV.mos:null)+'</span><br>Weight: <input id="tw2" type="number" value="50" min="0" max="100" oninput="calcTri()" style="width:36px;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:1px 3px;color:var(--br);font-family:var(--m);outline:none;text-align:center"/>%</div></div>';
-    h+='<div class="val-box"><div class="val-label">Method 3: Book Value</div>';
-    h+='<div class="val-num">'+(m3?pr(m3):'Negative TBV')+'</div>';
-    h+='<div class="val-note" style="margin-top:6px">Tangible book value / share<br>P/TBV: '+(m3&&d.p?fx(d.p/m3):'N/A')+'<br>Weight: <input id="tw3" type="number" value="17" min="0" max="100" oninput="calcTri()" style="width:36px;background:var(--cd);border:1px solid var(--ibd);border-radius:3px;padding:1px 3px;color:var(--br);font-family:var(--m);outline:none;text-align:center"/>%</div></div>';
-    h+='</div>';
-    // Weighted result
-    var tw1=33,tw2=50,tw3=17,vals=[m1,m2,m3],ws=[tw1,tw2,tw3];
-    var wsum=0,wdiv=0;vals.forEach(function(v,i){if(v&&v>0){wsum+=v*ws[i];wdiv+=ws[i];}});
-    var wfv=wdiv>0?wsum/wdiv:null;
-    h+='<div id="triout" style="padding:12px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd)">';
-    h+='<div style="font-size:11px;margin-bottom:6px"><b>Weighted Fair Value:</b> <span style="font-family:var(--m);color:var(--bl);font-weight:700;font-size:16px">'+(wfv?pr(wfv):'—')+'</span>';
-    if(wfv&&d.p){var ups=(wfv-d.p)/d.p;h+='&nbsp;&nbsp;<b>Current:</b> '+pr(d.p)+'&nbsp;&nbsp;<b>Upside:</b> <span style="color:'+(ups>0?'var(--gn)':'var(--rd)')+';font-weight:700">'+pc(ups)+'</span>';}
-    h+='</div>';
-    h+='<div style="font-size:9px;color:var(--dm)">Weights sum to '+(tw1+tw2+tw3)+'% (using available methods). Adjust weights above and re-expand to recalculate.</div>';
-    h+='</div>';
-  }
-  h+='</div><div class="cs"><b class="s">Three valuation lenses:</b><br><br><b>M1 FCF Yield:</b> Current EV divided by shares. Represents what you\'re paying for today\'s cash generation.<br><br><b>M2 DCF:</b> Discounted future FCF + terminal value. Forward-looking, sensitive to growth assumptions.<br><br><b>M3 Book Value:</b> Tangible asset floor. Most relevant for capital-heavy businesses.<br><br><b class="s">Margin of Safety bands:</b><br>🟢 ≥100% ready<br>🟡 50–100% watch<br>🔴 &lt;50% avoid</div></div></div>';
-
-
   // ── WACC ────────────────────────────────────────────────────────────────
   var _rfr=0.043,_erp=0.046,_beta=+(d.betaV||1.0),_ke=_rfr+_beta*_erp;
   var _gd=+(d.de||0),_ceq=+(d.ca||0),_intE=+(d.intExpM||0);
@@ -955,6 +868,29 @@ function render(){
   if(_roic!=null){h+=_wr('ROIC',pc(_roic),'NOPAT / Invested Capital');h+=_wr('ROIC - WACC',pc(_roic-_wc),_roic-_wc>0?'Value creating':'Below WACC');}
   h+='</div><div class="cs"><b class="s">Sources:</b><br><br>Rf: US 10Y Treasury.<br>ERP: Damodaran Jan 2024 (4.6%).<br>Beta: FMP 5Y monthly.<br>Kd: Actual interest / gross debt.<br>Tax: Effective rate from IS.</div></div></div>';
 
+  // ── SENSITIVITY TABLE ────────────────────────────────────────────────────
+  var _ds=calcDCF();
+  if(_ds&&_ds.pFcf&&_ds.pFcf.length===5){
+    var _wB=ST.dcf.wacc/100,_wArr=[_wB-0.02,_wB-0.01,_wB,_wB+0.01,_wB+0.02],_tArr=[0.01,0.015,0.02,0.025,0.03];
+    h+='<div class="card"><div style="padding:12px 16px"><div class="ct" style="margin-bottom:8px">DCF Sensitivity</div>';
+    h+='<div style="font-size:9px;color:var(--dm);margin-bottom:8px">WACC (cols) x Terminal Growth (rows). <span style="color:var(--gn)">Green</span> = above '+pr(d.p)+'</div>';
+    h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:11px;font-family:var(--m);width:100%"><thead><tr><th style="background:var(--ib);color:var(--dm);padding:4px 8px;border:1px solid var(--bd)">g \ WACC</th>';
+    _wArr.forEach(function(w){h+='<th style="background:var(--ib);color:var(--bl);padding:4px 8px;border:1px solid var(--bd);text-align:center">'+(w*100).toFixed(1)+'%</th>';});
+    h+='</tr></thead><tbody>';
+    _tArr.forEach(function(g){
+      h+='<tr><td style="background:var(--ib);color:var(--bl);padding:4px 8px;border:1px solid var(--bd);text-align:center">'+(g*100).toFixed(1)+'%</td>';
+      _wArr.forEach(function(w){
+        if(w<=g){h+='<td style="padding:4px 8px;border:1px solid var(--bd);text-align:center;color:var(--dm)">N/A</td>';return;}
+        var _p5=0;for(var _i=0;_i<5;_i++){_p5+=_ds.pFcf[_i]/Math.pow(1+w,_i+1);}
+        var _tv=(_ds.pFcf[4]*(1+g))/(w-g),_pt=_tv/Math.pow(1+w,5);
+        var _sh=ST.dcf.sh5||d.sh,_iv=_sh>0?(_p5+_pt-_ds.nd)/_sh:0;
+        h+='<td style="padding:4px 8px;border:1px solid var(--bd);text-align:center;background:'+(_iv>d.p?'rgba(34,197,94,0.12)':_iv<0?'rgba(239,68,68,0.12)':'var(--ib)')+';color:'+(_iv>d.p?'var(--gn)':_iv<0?'var(--rd)':'var(--br)')+'">'+pr(_iv)+'</td>';
+      });
+      h+='</tr>';
+    });
+    h+='</tbody></table></div></div></div>';
+  }
+
   // ── QUALITY FLAGS ────────────────────────────────────────────────────────
   var _qfl=[];
   if(_roic!=null&&_roic-_wc>0.02)_qfl.push({t:'ok',m:'ROIC ('+pc(_roic)+') exceeds WACC ('+pc(_wc)+')'});
@@ -979,136 +915,7 @@ function render(){
     h+='</div></div>';
   }
 
-  // ── SENSITIVITY TABLE ────────────────────────────────────────────────────
-  var _ds=calcDCF();
-  if(_ds&&_ds.pFcf&&_ds.pFcf.length===5){
-    var _wB=ST.dcf.wacc/100,_wArr=[_wB-0.02,_wB-0.01,_wB,_wB+0.01,_wB+0.02],_tArr=[0.01,0.015,0.02,0.025,0.03];
-    h+='<div class="card"><div style="padding:12px 16px"><div class="ct" style="margin-bottom:8px">DCF Sensitivity</div>';
-    h+='<div style="font-size:9px;color:var(--dm);margin-bottom:8px">WACC (cols) x Terminal Growth (rows). <span style="color:var(--gn)">Green</span> = above '+pr(d.p)+'</div>';
-    h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:11px;font-family:var(--m);width:100%"><thead><tr><th style="background:var(--ib);color:var(--dm);padding:4px 8px;border:1px solid var(--bd)">g \ WACC</th>';
-    _wArr.forEach(function(w){h+='<th style="background:var(--ib);color:var(--bl);padding:4px 8px;border:1px solid var(--bd);text-align:center">'+(w*100).toFixed(1)+'%</th>';});
-    h+='</tr></thead><tbody>';
-    _tArr.forEach(function(g){
-      h+='<tr><td style="background:var(--ib);color:var(--bl);padding:4px 8px;border:1px solid var(--bd);text-align:center">'+(g*100).toFixed(1)+'%</td>';
-      _wArr.forEach(function(w){
-        if(w<=g){h+='<td style="padding:4px 8px;border:1px solid var(--bd);text-align:center;color:var(--dm)">N/A</td>';return;}
-        var _p5=0;for(var _i=0;_i<5;_i++){_p5+=_ds.pFcf[_i]/Math.pow(1+w,_i+1);}
-        var _tv=(_ds.pFcf[4]*(1+g))/(w-g),_pt=_tv/Math.pow(1+w,5);
-        var _sh=ST.dcf.sh5||d.sh,_iv=_sh>0?(_p5+_pt-_ds.nd)/_sh:0;
-        h+='<td style="padding:4px 8px;border:1px solid var(--bd);text-align:center;background:'+(_iv>d.p?'rgba(34,197,94,0.12)':_iv<0?'rgba(239,68,68,0.12)':'var(--ib)')+';color:'+(_iv>d.p?'var(--gn)':_iv<0?'var(--rd)':'var(--br)')+'">'+pr(_iv)+'</td>';
-      });
-      h+='</tr>';
-    });
-    h+='</tbody></table></div></div></div>';
-  }
-
-  // ── AI ANALYST ───────────────────────────────────────────────────────────
-  ST._lastRoic=_roic;ST._lastWacc=_wc;ST._lastQfl=_qfl;
-  h+='<div class="card"><div style="padding:12px 16px"><div class="ct" style="margin-bottom:8px">AI Analyst (Claude)</div>';
-  h+='<div style="font-size:10px;color:var(--dm);margin-bottom:10px">Investment opinion based strictly on sourced data above.</div>';
-  h+='<button id="aibtn" onclick="runAI()" style="background:linear-gradient(135deg,var(--bl),var(--pu));border:none;border-radius:6px;padding:8px 18px;color:#fff;font-weight:700;font-size:12px;cursor:pointer;font-family:var(--f)">Run AI Analyst</button>';
-  h+='<div id="aiout" style="margin-top:12px;font-size:12px;color:#cbd5e1;line-height:1.8;white-space:pre-wrap"></div>';
-  h+='</div></div>';
-
-  
-  
-  // ── INVESTMENT VERDICT ──────────────────────────────────────────────────
-  (function(){
-    if(!d.p||!d.sh||d.sh<=0)return;
-    var dcfV=calcDCF();if(!dcfV)return;
-    var sigs=[],bull=0,bear=0;
-    function sg(label,isBull,wt){sigs.push({l:label,b:isBull,w:wt||1});if(isBull)bull+=(wt||1);else bear+=(wt||1);}
-
-    var mos=dcfV.mos||0;
-    if(mos>=1)sg('DCF: '+pc(mos)+' margin of safety (excellent)',true,3);
-    else if(mos>=0.5)sg('DCF: '+pc(mos)+' margin of safety (good)',true,2);
-    else if(mos>=0.15)sg('DCF: '+pc(mos)+' margin of safety (thin)',true,1);
-    else if(mos>=-0.1)sg('Near fair value ('+pc(mos)+')',true,0);
-    else sg('DCF: '+pc(mos)+' overvalued',false,2);
-
-    var _r2=0.043,_e2=0.046,_b2= +(d.betaV||1.0),_k2=_r2+_b2*_e2;
-    var _g2= +(d.de||0),_c2= +(d.ca||0),_i2= +(d.intExpM||0);
-    var _kp2=_g2>0?_i2/_g2:0,_t2= +(d.taxRateV||0.21),_ko2=_kp2*(1-_t2);
-    var _m2= +(d.sh)* +(d.p),_tt2=_m2+_g2;
-    var _w2=_tt2>0?_m2/_tt2:1,_d2=_tt2>0?_g2/_tt2:0,_wc2=_w2*_k2+_d2*_ko2;
-    var _eb2= +(d.ebitM||0),_np2=_eb2*(1-_t2),_ic2= +(d._tbv||0)+_g2-_c2,_ro2=_ic2>0?_np2/_ic2:null;
-    if(_ro2!=null){
-      if(_ro2-_wc2>0.05)sg('ROIC '+pc(_ro2)+' >> WACC '+pc(_wc2)+' (strong moat)',true,2);
-      else if(_ro2-_wc2>0.02)sg('ROIC > WACC (value creating)',true,1);
-      else if(_ro2-_wc2<-0.02)sg('ROIC < WACC (destroying value)',false,2);
-    }
-
-    var _fc2= +(d.niLTM||0)>0? +(d.af||0)/ +(d.niLTM):null;
-    if(_fc2!=null){if(_fc2>=0.9)sg('FCF conversion '+pc(_fc2)+' (high quality)',true,1);else if(_fc2<0.6)sg('FCF conversion '+pc(_fc2)+' (poor quality)',false,2);}
-
-    var niA=(d.ni||[]).slice(0,4),epsGr=null;
-    if(niA.length>=3){var nO= +niA[niA.length-1].v,nN= +niA[0].v;if(nO>0&&nN>0)epsGr=Math.pow(nN/nO,1/(niA.length-1))-1;}
-    var eps2=d.sh>0? +(d.niLTM||0)/d.sh:0;
-    var pe2=eps2>0?d.p/eps2:null;
-    var peg2=(pe2!=null&&epsGr!=null&&epsGr>0)?pe2/(epsGr*100):null;
-    if(peg2!=null){if(peg2<0.8)sg('PEG '+peg2.toFixed(1)+' (Lynch: cheap)',true,2);else if(peg2<=1.2)sg('PEG '+peg2.toFixed(1)+' (fair)',true,1);else if(peg2>2)sg('PEG '+peg2.toFixed(1)+' (expensive)',false,2);}
-
-    var evM2=_m2+_g2-_c2;
-    var fcfY2=evM2>0? +(d.af||0)/evM2:0;
-    if(fcfY2>0.08)sg('FCF yield '+pc(fcfY2)+' (very attractive)',true,2);
-    else if(fcfY2>0.05)sg('FCF yield '+pc(fcfY2)+' (decent)',true,1);
-    else if(fcfY2<0.02)sg('FCF yield '+pc(fcfY2)+' (expensive)',false,1);
-
-    var _nd3=_g2-_c2,_eb3= +(d.ebitdaM||0);
-    if(_eb3>0&&_nd3/_eb3>4)sg('Leverage '+(_nd3/_eb3).toFixed(1)+'x EBITDA (risky)',false,2);
-    else if(_eb3>0&&_nd3/_eb3<1)sg('Low leverage '+(_nd3/_eb3).toFixed(1)+'x (strong B/S)',true,1);
-
-    var rC= +(d.ca||0)+ +(d.netRecv||0)*0.95+ +(d.inventory||0)*0.85+ +(d.ppeNet||0)+ +(d.otherCA||0)+ +(d.sgaM||0)*1.5+ +(d.rdM||0)*2;
-    var rPS=d.sh>0?(rC - +(d.totLiab||0))/d.sh:0;
-    if(rPS>0&&d.p<rPS*0.8)sg('Below replacement value (Buffett discount)',true,2);
-
-    var soA=(d.soH||[]).slice(0,3);
-    if(soA.length>=2){var sO= +(soA[soA.length-1].v||0),sN= +(soA[0].v||0);if(sO>0){var dl=(sN/sO-1)/(soA.length-1);if(dl>0.02)sg('Dilution '+pc(dl)+'/yr',false,1);else if(dl<-0.02)sg('Buybacks '+pc(Math.abs(dl))+'/yr',true,1);}}
-
-    var score=bull-bear;
-    var action,acCol,sizing,next;
-    if(score>=6){action='STRONG BUY';acCol='var(--gn)';sizing='5-8% of portfolio (high conviction)';next='Build full position. Consider adding on any 10%+ pullback.';}
-    else if(score>=3){action='BUY';acCol='var(--gn)';sizing='3-5% of portfolio';next='Initiate position. Scale in over 2-3 tranches.';}
-    else if(score>=1){action='ADD';acCol='#66bb6a';sizing='2-3% (build gradually)';next='Add to existing position on weakness. Set alerts at -10% for additional buy.';}
-    else if(score>=-1){action='HOLD';acCol='var(--yw)';sizing='Maintain current';next='Hold position. Re-evaluate if fundamentals deteriorate or price rises 20%+.';}
-    else if(score>=-3){action='TRIM';acCol='#ff9800';sizing='Reduce to 1-2%';next='Take profits. Reallocate to higher-conviction names.';}
-    else{action='SELL';acCol='var(--rd)';sizing='Exit position';next='Exit and redeploy capital. Multiple valuation frameworks signal overvaluation.';}
-
-    h+='<div class="card"><div style="padding:16px">';
-    h+='<div class="ct" style="margin-bottom:12px">Investment Verdict</div>';
-    h+='<div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;flex-wrap:wrap">';
-    h+='<div style="background:'+acCol+';color:#000;font-size:20px;font-weight:800;padding:8px 20px;border-radius:8px;font-family:var(--m);letter-spacing:1px">'+action+'</div>';
-    h+='<div><div style="font-size:11px;color:var(--dm)">Position Sizing</div><div style="font-size:13px;font-weight:600;color:var(--lb)">'+sizing+'</div></div>';
-    h+='<div><div style="font-size:11px;color:var(--dm)">Score</div><div style="font-size:13px;font-weight:600;color:var(--lb)">'+bull+' bull / '+bear+' bear (net '+(score>0?'+':'')+score+')</div></div>';
-    h+='</div>';
-
-    h+='<div style="padding:8px 12px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd);margin-bottom:12px">';
-    h+='<div style="font-size:10px;color:var(--yw);font-weight:700;margin-bottom:4px">NEXT STEPS</div>';
-    h+='<div style="font-size:12px;color:var(--lb)">'+next+'</div></div>';
-
-    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:6px">KEY SIGNALS</div>';
-    sigs.sort(function(a,b){return b.w-a.w;});
-    sigs.forEach(function(s){
-      var c=s.b?'var(--gn)':'var(--rd)';
-      h+='<div style="padding:4px 0;font-size:11px;display:flex;align-items:baseline;gap:6px;border-bottom:1px solid var(--ib)">';
-      h+='<span style="color:'+c+';font-size:9px">'+(s.b?'▲':'▼')+'</span>';
-      h+='<span style="color:var(--lb);flex:1">'+s.l+'</span>';
-      if(s.w>1)h+='<span style="font-size:9px;color:var(--dm)">×'+s.w+'</span>';
-      h+='</div>';
-    });
-
-    h+='<div style="margin-top:10px;padding:8px 12px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd);font-size:11px;line-height:1.6">';
-    h+='<b style="color:var(--yw)">Valuation Range</b><br>';
-    h+='DCF intrinsic: <b style="color:var(--pu)">'+pr(dcfV.iv)+'</b> ('+pc(mos)+' MoS) &nbsp;|&nbsp; Price: <b>'+pr(d.p)+'</b>';
-    if(rPS>0)h+=' &nbsp;|&nbsp; Replacement: <b>'+pr(rPS)+'</b>';
-    h+='</div>';
-
-    h+='<div style="font-size:8px;color:var(--dm);margin-top:6px">Weighted signals from DCF, ROIC, PEG, FCF quality, leverage, replacement value, dilution. Not investment advice.</div>';
-    h+='</div></div>';
-  })();
-
-  
-    h+='<div style="font-size:9px;color:#2a3040;padding-top:8px;border-top:1px solid var(--bd)">Adj FCF = CFO − SBC − Maint CapEx · EV = MCap + Net Debt · Data: FMP (SEC 10-K) · <a href="https://valuetimeovermoney.github.io/valuation-screener/" style="color:var(--dm)">← Back to Screener</a></div>';
+  h+='<div style="font-size:9px;color:#2a3040;padding-top:8px;border-top:1px solid var(--bd)">Adj FCF = CFO − SBC − Maint CapEx · EV = MCap + Net Debt · Data: FMP (SEC 10-K) · <a href="https://valuetimeovermoney.github.io/valuation-screener/" style="color:var(--dm)">← Back to Screener</a></div>';
 
   document.getElementById('out').innerHTML=h;
   updateSaveBtn();
