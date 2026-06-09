@@ -270,6 +270,17 @@ function render(){
     var sigs=[],bull=0,bear=0;
     function sg(label,isBull,wt){sigs.push({l:label,b:isBull,w:wt||1});if(isBull)bull+=(wt||1);else bear+=(wt||1);}
 
+    // ── Path to 25% vars (same formula as screener) ──────────────
+    var _fcfYield=d.fy2||0;
+    var _revGrowth=d.rc||0;
+    var _curMult=d.ev>0&&d.af>0?d.ev/d.af:0;
+    var _tgtMult=ST.dcf.reMult||(_curMult>0?Math.round(_curMult*10)/10:10);
+    if(!ST.dcf.reMult)ST.dcf.reMult=_tgtMult;
+    var _reYrs=5;
+    var _reRate=_curMult>0&&_tgtMult>0?Math.pow(_tgtMult/_curMult,1/_reYrs)-1:0;
+    var _totalAnn=_fcfYield+_revGrowth+_reRate;
+    var _annCol=_totalAnn>=0.25?'var(--gn)':_totalAnn>=0.15?'var(--yw)':'var(--rd)';
+
     var mos=dcfV.mos||0;
     if(mos>=1)sg('DCF: '+pc(mos)+' margin of safety (excellent)',true,3);
     else if(mos>=0.5)sg('DCF: '+pc(mos)+' margin of safety (good)',true,2);
