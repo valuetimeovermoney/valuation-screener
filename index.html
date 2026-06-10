@@ -225,7 +225,7 @@ function calcM(d){
 }
 
 async function buildCo(tk){
-  var[prof,cfs,bss,incs,qIncs,qCfs,keyM,execs,insiders,instOwn]=await Promise.all([
+  var[prof,cfs,bss,incs,qIncs,qCfs,keyM,execs,insiders,instOwn,segs]=await Promise.all([
     fmpFlex('profile?symbol='+tk),fmpFlex('cash-flow-statement?symbol='+tk+'&period=annual&limit=10'),
     fmpFlex('balance-sheet-statement?symbol='+tk+'&period=annual&limit=5'),
     fmpFlex('income-statement?symbol='+tk+'&period=annual&limit=10'),
@@ -266,19 +266,21 @@ async function buildCo(tk){
     var da2=gf(y,'depreciationAndAmortization');
     var cx2=Math.abs(gf(y,'capitalExpenditure'));
     var sbc2=gf(y,'stockBasedCompensation');
-    // Try multiple FMP field names for working capital change
-    var dwc2=gf(y,'changeInWorkingCapital')||gf(y,'changesInWorkingCapital')||
-             gf(y,'changeInOtherWorkingCapital')||0;
-    // If still 0, derive from balance sheet YoY change
-    if(dwc2===0&&bsArr2[i]&&bsArr2[i+1]){
+    // ΔWC: normalize to cash-impact sign (positive=good, negative=bad)
+    // CF source: changeInWorkingCapital positive = WC decreased = cash inflow = ADD to OE
+    var dwc2_raw=gf(y,'changeInWorkingCapital')||gf(y,'changesInWorkingCapital')||gf(y,'changeInOtherWorkingCapital')||0;
+    var cashWcImpact=0;
+    if(dwc2_raw!==0){
+      cashWcImpact=dwc2_raw; // CF sign: positive=cash inflow, use as-is
+    } else if(bsArr2[i]&&bsArr2[i+1]){
       var wcCurr=(gf(bsArr2[i],'totalCurrentAssets')-gf(bsArr2[i],'totalCurrentLiabilities'));
       var wcPrev=(gf(bsArr2[i+1],'totalCurrentAssets')-gf(bsArr2[i+1],'totalCurrentLiabilities'));
-      dwc2=wcCurr-wcPrev;  // positive = WC increased (capital consumed), negative = WC released
+      cashWcImpact=-(wcCurr-wcPrev); // BS sign: positive=WC grew=cash out, negate to cash-impact sign
     }
-    // Maint CapEx uses same sector default as Adj FCF (will be overridden by user's mpOver in calcM)
+    // Use 3Y normalized avg for smoothing (Buffett: structural WC only)
     var maintCx=cx2*(isL?0.5:0.7);
-    // OE = NI + D&A - MaintCapEx - SBC - ΔWC (subtract because WC increase = cash used)
-    var oe=(ni2+da2-maintCx-sbc2-dwc2)/1e6;
+    // OE = NI + D&A - MaintCapEx - SBC + cashWcImpact (Buffett 1986: structural WC increment)
+    var oe=(ni2+da2-maintCx-sbc2+cashWcImpact)/1e6;
     return{y:yrOf(y),v:+oe.toFixed(1),ni:ni2/1e6,da:da2/1e6,cx:cx2/1e6,sbc:sbc2/1e6,dwc:dwc2/1e6};
   });
   var sbcH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+((gf(y,'stockBasedCompensation'))/1e6).toFixed(1)};});
@@ -309,30 +311,42 @@ async function buildCo(tk){
     instData&&instData.holders?(instData.holders||[]).slice(0,5):[];
   var kmA=Array.isArray(keyM)?keyM:keyM?[keyM]:[];var km0=kmA[0]||{};
   // Key metrics history for valuation table
-  var kmH=(kmA||[]).filter(Boolean).slice(0,5).map(function(y){
-    // FMP key-metrics uses: peRatio, evToEbitda, priceToSalesRatio, pbRatio, enterpriseValue, roic, dividendYield, fcfYield
+  var kmH=(kmA||[]).filter(Boolean).slice(0,5).map(function(y,_ki){
     function _km(){for(var i=0;i<arguments.length;i++){var v=y[arguments[i]];if(v!=null&&v!=0&&!isNaN(v))return+v;}return 0;}
+    // Mechanical fallbacks from income/BS/CF statements
+    var _inc=incA[_ki]||{},_bs=bsA[_ki]||{},_cf=(cfA||[])[_ki]||{};
+    var _ev=_km('enterpriseValue'),_mc=_km('marketCap');
+    var _ni=gf(_inc,'netIncome'),_ebit=gf(_inc,'operatingIncome'),_rev=gf(_inc,'revenue');
+    var _ebitda=gf(_inc,'ebitda')||(_ebit+(gf(_cf,'depreciationAndAmortization')||0));
+    var _intE=Math.abs(gf(_inc,'interestExpense')),_taxE=gf(_inc,'incomeTaxExpense'),_pt=gf(_inc,'incomeBeforeTax');
+    var _taxR=_pt>0?Math.min(0.35,Math.max(0,_taxE/_pt)):0.21;
+    var _nopat=_ebit*(1-_taxR);
+    var _eq=gf(_bs,'totalStockholdersEquity'),_debt=gf(_bs,'longTermDebt')+gf(_bs,'shortTermDebt');
+    var _cash=gf(_bs,'cashAndShortTermInvestments')||gf(_bs,'cashAndCashEquivalents');
+    var _ic=_eq+_debt-_cash;
+    var _cfo=gf(_cf,'operatingCashFlow'),_cx=Math.abs(gf(_cf,'capitalExpenditure'));
+    var _fcf=_cfo-_cx,_sh=gf(_inc,'weightedAverageShsOutDil')||gf(_inc,'weightedAverageShsOut')||1;
+    var _ev2=_ev||(_mc+_debt-_cash); // calc EV if not in key-metrics
     return{
     yr:yrOf(y)||(y.date?y.date.slice(0,4):'')||'',
-    pe:_km('peRatio','priceEarningsRatio'),
-    evEbitda:_km('enterpriseValueOverEBITDA','evToEbitda'),
-    evFcf:_km('evToFreeCashFlow','evFreeCashFlow'),
-    evCfo:_km('evToOperatingCashFlow','evOperatingCashFlow'),
-    ps:_km('priceToSalesRatio','priceToSales'),
-    pb:_km('pbRatio','priceToBookRatio'),
+    pe:_km('peRatio','priceEarningsRatio')||(_mc>0&&_ni>0?_mc/_ni:0),
+    evEbitda:_km('enterpriseValueOverEBITDA','evToEbitda')||(_ev2>0&&_ebitda>0?_ev2/_ebitda:0),
+    evFcf:_km('evToFreeCashFlow','evFreeCashFlow')||(_ev2>0&&_fcf>0?_ev2/_fcf:0),
+    evCfo:_km('evToOperatingCashFlow','evOperatingCashFlow')||(_ev2>0&&_cfo>0?_ev2/_cfo:0),
+    ps:_km('priceToSalesRatio','priceToSales')||(_mc>0&&_rev>0?_mc/_rev:0),
+    pb:_km('pbRatio','priceToBookRatio')||(_mc>0&&_eq>0?_mc/_eq:0),
     ptb:_km('ptbRatio'),
-    ev:_km('enterpriseValue'),
-    mc:_km('marketCap'),
-    ebitda:_km('ebitda'),
-    roic:_km('roic','returnOnInvestedCapital'),
-    roe:_km('roe','returnOnEquity'),
-    ic:_km('interestCoverage'),
+    ev:_ev2,mc:_mc,
+    ebitda:_km('ebitda')||_ebitda,
+    roic:_km('roic','returnOnInvestedCapital')||(_ic>0?_nopat/_ic:0),
+    roe:_km('roe','returnOnEquity')||(_eq>0?_ni/_eq:0),
+    ic:_km('interestCoverage')||(_intE>0?_ebit/_intE:0),
     divYld:_km('dividendYield'),
-    fcfYld:_km('freeCashFlowYield','fcfYield'),
-    cfoPs:_km('operatingCashFlowPerShare'),
-    fcfPs:_km('freeCashFlowPerShare'),
-    bvPs:_km('bookValuePerShare'),
-    debtEq:_km('debtToEquity'),
+    fcfYld:_km('freeCashFlowYield','fcfYield')||(_ev2>0&&_fcf>0?_fcf/_ev2:0),
+    cfoPs:_km('operatingCashFlowPerShare')||(_sh>0?_cfo/_sh:0),
+    fcfPs:_km('freeCashFlowPerShare')||(_sh>0?_fcf/_sh:0),
+    bvPs:_km('bookValuePerShare')||(_sh>0?_eq/_sh:0),
+    debtEq:_km('debtToEquity')||(_eq>0?_debt/_eq:0),
     curR:_km('currentRatio'),
   };});
   // Diluted vs basic shares
@@ -367,6 +381,7 @@ async function buildCo(tk){
     _ta:+((gf(bs0,'totalAssets'))/1e6).toFixed(1),
     _ppe:+((gf(bs0,'propertyPlantAndEquipmentNet','propertyPlantAndEquipment'))/1e6).toFixed(1),
     _intang:+((gf(bs0,'goodwillAndIntangibleAssets','intangibleAssets'))/1e6).toFixed(1),
+    segments:(segData||[]).slice(0,3),
     _wc:+((gf(bs0,'totalCurrentAssets')-gf(bs0,'totalCurrentLiabilities'))/1e6).toFixed(1),
     _tbv:+(Math.max(0,(gf(bs0,'totalStockholdersEquity')-gf(bs0,'goodwillAndIntangibleAssets')-gf(bs0,'intangibleAssets')))/1e6).toFixed(1),
     _bvps:+(gf(bs0,'totalStockholdersEquity')/1e6).toFixed(1),
@@ -732,6 +747,39 @@ function render(){
   // Header
   h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;background:var(--cd);border-radius:8px;padding:14px 16px;border:1px solid var(--bd);margin-bottom:12px"><div><div style="font-size:18px;font-weight:800;color:var(--br)">'+d.n+'</div><div style="font-size:11px;color:var(--dm)">'+d.t+' · '+d.sec+' · '+d.industry+'</div><div style="font-size:10px;color:var(--dm);margin-top:2px">Fiscal year ends: '+d.fyEnd+' · Latest: '+d.fy+'</div></div><div style="text-align:right"><div style="font-size:24px;font-weight:800;font-family:var(--m);color:var(--bl)">'+pr(d.p)+'</div><div style="font-size:10px;color:var(--dm)">'+d.pd+'</div></div></div>';
 
+  // ── REVENUE SEGMENTS ────────────────────────────────────
+  if(d.segments&&d.segments.length&&d.segments[0]){
+    var _segL=d.segments[0];
+    var _segKeys=Object.keys(_segL).filter(function(k){return k!=='date'&&k!=='symbol'&&k!=='period'&&k!=='reportedCurrency'&&typeof _segL[k]==='number'&&_segL[k]>0;});
+    if(_segKeys.length>1){
+      var _segTot=_segKeys.reduce(function(s,k){return s+_segL[k];},0);
+      var _segColors=['var(--bl)','var(--pu)','var(--gn)','var(--yw)','var(--tl)','var(--rd)','#e879f9','#38bdf8'];
+      h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="margin-bottom:8px">Revenue by Segment <span style="font-size:9px;color:var(--dm);font-weight:400">FY'+((_segL.date||'').slice(0,4))+'</span></div>';
+      _segKeys.sort(function(a,b){return _segL[b]-_segL[a];}).slice(0,8).forEach(function(k,i){
+        var v=_segL[k],pct=_segTot>0?v/_segTot:0,bw=Math.round(pct*100);
+        h+='<div style="margin-bottom:6px">';
+        h+='<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px">';
+        h+='<span style="color:var(--lb)">'+k+'</span>';
+        h+='<span style="font-family:var(--m)"><b>$'+(v/1e9>=1?(v/1e9).toFixed(1)+'B':(v/1e6).toFixed(0)+'M')+'</b> <span style="color:var(--dm)">'+pc(pct)+'</span></span>';
+        h+='</div>';
+        h+='<div style="height:6px;background:var(--ib);border-radius:3px"><div style="height:6px;width:'+bw+'%;background:'+_segColors[i%_segColors.length]+';border-radius:3px"></div></div>';
+        h+='</div>';
+      });
+      // YoY trend for top segments
+      if(d.segments.length>=2&&d.segments[1]){
+        var _seg1=d.segments[1];
+        h+='<div style="font-size:9px;color:var(--dm);margin-top:4px">YoY: ';
+        _segKeys.slice(0,4).forEach(function(k){
+          var cv=_segL[k]||0,pv=_seg1[k]||0;
+          if(pv>0){var chg=(cv/pv-1);h+='<span style="color:'+(chg>0?'var(--gn)':'var(--rd)')+'">'+k.slice(0,12)+' '+pc(chg)+'</span>  ';}
+        });
+        h+='</div>';
+      }
+      h+='<div style="font-size:9px;color:var(--dm);margin-top:2px">Source: FMP revenue-product-segmentation</div>';
+      h+='</div><div class="cs"><b class="s">Segment context:</b><br><br>Revenue breakdown shows relative contribution of each business unit. YoY trend highlights where growth is accelerating or decelerating. Focus on: (1) are high-margin segments growing faster? (2) is mix shifting to better or worse economics?</div></div></div>';
+    }
+  }
+
   // ── NET-NET & DEEP VALUE DETECTION ──────────────────────
   var _latBs0=(d.bsH||[])[0]||{};
   var _ncav=(bvG(_latBs0,'totalCurrentAssets')-(bvG(_latBs0,'totalLiabilities')||(bvG(_latBs0,'totalAssets')-bvG(_latBs0,'totalStockholdersEquity','totalEquity'))))/1e6;
@@ -867,9 +915,13 @@ function render(){
   var _isOE=ST.fcfMethod==='oe';
   h+='<div class="card"><div class="ci"><div class="cm">';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
-  h+='<div class="ct" style="color:var(--pu);margin-bottom:0">'+(_isOE?'Owner Earnings':'Adjusted FCF')+' ('+d.fy+')</div>';
+  h+='<div class="ct" style="color:var(--pu);margin-bottom:0">'+(_isOE?'Owner Earnings (Buffett: NI+D&A\u2212MaintCapEx\u2212SBC+\u0394WC)':'Adjusted FCF (CFO\u2212SBC\u2212MaintCapEx)')+' ('+d.fy+')</div>';
   h+='<div style="display:flex;gap:4px">';
   h+='<span onclick="ST.fcfMethod=\'adj\';render();" style="cursor:pointer;padding:3px 8px;border-radius:4px;font-size:9px;font-weight:700;'+(! _isOE?'background:var(--pu);color:#fff':'background:var(--ib);color:var(--dm)')+';border:1px solid var(--bd)">Adj FCF</span>';
+  h+='<div style="font-size:9px;color:var(--dm);margin-top:4px;padding:6px 8px;background:#0a0e18;border-radius:4px">';
+  h+='<b style="color:var(--yw)">\u0394WC in OE:</b> Uses actual annual cashWC impact (CF sign: positive=cash inflow). ';
+  h+='<b style="color:var(--yw)">\u0394WC in Adj FCF:</b> Embedded in CFO (CFO=NI+D&A+\u0394WC). ';
+  h+='They differ when WC swings materially or non-cash items (deferred tax, gains) are large.</div>';
   h+='<span onclick="ST.fcfMethod=\'oe\';render();" style="cursor:pointer;padding:3px 8px;border-radius:4px;font-size:9px;font-weight:700;'+(_isOE?'background:var(--pu);color:#fff':'background:var(--ib);color:var(--dm)')+';border:1px solid var(--bd)">Owner Earnings</span>';
   h+='</div></div>';
   if(!_isOE){
@@ -1002,7 +1054,23 @@ function render(){
 
       h+='</tbody></table></div>';
     }
-    // Dilution check
+    // NCIB capacity estimate
+    var _bbH=(d.buyH||[]).slice(0,3);
+    var _bbAvg=_bbH.length?_bbH.reduce(function(s,x){return s+(x&&x.v?Math.abs(x.v):0);},0)/_bbH.length:0;
+    var _ncibCap=d.sh>0?+(d.sh*0.10).toFixed(1):0; // 10% float rule (standard NCIB/buyback authorization)
+    var _ncibVal=d.p>0&&_ncibCap>0?(_ncibCap*d.p*1e6/1e9).toFixed(1):null; // $B at current price
+    var _bbShares=d.p>0&&_bbAvg>0?(_bbAvg/d.p*1e6).toFixed(1):null; // shares retired per year (M)
+    if(_ncibCap>0){
+      h+='<div style="margin-top:8px;padding:8px 10px;background:#0a0e18;border-radius:5px;border:1px solid var(--bd);font-size:10px">';
+      h+='<b style="color:var(--yw)">NCIB Capacity Estimate: </b>';
+      h+='<span style="color:var(--lb)">Max 10% float rule = <b>'+_ncibCap.toFixed(1)+'M shares</b>';
+      if(_ncibVal)h+=' (\u2248 $'+_ncibVal+'B at current price '+pr(d.p)+')';
+      if(_bbShares&&_bbAvg>0)h+=' | Avg buyback pace: '+D(_bbAvg)+'M/yr \u2248 <b>'+_bbShares+'M shares/yr</b> ('+pc(+_bbShares/d.sh)+' of float/yr)';
+      h+='</span><br><span style="font-size:9px;color:var(--dm)">Regulatory cap estimate only. Actual NCIB authorization disclosed in 10-K/proxy filing.</span>';
+      h+='</div>';
+    }
+
+  // Dilution check
     var _soBasic=(d.soH||[]).slice(0,5).reverse();
     var _soDil=(d.soHDil||[]).slice(0,5).reverse();
     var _dilArr=_soBasic.map(function(x,i){var d2=_soDil[i];return x&&x.v&&d2&&d2.v?d2.v-x.v:null;});
