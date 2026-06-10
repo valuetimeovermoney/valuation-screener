@@ -823,6 +823,8 @@ function render(){
     var hCx =histCx.map(function(x){return x?x.v:null;});
     var hFcf=histFcf.map(function(x){return x?x.v:null;});
     var hSo =histSo.map(function(x){return x?x.v:null;});
+    var hDa =(d.daH||[]).slice(0,5).reverse().map(function(x){return x?x.v:null;});
+    var hOe =(d.oeH||[]).slice(0,5).reverse().map(function(x){return x?x.v:null;});
 
     function inp(key,w){return dcfInp(key,v2[key]||0,w||44);}
     function secRow(label){var tot=hn+5+2;return '<tr style="border-top:2px solid var(--bd)"><td colspan="'+tot+'" style="font-size:9px;font-weight:700;color:var(--dm);letter-spacing:1px;padding:5px 5px 3px;text-transform:uppercase">'+label+'</td></tr>';}
