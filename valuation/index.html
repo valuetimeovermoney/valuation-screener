@@ -138,6 +138,9 @@ function calcDCF(){
   var pR=[],pNI=[],pCfo=[],pSbc=[],pCx=[],pMx=[],pFcf=[],pS=[],pV=[];
   var cR=latRev;
   var pOE=[]; // Owner's Earnings
+  // Normalized ΔWC for projections: 3Y avg from history
+  var _pDwcArr=(d.oeH||[]).slice(0,3).map(function(x){return x&&x.dwc!=null?x.dwc:0;});
+  var _pDwcNorm=_pDwcArr.length?_pDwcArr.reduce(function(a,b){return a+b;},0)/_pDwcArr.length:0;
   for(var i=1;i<=5;i++){
     cR=cR*(1+(v['r'+i]||0)/100);
     pR.push(cR);
@@ -148,7 +151,7 @@ function calcDCF(){
     var cx=cR*(v['cx'+i]||0)/100;   pCx.push(cx);
     var mx=cx*mp;                     pMx.push(mx);
     var fcf=cfo-sbc-mx;              pFcf.push(fcf);
-    var oe=ni+da-mx-sbc;             pOE.push(oe); // Owner's Earnings = NI+D&A-MaintCapEx-SBC
+    var oe=ni+da-mx-sbc+_pDwcNorm;   pOE.push(oe); // Buffett OE = NI+D&A-MaintCapEx-SBC+norm.ΔWC
     pS.push(v['sh'+i]||0);
     pV.push(fcf/Math.pow(1+wacc,i));
   }
@@ -218,13 +221,20 @@ async function buildCo(tk){
     niLTM:gf(incA[0]||{},'netIncome')/1e6,
     daH:daH,dwcH:dwcH,
     oeH:(function(){
+      // Normalized ΔWC = 3Y avg of changeInWorkingCapital
+      // Note: in indirect CF method, positive ΔWC = WC decreased (cash inflow), negative = WC increased (cash outflow)
+      // Buffett: deduct structural WC increment (negative ΔWC = WC build = cash cost)
+      var _dwcAll=cfA.filter(Boolean).slice(0,3).map(function(y){return gf(y,'changeInWorkingCapital','changesInWorkingCapital');});
+      var _dwcNorm=_dwcAll.length?_dwcAll.reduce(function(a,b){return a+b;},0)/_dwcAll.length:0;
       return cfA.filter(Boolean).slice(0,5).map(function(y,i){
         var ni=gf(incA[i]||{},'netIncome');
         var da=gf(y,'depreciationAndAmortization','depreciation');
         var sbc=gf(y,'stockBasedCompensation');
         var cx=Math.abs(gf(y,'capitalExpenditure'));
         var mx=cx*(isL?0.5:0.7);
-        return{y:yrOf(y),v:+((ni+da-mx-sbc)/1e6).toFixed(1)};
+        // Use normalized ΔWC — smooths out timing noise (Buffett: only structural WC increment)
+        var dwc=_dwcNorm; // positive = cash inflow (WC released), negative = cash outflow (WC build)
+        return{y:yrOf(y),v:+((ni+da-mx-sbc+dwc)/1e6).toFixed(1),dwc:+(dwc/1e6).toFixed(1)};
       });
     })(),
     segments:segData.slice(0,3),
