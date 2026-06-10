@@ -211,7 +211,7 @@ function calcM(d){
   // For OE, recompute using user's maint% (overrides buildCo's sector default)
   var fh=(_useOE&&d.oeH?d.oeH.map(function(x){
     if(!x||x.ni==null)return x;  // no component data, use as-is
-    var adjOE=x.ni+(x.da||0)-(x.cx||0)*_userMp-(x.sbc||0)-(x.dwc||0);
+    var adjOE=x.ni+(x.da||0)-(x.cx||0)*_userMp-(x.sbc||0)+(x.dwc||0); // dwc=cash-impact sign: +good, -bad
     return{y:x.y,v:+adjOE.toFixed(1)};
   }):d.fcf||d.fcfHist||[]).filter(function(x){return x!=null;});
   var fya=(fh||[]).map(function(x){return ev>0?(x.v||0)/ev:0;});
