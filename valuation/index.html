@@ -102,7 +102,7 @@ var ST={d:null,showDCF:true,showTri:true,
        cx1:0,cx2:0,cx3:0,cx4:0,cx5:0,
        mp:50,
        sh1:0,sh2:0,sh3:0,sh4:0,sh5:0,
-       wacc:10,tg:3,ar_hc:5,inv_hc:15,ppe_adj:0,brand_yrs:3,rd_yrs:4,_manual:{},_seeded:false}};
+       wacc:10,tg:3,da1:0,da2:0,da3:0,da4:0,da5:0,ar_hc:5,inv_hc:15,ppe_adj:0,brand_yrs:3,rd_yrs:4,_manual:{},_seeded:false}};
 
 function togS(k){ST['show'+k]=!ST['show'+k];render();}
 
@@ -114,7 +114,7 @@ function dcfInp(key,val,w,step){
 function updDCF(changedKey){
   var v=ST.dcf;
   if(!v._manual)v._manual={};
-  ['r','ni','cfo','sbc','cx','sh'].forEach(function(k){
+  ['r','ni','cfo','sbc','cx','sh','da'].forEach(function(k){
     for(var i=1;i<=5;i++){var e=document.getElementById('d_'+k+i);if(e)v[k+i]=parseFloat(e.value)||0;}
   });
   var mp=document.getElementById('d__mp');if(mp)v.mp=parseFloat(mp.value)||50;
@@ -122,9 +122,9 @@ function updDCF(changedKey){
   var tg=document.getElementById('d__tg');if(tg)v.tg=parseFloat(tg.value)||3;
   ['ar_hc','inv_hc','ppe_adj','brand_yrs','rd_yrs','reMult'].forEach(function(k){var e=document.getElementById('d_'+k);if(e)v[k]=parseFloat(e.value)||0;});
   if(changedKey){
-    var mYr=changedKey.match(/^(r|ni|cfo|sbc|cx|sh)([2-5])$/);
+    var mYr=changedKey.match(/^(r|ni|cfo|sbc|cx|sh|da)([2-5])$/);
     if(mYr)v._manual[changedKey]=true;
-    var mY1=changedKey.match(/^(r|ni|cfo|sbc|cx|sh)1$/);
+    var mY1=changedKey.match(/^(r|ni|cfo|sbc|cx|sh|da)1$/);
     if(mY1){var base=mY1[1],nv=v[base+'1'];for(var pi=2;pi<=5;pi++){if(!v._manual[base+pi]){v[base+pi]=nv;var el=document.getElementById('d_'+base+pi);if(el)el.value=Math.round(nv*10)/10;}}}
   }
   render();
@@ -137,15 +137,18 @@ function calcDCF(){
   var wacc=v.wacc/100,tg=v.tg/100,mp=v.mp/100;
   var pR=[],pNI=[],pCfo=[],pSbc=[],pCx=[],pMx=[],pFcf=[],pS=[],pV=[];
   var cR=latRev;
+  var pOE=[]; // Owner's Earnings
   for(var i=1;i<=5;i++){
     cR=cR*(1+(v['r'+i]||0)/100);
     pR.push(cR);
-    pNI.push(cR*(v['ni'+i]||0)/100);
+    var ni=cR*(v['ni'+i]||0)/100; pNI.push(ni);
+    var da=cR*(v['da'+i]||0)/100; // D&A
     var cfo=cR*(v['cfo'+i]||0)/100; pCfo.push(cfo);
     var sbc=cR*(v['sbc'+i]||0)/100; pSbc.push(sbc);
     var cx=cR*(v['cx'+i]||0)/100;   pCx.push(cx);
     var mx=cx*mp;                     pMx.push(mx);
     var fcf=cfo-sbc-mx;              pFcf.push(fcf);
+    var oe=ni+da-mx-sbc;             pOE.push(oe); // Owner's Earnings = NI+D&A-MaintCapEx-SBC
     pS.push(v['sh'+i]||0);
     pV.push(fcf/Math.pow(1+wacc,i));
   }
@@ -155,17 +158,19 @@ function calcDCF(){
   var nd=(d.de||0)-(d.ca||0);
   var eq=totPv-nd;if(eq<0)eq=0;
   var iv=pS[4]>0?eq/pS[4]:0,mos=d.p>0?(iv-d.p)/d.p:0;
-  return{pR:pR,pNI:pNI,pCfo:pCfo,pSbc:pSbc,pCx:pCx,pMx:pMx,pFcf:pFcf,pS:pS,pV:pV,
+  return{pR:pR,pNI:pNI,pCfo:pCfo,pSbc:pSbc,pCx:pCx,pMx:pMx,pFcf:pFcf,pOE:pOE,pS:pS,pV:pV,
     tv:tv,tvPv:tvPv,tvFcf:tvFcf,wacc:wacc,tg:tg,totPv:totPv,nd:nd,eq:eq,iv:iv,mos:mos};
 }
 
 // ── Build company data ────────────────────────────────────────
 async function buildCo(tk){
-  var[prof,cfs,bss,incs]=await Promise.all([
+  var[prof,cfs,bss,incs,segs]=await Promise.all([
     fmp('profile?symbol='+tk,true),
     fmp('cash-flow-statement?symbol='+tk+'&period=annual&limit=5',true),
     fmp('balance-sheet-statement?symbol='+tk+'&period=annual&limit=5',true),
-    fmp('income-statement?symbol='+tk+'&period=annual&limit=5',true)]);
+    fmp('income-statement?symbol='+tk+'&period=annual&limit=5',true),
+    fmp('revenue-product-segmentation?symbol='+tk+'&period=annual',false)]);
+  var segData=Array.isArray(segs)?segs:(segs&&typeof segs==='object'?[segs]:[]);
   var p=(Array.isArray(prof)?prof[0]:prof)||{};
   var cfA=Array.isArray(cfs)?cfs:[];var cf0=cfA[0]||{};
   var bsA=Array.isArray(bss)?bss:[];var bs0=bsA[0]||{};
@@ -179,6 +184,8 @@ async function buildCo(tk){
   var gm=incA.filter(Boolean).slice(0,5).map(function(y){var r=gf(y,'revenue');return{y:yrOf(y),v:r>0?gf(y,'grossProfit')/r:0};});
   var cfoH=cfA.filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+(gf(y,'operatingCashFlow','netCashProvidedByOperatingActivities')/1e6).toFixed(1)};});
   var fcfH=cfA.filter(Boolean).slice(0,5).map(function(y){var o=gf(y,'operatingCashFlow','netCashProvidedByOperatingActivities');var s=gf(y,'stockBasedCompensation');var cx=Math.abs(gf(y,'capitalExpenditure'));return{y:yrOf(y),v:+((o-s-cx*(isL?0.5:0.7))/1e6).toFixed(1)};});
+  var daH=cfA.filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+(gf(y,'depreciationAndAmortization','depreciation')/1e6).toFixed(1)};});
+  var dwcH=cfA.filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+(gf(y,'changeInWorkingCapital','changesInWorkingCapital')/1e6).toFixed(1)};});
   var sbcH=cfA.filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+(gf(y,'stockBasedCompensation')/1e6).toFixed(1)};});
   var capexH=cfA.filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+(Math.abs(gf(y,'capitalExpenditure'))/1e6).toFixed(1)};});
   var soH=incA.filter(Boolean).slice(0,5).map(function(y){var s=gf(y,'weightedAverageShsOut')||gf(y,'weightedAverageShsOutDil');return{y:yrOf(y),v:s>0?+(s/1e6).toFixed(1):null};});
@@ -209,6 +216,18 @@ async function buildCo(tk){
     ebitM:gf(incA[0]||{},'operatingIncome')/1e6,
     ebitdaM:(gf(incA[0]||{},'ebitda')||0)/1e6,
     niLTM:gf(incA[0]||{},'netIncome')/1e6,
+    daH:daH,dwcH:dwcH,
+    oeH:(function(){
+      return cfA.filter(Boolean).slice(0,5).map(function(y,i){
+        var ni=gf(incA[i]||{},'netIncome');
+        var da=gf(y,'depreciationAndAmortization','depreciation');
+        var sbc=gf(y,'stockBasedCompensation');
+        var cx=Math.abs(gf(y,'capitalExpenditure'));
+        var mx=cx*(isL?0.5:0.7);
+        return{y:yrOf(y),v:+((ni+da-mx-sbc)/1e6).toFixed(1)};
+      });
+    })(),
+    segments:segData.slice(0,3),
     buybackTTM:Math.abs(gf(cfA[0]||{},'commonStockRepurchased'))/1e6,
     buyback3Yavg:(function(){var tot=0,n=Math.min(3,cfA.length);for(var _bi=0;_bi<n;_bi++)tot+=Math.abs(gf(cfA[_bi]||{},'commonStockRepurchased'));return n>0?tot/n/1e6:0;})(),
     sh3yCagr:(function(){var _so=soH.slice(0,Math.min(4,soH.length));return _so.length>=2?cagr(_so[_so.length-1].v||1,_so[0].v||1,_so.length-1):null;})(),
@@ -846,7 +865,8 @@ function render(){
     h+='<tr><td>Gross Margin</td>';
     histGm.forEach(function(x){h+='<td>'+pc(x?x.v:null)+'</td>';});
     h+='<td style="color:var(--yw);background:#0d1520;border-left:1px solid var(--bd)">'+pc(a3Gm)+'</td>';
-    for(var gi=0;gi<5;gi++)h+='<td style="'+(gi===0?'border-left:2px solid var(--bd)':'')+';color:var(--dm)">—</td>';
+    // Mechanical projection using 3Y avg gross margin
+    for(var gi=0;gi<5;gi++){var _pgm=a3Gm!=null?a3Gm:null;h+='<td style="'+(gi===0?'border-left:2px solid var(--bd)':'')+';color:var(--dm);font-style:italic" title="3Y avg estimate">'+(_pgm!=null?pc(_pgm):'—')+'</td>';}
     h+='</tr>';
 
     // Net Income
@@ -923,6 +943,16 @@ function render(){
     dcf.pFcf.forEach(function(v,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd)':'')+'">'+fx(dcf.pCfo[i]>0?v/dcf.pCfo[i]:null)+'</td>';});
     h+='</tr>';
 
+    // Owner's Earnings row
+    h+=secRow('Owner\'s Earnings (Buffett: NI + D&A \u2212 Maint CapEx \u2212 SBC)');
+    var a3Oe=av(hOe.slice(Math.max(0,hOe.length-3)));
+    h+='<tr><td style="font-weight:600;color:var(--pu)">Owner\'s Earnings</td>';
+    hOe.forEach(function(v){h+='<td style="font-weight:600;color:var(--pu)">'+D(v)+'</td>';});
+    h+='<td style="font-weight:600;color:var(--yw);background:#0d1520;border-left:1px solid var(--bd)">'+D(a3Oe)+'</td>';
+    (dcf.pOE||[]).forEach(function(v,i){h+='<td style="'+(i===0?'border-left:2px solid var(--bd);':'')+';font-weight:600;color:var(--pu)">'+D(v)+'</td>';});
+    h+='</tr>';
+    h+='<tr style="background:#0a0e18"><td colspan="'+(hn+7)+'" style="font-size:9px;color:var(--dm);padding:3px 8px">OE = NI + D&A \u2212 Maint CapEx \u2212 SBC. Adj FCF = CFO \u2212 SBC \u2212 Maint CapEx. Difference = \u0394 Working Capital + other non-cash items. OE ignores WC changes (Buffett considers WC timing noise). If they diverge significantly, check WC trend.</td></tr>';
+
     // ── SHARES ────────────────────────────────────────────────
     h+=secRow('Shares Outstanding');
     h+='<tr><td>Shares (M)</td>';
@@ -942,6 +972,9 @@ function render(){
     var _bbShares=d.p>0&&_bb3>0?(_bb3/d.p).toFixed(1):null; // millions of shares at current price
     var _bbPct=d.sh>0&&_bbShares!=null?(+_bbShares/d.sh*100).toFixed(2):null;
     if(_bb3>0){_shNote+=' | Avg buybacks: '+D(_bb3)+'/yr \u2248 '+(_bbShares||'?')+'M shares @ current price ('+(_bbPct||'?')+'% of float/yr)';}
+    // NCIB proxy
+    var _ncibCap10=d.sh>0?Math.round(d.sh*0.10*10)/10:null; // 10% float rule (Canada NCIB standard)
+    var _ncibVal=d.p>0&&_ncibCap10?(_ncibCap10*d.p).toFixed(0):null; // $ value to retire 10% float at current price
 
     for(var pi=1;pi<=5;pi++){h+='<td style="'+(pi===1?'border-left:2px solid var(--bd)':'')+';padding:2px 3px">'+dcfInp('sh'+pi,v2['sh'+pi]||0,48)+'</td>';}
     h+='</tr>';
