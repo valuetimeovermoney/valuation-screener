@@ -388,7 +388,7 @@ async function buildCo(tk){
     _ta:+((gf(bs0,'totalAssets'))/1e6).toFixed(1),
     _ppe:+((gf(bs0,'propertyPlantAndEquipmentNet','propertyPlantAndEquipment'))/1e6).toFixed(1),
     _intang:+((gf(bs0,'goodwillAndIntangibleAssets','intangibleAssets'))/1e6).toFixed(1),
-    segments:(segData||[]).slice(0,3),
+    segments:(segData||[]).slice(0,5),
     _wc:+((gf(bs0,'totalCurrentAssets')-gf(bs0,'totalCurrentLiabilities'))/1e6).toFixed(1),
     _tbv:+(Math.max(0,(gf(bs0,'totalStockholdersEquity')-gf(bs0,'goodwillAndIntangibleAssets')-gf(bs0,'intangibleAssets')))/1e6).toFixed(1),
     _bvps:+(gf(bs0,'totalStockholdersEquity')/1e6).toFixed(1),
@@ -1156,6 +1156,61 @@ function render(){
     // ── INCOME ─────────────────────────
     h+='<tr style="border-top:2px solid var(--bd)"><td colspan="'+(fsN+3+(hasTTM?1:0))+'" style="font-size:9px;font-weight:700;color:var(--dm);letter-spacing:1px;padding:5px 5px 3px;text-transform:uppercase">Income Statement</td></tr>';
     hlRow('Revenue',fsRv,'r',true,'var(--bl)',hasTTM?ttmRev:null);yoyHL(fsRv,'r');
+
+    // ── REVENUE SEGMENTS (inline under Revenue) ──────────────────────────
+    if(d.segments&&d.segments.length){
+      // Align segment years with income statement years
+      var _segColors2=['var(--bl)','var(--pu)','var(--gn)','var(--yw)','var(--tl)','var(--rd)'];
+      var _segYrs=fsRv.map(function(r){return r&&r.y?String(r.y).slice(0,4):null;});
+      // Build per-segment per-year data
+      // d.segments[0] = most recent year, d.segments[1] = prior year etc.
+      // Get all segment keys from most recent year
+      var _segK=d.segments[0]?Object.keys(d.segments[0]).filter(function(k){
+        return k!=='date'&&k!=='symbol'&&k!=='period'&&k!=='reportedCurrency'&&typeof d.segments[0][k]==='number'&&d.segments[0][k]>0;
+      }).sort(function(a,b){return d.segments[0][b]-d.segments[0][a];}).slice(0,6):[];
+      if(_segK.length>1){
+        // Section sub-header
+        h+='<tr style="background:#0a0e18"><td colspan="99" style="font-size:9px;color:var(--yw);font-weight:700;padding:3px 6px;letter-spacing:0.5px">\u21b3 Revenue by Segment</td></tr>';
+        _segK.forEach(function(k,ki){
+          h+='<tr style="font-size:9px;background:#0d1520">';
+          h+='<td style="color:'+_segColors2[ki%6]+';padding-left:12px">'+k+'</td>';
+          // For each year column, find matching segment data
+          _segYrs.forEach(function(yr){
+            var segYr=null;
+            for(var si=0;si<d.segments.length;si++){
+              if(d.segments[si]&&(d.segments[si].date||'').slice(0,4)===yr){segYr=d.segments[si];break;}
+            }
+            var sv=segYr&&segYr[k]!=null?segYr[k]/1e6:null;
+            var stot=segYr?Object.keys(segYr).filter(function(kk){return kk!=='date'&&kk!=='symbol'&&kk!=='period'&&kk!=='reportedCurrency'&&typeof segYr[kk]==='number'&&segYr[kk]>0;}).reduce(function(s,kk){return s+segYr[kk];},0):0;
+            var spct=sv!=null&&stot>0?sv/(stot/1e6):null;
+            if(sv!=null){
+              h+='<td style="text-align:right">';
+              h+=D(sv);
+              h+='<div style="margin-top:1px;height:3px;background:var(--ib);border-radius:1px"><div style="height:3px;width:'+Math.round((spct||0)*100)+'%;background:'+_segColors2[ki%6]+';border-radius:1px"></div></div>';
+              h+='<span style="font-size:8px;color:var(--dm)">'+pc(spct)+'</span>';
+              h+='</td>';
+            } else {
+              h+='<td style="color:var(--dm)">—</td>';
+            }
+          });
+          // TTM column — use most recent segment data
+          if(hasTTM){
+            var _ttmSv=d.segments[0]&&d.segments[0][k]!=null?d.segments[0][k]/1e6:null;
+            h+='<td style="color:var(--bl);text-align:right">'+(  _ttmSv!=null?D(_ttmSv):'—')+'</td>';
+          }
+          // 3Y avg column
+          var _seg3Vals=d.segments.slice(0,3).map(function(s){return s&&s[k]!=null?s[k]/1e6:null;}).filter(function(v){return v!=null;});
+          var _seg3Avg=_seg3Vals.length?_seg3Vals.reduce(function(a,b){return a+b;},0)/_seg3Vals.length:null;
+          h+='<td style="color:var(--yw);text-align:right">'+(_seg3Avg!=null?D(_seg3Avg):'—')+'</td>';
+          // YoY growth column
+          var _cv=d.segments[0]&&d.segments[0][k]?d.segments[0][k]:0;
+          var _pv=d.segments[1]&&d.segments[1][k]?d.segments[1][k]:0;
+          h+='<td style="text-align:right">'+(_cv>0&&_pv>0?colG(_cv/_pv-1):'')+'</td>';
+          h+='</tr>';
+        });
+      }
+    }
+
     h+='<tr style="font-size:9px"><td style="color:var(--dm);padding-left:10px">Gross Margin</td>';
     fsGm.forEach(function(x){h+='<td>'+pc(x?x.v:null)+'</td>';});
     if(hasTTM)h+='<td style="color:var(--bl)">'+pc(ttmGM)+'</td>';
