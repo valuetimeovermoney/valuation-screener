@@ -106,8 +106,9 @@ var ST={d:null,showDCF:true,showTri:true,
 
 function togS(k){ST['show'+k]=!ST['show'+k];render();}
 
-function dcfInp(key,val,w){
-  return '<input id="d_'+key+'" data-k="'+key+'" type="number" step="0.1" value="'+(Math.round((val||0)*10)/10)+'" oninput="updDCF(this.dataset.k)" style="width:'+(w||48)+'px;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:2px 3px;color:var(--br);font-family:var(--m);font-size:9px;outline:none;text-align:right"/>';
+function dcfInp(key,val,w,step){
+  var st=step||0.1;
+  return '<input id="d_'+key+'" data-k="'+key+'" type="number" step="'+st+'" value="'+(Math.round((val||0)*(1/st))/(1/st))+'" oninput="updDCF(this.dataset.k)" style="width:'+(w||48)+'px;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:2px 4px;color:var(--br);font-family:var(--m);font-size:11px;outline:none;text-align:right"/>';
 }
 
 function updDCF(changedKey){
@@ -208,6 +209,9 @@ async function buildCo(tk){
     ebitM:gf(incA[0]||{},'operatingIncome')/1e6,
     ebitdaM:(gf(incA[0]||{},'ebitda')||0)/1e6,
     niLTM:gf(incA[0]||{},'netIncome')/1e6,
+    buybackTTM:Math.abs(gf(cfA[0]||{},'commonStockRepurchased'))/1e6,
+    buyback3Yavg:(function(){var tot=0,n=Math.min(3,cfA.length);for(var _bi=0;_bi<n;_bi++)tot+=Math.abs(gf(cfA[_bi]||{},'commonStockRepurchased'));return n>0?tot/n/1e6:0;})(),
+    sh3yCagr:(function(){var _so=soH.slice(0,Math.min(4,soH.length));return _so.length>=2?cagr(_so[_so.length-1].v||1,_so[0].v||1,_so.length-1):null;})(),
     curAssets:gf(bs0,'totalCurrentAssets')/1e6,
     totLiab:gf(bs0,'totalLiabilities')/1e6,
     totAssets:gf(bs0,'totalAssets')/1e6,
@@ -250,8 +254,8 @@ function seedDCF(d){
   v.mp=d.mp||50;
   // Shares: 3Y CAGR projected
   var lsh=d.soH&&d.soH[0]?d.soH[0].v:d.sh;
-  var shcagr=d.soH&&d.soH.length>=2?cagr(d.soH[d.soH.length-1].v||1,d.soH[0].v||1,d.soH.length-1):0;
-  for(var i=1;i<=5;i++)v['sh'+i]=Math.round(lsh*Math.pow(1+shcagr,i)*10)/10;
+  // Default: stable share count (conservative) — user can override per year
+  for(var i=1;i<=5;i++)v['sh'+i]=Math.round(lsh*10)/10;
   v._seeded=true;
   v._manual={};
 }
@@ -719,12 +723,34 @@ function render(){
     h+=ar('Current Price',pr(d.p),'');
     h+=ar('Premium / (Discount)',pc(replVsP),replVsP>0?'Cheaper than rebuilding':'Premium over replacement',replVsP>0.1?'var(--gn)':replVsP>-0.1?'var(--yw)':'var(--rd)');
 
-    h+='<div style="margin-top:12px;padding:10px 14px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd);font-size:11px;line-height:1.7">';
-    h+='<b style="color:var(--yw)">Asset Summary</b><br>';
-    [{n:'NCAV/share',v:ncavPS},{n:'TBV/share',v:tbvPS},{n:'Replacement/share',v:replPS}].forEach(function(x){
-      if(x.v!=null&&!isNaN(x.v)){var vs=d.p>0?(x.v-d.p)/d.p:0;h+='\u2022 '+x.n+': <b style="color:'+(vs>0?'var(--gn)':'var(--rd)')+'">'+pr(x.v)+'</b> <span style="font-size:9px;color:var(--dm)">('+pc(vs)+' vs price)</span><br>';}
+    // Plain-English replacement value summary
+    h+='<div style="margin-top:12px;padding:12px 14px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd)">';
+    h+='<div style="font-size:10px;font-weight:700;color:var(--yw);margin-bottom:8px">WHAT ARE YOU REALLY PAYING?</div>';
+    var _rows=[{n:'NCAV (liquidation floor)',v:ncavPS,tip:'Minimum — what you get if the company winds down today'},{n:'Tangible Book Value',v:tbvPS,tip:'Book assets minus goodwill & intangibles'},{n:'Replacement Cost',v:replPS,tip:'What a competitor would spend to build this from scratch'}];
+    _rows.forEach(function(x){
+      if(x.v==null||isNaN(x.v))return;
+      var vs=d.p>0?(x.v-d.p)/d.p:0;
+      var barW=Math.min(100,Math.abs(vs)*200);
+      var col=vs>0?'var(--gn)':'var(--rd)';
+      h+='<div style="margin-bottom:8px">';
+      h+='<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">';
+      h+='<span style="color:var(--lb)">'+x.n+'</span>';
+      h+='<span><b style="font-family:var(--m);color:'+col+'">'+pr(x.v)+'</b> <span style="font-size:9px;color:var(--dm)">'+(vs>0?'\u2193 You pay '+pc(Math.abs(vs))+' LESS than this value':'\u2191 You pay '+pc(Math.abs(vs))+' MORE than this value')+'</span></span>';
+      h+='</div>';
+      h+='<div style="height:4px;background:var(--ib);border-radius:2px"><div style="height:4px;width:'+barW+'%;background:'+col+';border-radius:2px"></div></div>';
+      h+='<div style="font-size:9px;color:var(--dm);margin-top:2px">'+x.tip+'</div>';
+      h+='</div>';
     });
-    h+='<span style="font-size:9px;color:var(--dm)">"Price is what you pay, value is what you get." \u2014 Buffett</span>';
+    var _bestCase=Math.max(ncavPS||0,tbvPS||0,replPS||0);
+    if(_bestCase>0){
+      var _bestVs=(d.p-_bestCase)/_bestCase;
+      h+='<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--bd);font-size:11px">';
+      h+='<b style="color:var(--yw)">Bottom line: </b>';
+      if(_bestVs<-0.1)h+='<span style="color:var(--gn)">Current price is below replacement value — you could be getting a Buffett \'moat at a discount\'.</span>';
+      else if(_bestVs<0.2)h+='<span style="color:var(--yw)">Current price is roughly at replacement value. No obvious asset discount.</span>';
+      else h+='<span style="color:var(--rd)">You are paying '+pc(_bestVs)+' above the highest asset-based value. The premium is justified only if earnings power is strong.</span>';
+      h+='</div>';
+    }
     h+='</div>';
 
     h+='</div>';
@@ -907,6 +933,16 @@ function render(){
     h+='<tr style="background:#0d1520"><td style="font-size:9px;color:var(--yw);padding-left:8px">↳ Shares (M) assumption</td>';
     hSo.forEach(function(v){h+='<td style="font-size:9px;color:var(--dm);text-align:right">'+(v!=null?SH(v):'')+'</td>';});
     h+='<td style="background:#0d1520;border-left:1px solid var(--bd)"></td>';
+    // 3Y share trend note
+    var _shCagr=d.sh3yCagr;
+    var _shTrend=_shCagr==null?'':_shCagr>0.005?' \u2191 Diluting':_shCagr<-0.005?' \u2193 Buying back':' Stable';
+    var _shNote='Proj years = stable (conservative)'+(d.sh3yCagr!=null?' | 3Y trend: '+pc(d.sh3yCagr)+'/yr'+_shTrend:'')+'.';
+    // Buyback analysis
+    var _bb3=+(d.buyback3Yavg||0),_bbTTM=+(d.buybackTTM||0);
+    var _bbShares=d.p>0&&_bb3>0?(_bb3/d.p).toFixed(1):null; // millions of shares at current price
+    var _bbPct=d.sh>0&&_bbShares!=null?(+_bbShares/d.sh*100).toFixed(2):null;
+    if(_bb3>0){_shNote+=' | Avg buybacks: '+D(_bb3)+'/yr \u2248 '+(_bbShares||'?')+'M shares @ current price ('+(_bbPct||'?')+'% of float/yr)';}
+
     for(var pi=1;pi<=5;pi++){h+='<td style="'+(pi===1?'border-left:2px solid var(--bd)':'')+';padding:2px 3px">'+dcfInp('sh'+pi,v2['sh'+pi]||0,48)+'</td>';}
     h+='</tr>';
 
@@ -914,7 +950,7 @@ function render(){
     h+=secRow('DCF Outputs & Valuation');
     h+='<tr style="background:#0d1520"><td style="font-size:9px;color:var(--yw);padding-left:8px">↳ WACC / Terminal Growth</td>';
     for(var hi=0;hi<hn;hi++)h+='<td></td>';
-    h+='<td colspan="3" style="border-left:2px solid var(--bd);padding:2px">WACC: '+dcfInp('_wacc',v2.wacc,36)+'%&nbsp;&nbsp;Term.G: '+dcfInp('_tg',v2.tg,36)+'%</td><td colspan="2"></td></tr>';
+    h+='<td colspan="3" style="border-left:2px solid var(--bd);padding:2px">WACC: '+dcfInp('_wacc',v2.wacc,54,0.5)+'%&nbsp;&nbsp;Term.G: '+dcfInp('_tg',v2.tg,50,0.5)+'%</td><td colspan="2"></td></tr>';
 
     h+='<tr><td>PV of Adj FCF</td>';
     for(var hi=0;hi<hn;hi++)h+='<td></td>';h+='<td></td>';
@@ -997,11 +1033,12 @@ function render(){
   // ── SENSITIVITY TABLE ────────────────────────────────────────────────────
   var _ds=calcDCF();
   if(_ds&&_ds.pFcf&&_ds.pFcf.length===5){
-    var _wB=ST.dcf.wacc/100,_wArr=[_wB-0.02,_wB-0.01,_wB,_wB+0.01,_wB+0.02],_tArr=[0.01,0.015,0.02,0.025,0.03];
-    h+='<div class="card"><div style="padding:12px 16px"><div class="ct" style="margin-bottom:8px">DCF Sensitivity</div>';
-    h+='<div style="font-size:9px;color:var(--dm);margin-bottom:8px">WACC (cols) x Terminal Growth (rows). <span style="color:var(--gn)">Green</span> = above '+pr(d.p)+'</div>';
+    var _wArr=[0.10,0.15,0.20,0.25,0.30],_tArr=[0.01,0.015,0.02,0.025,0.03];
+    var _wB=ST.dcf.wacc/100;
+    h+='<div class="card"><div style="padding:12px 16px"><div class="ct" style="margin-bottom:8px">DCF Sensitivity vs Hurdle Rates</div>';
+    h+='<div style="font-size:9px;color:var(--dm);margin-bottom:8px">Intrinsic value per share at different hurdle rates (WACC) and terminal growth assumptions. <span style="color:var(--gn)">Green</span> = above current price '+pr(d.p)+'. Your DCF WACC: <b style="color:var(--yw)">'+(_wB*100).toFixed(1)+'%</b></div>';
     h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:11px;font-family:var(--m);width:100%"><thead><tr><th style="background:var(--ib);color:var(--dm);padding:4px 8px;border:1px solid var(--bd)">g \ WACC</th>';
-    _wArr.forEach(function(w){h+='<th style="background:var(--ib);color:var(--bl);padding:4px 8px;border:1px solid var(--bd);text-align:center">'+(w*100).toFixed(1)+'%</th>';});
+    _wArr.forEach(function(w){var isMyWacc=Math.abs(w-_wB)<0.001;h+='<th style="background:'+(isMyWacc?'var(--yw)33':'var(--ib)')+';color:'+(isMyWacc?'var(--yw)':'var(--bl)')+';padding:4px 8px;border:1px solid var(--bd);text-align:center">'+(w*100).toFixed(0)+'%'+(isMyWacc?' \u2190':'')+'</th>';});
     h+='</tr></thead><tbody>';
     _tArr.forEach(function(g){
       h+='<tr><td style="background:var(--ib);color:var(--bl);padding:4px 8px;border:1px solid var(--bd);text-align:center">'+(g*100).toFixed(1)+'%</td>';
