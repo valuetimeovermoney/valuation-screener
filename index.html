@@ -280,9 +280,14 @@ async function buildCo(tk){
     // Use 3Y normalized avg for smoothing (Buffett: structural WC only)
     var maintCx=cx2*(isL?0.5:0.7);
     // OE = NI + D&A - MaintCapEx - SBC + cashWcImpact (Buffett 1986: structural WC increment)
-    var oe=(ni2+da2-maintCx-sbc2+cashWcImpact)/1e6;
-    return{y:yrOf(y),v:+oe.toFixed(1),ni:ni2/1e6,da:da2/1e6,cx:cx2/1e6,sbc:sbc2/1e6,dwc:dwc2/1e6};
+    // Store raw (without WC) — will apply normalized 3Y avg ΔWC after loop
+    return{y:yrOf(y),_raw:(ni2+da2-maintCx-sbc2)/1e6,_dwc:cashWcImpact/1e6,
+           ni:ni2/1e6,da:da2/1e6,cx:cx2/1e6,sbc:sbc2/1e6,dwc:cashWcImpact/1e6};
   });
+  // 3Y normalized ΔWC — Buffett: only structural WC required, not timing noise
+  var _dwcAll=oeH.slice(0,3).map(function(x){return x._dwc||0;});
+  var _dwcNorm3=_dwcAll.length?_dwcAll.reduce(function(a,b){return a+b;},0)/_dwcAll.length:0;
+  oeH=oeH.map(function(x){return{y:x.y,v:+(x._raw+_dwcNorm3).toFixed(1),ni:x.ni,da:x.da,cx:x.cx,sbc:x.sbc,dwc:_dwcNorm3};});
   var sbcH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+((gf(y,'stockBasedCompensation'))/1e6).toFixed(1)};});
   var capexH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+(Math.abs(gf(y,'capitalExpenditure'))/1e6).toFixed(1)};});
   var divH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+(Math.abs(gf(y,'dividendsPaid'))/1e6).toFixed(1)};});
@@ -919,7 +924,7 @@ function render(){
   h+='<div style="display:flex;gap:4px">';
   h+='<span onclick="ST.fcfMethod=\'adj\';render();" style="cursor:pointer;padding:3px 8px;border-radius:4px;font-size:9px;font-weight:700;'+(! _isOE?'background:var(--pu);color:#fff':'background:var(--ib);color:var(--dm)')+';border:1px solid var(--bd)">Adj FCF</span>';
   h+='<div style="font-size:9px;color:var(--dm);margin-top:4px;padding:6px 8px;background:#0a0e18;border-radius:4px">';
-  h+='<b style="color:var(--yw)">\u0394WC in OE:</b> Uses actual annual cashWC impact (CF sign: positive=cash inflow). ';
+  h+='<b style="color:var(--yw)">\u0394WC in OE:</b> Uses 3Y normalized \u0394WC (Buffett: structural WC only, not timing noise). ';
   h+='<b style="color:var(--yw)">\u0394WC in Adj FCF:</b> Embedded in CFO (CFO=NI+D&A+\u0394WC). ';
   h+='They differ when WC swings materially or non-cash items (deferred tax, gains) are large.</div>';
   h+='<span onclick="ST.fcfMethod=\'oe\';render();" style="cursor:pointer;padding:3px 8px;border-radius:4px;font-size:9px;font-weight:700;'+(_isOE?'background:var(--pu);color:#fff':'background:var(--ib);color:var(--dm)')+';border:1px solid var(--bd)">Owner Earnings</span>';
