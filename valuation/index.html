@@ -102,23 +102,30 @@ var ST={d:null,showDCF:true,showTri:true,
        cx1:0,cx2:0,cx3:0,cx4:0,cx5:0,
        mp:50,
        sh1:0,sh2:0,sh3:0,sh4:0,sh5:0,
-       wacc:10,tg:3,ar_hc:5,inv_hc:15,ppe_adj:0,brand_yrs:3,rd_yrs:4,_seeded:false}};
+       wacc:10,tg:3,ar_hc:5,inv_hc:15,ppe_adj:0,brand_yrs:3,rd_yrs:4,_manual:{},_seeded:false}};
 
 function togS(k){ST['show'+k]=!ST['show'+k];render();}
 
 function dcfInp(key,val,w){
-  return '<input id="d_'+key+'" type="number" step="0.1" value="'+(Math.round((val||0)*10)/10)+'" oninput="updDCF()" style="width:'+(w||48)+'px;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:2px 3px;color:var(--br);font-family:var(--m);font-size:9px;outline:none;text-align:right"/>';
+  return '<input id="d_'+key+'" data-k="'+key+'" type="number" step="0.1" value="'+(Math.round((val||0)*10)/10)+'" oninput="updDCF(this.dataset.k)" style="width:'+(w||48)+'px;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:2px 3px;color:var(--br);font-family:var(--m);font-size:9px;outline:none;text-align:right"/>';
 }
 
-function updDCF(){
+function updDCF(changedKey){
   var v=ST.dcf;
+  if(!v._manual)v._manual={};
   ['r','ni','cfo','sbc','cx','sh'].forEach(function(k){
     for(var i=1;i<=5;i++){var e=document.getElementById('d_'+k+i);if(e)v[k+i]=parseFloat(e.value)||0;}
   });
   var mp=document.getElementById('d__mp');if(mp)v.mp=parseFloat(mp.value)||50;
-  var wc=document.getElementById('d__wacc');if(wc)v.wacc=parseFloat(wc.value)||9;
+  var wc=document.getElementById('d__wacc');if(wc)v.wacc=parseFloat(wc.value)||10;
   var tg=document.getElementById('d__tg');if(tg)v.tg=parseFloat(tg.value)||3;
-  ['ar_hc','inv_hc','ppe_adj','brand_yrs','rd_yrs'].forEach(function(k){var e=document.getElementById('d_'+k);if(e)v[k]=parseFloat(e.value)||0;});
+  ['ar_hc','inv_hc','ppe_adj','brand_yrs','rd_yrs','reMult'].forEach(function(k){var e=document.getElementById('d_'+k);if(e)v[k]=parseFloat(e.value)||0;});
+  if(changedKey){
+    var mYr=changedKey.match(/^(r|ni|cfo|sbc|cx|sh)([2-5])$/);
+    if(mYr)v._manual[changedKey]=true;
+    var mY1=changedKey.match(/^(r|ni|cfo|sbc|cx|sh)1$/);
+    if(mY1){var base=mY1[1],nv=v[base+'1'];for(var pi=2;pi<=5;pi++){if(!v._manual[base+pi]){v[base+pi]=nv;var el=document.getElementById('d_'+base+pi);if(el)el.value=Math.round(nv*10)/10;}}}
+  }
   render();
 }
 
@@ -246,6 +253,7 @@ function seedDCF(d){
   var shcagr=d.soH&&d.soH.length>=2?cagr(d.soH[d.soH.length-1].v||1,d.soH[0].v||1,d.soH.length-1):0;
   for(var i=1;i<=5;i++)v['sh'+i]=Math.round(lsh*Math.pow(1+shcagr,i)*10)/10;
   v._seeded=true;
+  v._manual={};
 }
 
 // ── Render ────────────────────────────────────────────────────
@@ -253,6 +261,12 @@ function render(){
   var d=ST.d;if(!d)return;
   var dcf=calcDCF();
   var h='';
+  var _sy=window.scrollY;
+  var _fid=(document.activeElement&&document.activeElement.id)||null;
+  var _fv=_fid?document.activeElement.value:null;
+  var _fs=(_fid&&document.activeElement.selectionStart!=null)?document.activeElement.selectionStart:-1;
+  var _dcftEl=document.getElementById('dcft');
+  var _dcftSL=_dcftEl?_dcftEl.scrollLeft:0;
 
   // Header card
   h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;background:var(--cd);border-radius:8px;padding:14px 16px;border:1px solid var(--bd);margin-bottom:12px">';
@@ -483,7 +497,7 @@ function render(){
     var lynchFairPrice=lynchFairPE!=null&&eps>0?lynchFairPE*eps:null;
 
     // Earnings Power Value (zero growth, Greenwald)
-    var wacc0=ST.dcf.wacc/100;
+    var wacc0=ST.dcf.wacc/100; // uses same WACC as DCF (adjustable in 5Y DCF section below)
     var epv=wacc0>0?fcfLTM/wacc0:0; // perpetuity of current FCF at WACC
     var epvPS=d.sh>0?(epv-(+(d.de||0))+(+(d.ca||0)))/d.sh:0;
 
@@ -552,9 +566,11 @@ function render(){
     h+=rr('SBC-Adj Net Income',D(adjNI),'NI '+D(niLTM)+' - SBC '+D(sbcLTM));
     h+=rr('SBC-Adj P/E',adjPE!=null?adjPE.toFixed(1)+'x':'N/A','Real earnings P/E (GAAP P/E: '+(pe!=null?pe.toFixed(1)+'x':'N/A')+')',adjPE!=null&&pe!=null&&adjPE>pe*1.3?'var(--rd)':'var(--br)');
 
-    // Payback Period
-    var paybackYrs=fcfPS>0?d.p/fcfPS:null;
-    h+=rr('Payback Period',paybackYrs!=null?paybackYrs.toFixed(1)+' yrs':'N/A','Price / FCF per share. How long to recoup investment',paybackYrs!=null?(paybackYrs<10?'var(--gn)':paybackYrs<20?'var(--yw)':'var(--rd)'):'var(--dm)');
+    // Payback Period — using Adj FCF per share
+    var adjFcfPS=d.sh>0?fcfLTM/d.sh:0; // Adj FCF per share = same as fcfPS (fcfLTM = d.af = Adj FCF)
+    var paybackYrs=adjFcfPS>0?d.p/adjFcfPS:null;
+    h+=rr('Adj FCF Per Share',pr(adjFcfPS),'Adj FCF '+D(fcfLTM)+' / '+d.sh.toFixed(0)+'M shares');
+    h+=rr('Payback Period',paybackYrs!=null?paybackYrs.toFixed(1)+' yrs':'N/A','Price '+pr(d.p)+' / Adj FCF per share '+pr(adjFcfPS)+'. Years to recoup at current cash generation',paybackYrs!=null?(paybackYrs<10?'var(--gn)':paybackYrs<20?'var(--yw)':'var(--rd)'):'var(--dm)');
 
     // Share dilution
     var soArr=(d.soH||[]).slice(0,3);
@@ -577,7 +593,7 @@ function render(){
     h+='<div style="height:1px;background:var(--bd);margin:12px 0"></div>';
     h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:6px">REVERSE DCF — IMPLIED EXPECTATIONS</div>';
     var implColor=impliedG!=null?(impliedG>0.20?'var(--rd)':impliedG>0.10?'var(--yw)':'var(--gn)'):'var(--dm)';
-    h+=rr('Implied FCF Growth Rate',impliedG!=null?pc(impliedG):'N/A','Growth the market is pricing in at WACC '+ST.dcf.wacc+'%, tg '+ST.dcf.tg+'%',implColor);
+    h+=rr('Implied FCF Growth Rate',impliedG!=null?pc(impliedG):'N/A','Market pricing at WACC '+ST.dcf.wacc+'% (adjust via DCF below), tg '+ST.dcf.tg+'%',implColor);
     if(impliedG!=null&&epsGrowth!=null){
       var implVsHist=impliedG-epsGrowth;
       h+=rr('Implied vs Historical Growth',pc(implVsHist),implVsHist>0.05?'Market expects acceleration':'Market expects deceleration or similar',implVsHist>0.05?'var(--rd)':implVsHist<-0.05?'var(--gn)':'var(--yw)');
@@ -586,7 +602,9 @@ function render(){
     // ── EPV Section ──
     h+='<div style="height:1px;background:var(--bd);margin:12px 0"></div>';
     h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:6px">ZERO-GROWTH VALUATION</div>';
-    h+=rr('Earnings Power Value (EPV/share)',pr(epvPS),'Perpetuity of current FCF '+D(fcfLTM)+' at WACC '+ST.dcf.wacc+'%');
+    h+=rr('Adj FCF (LTM)',D(fcfLTM),'CFO − SBC − Maint CapEx (see breakdown in 5Y DCF below)');
+    h+=rr('WACC used',pc(wacc0),'Edit in 5Y DCF section ↓ or adjust DCF WACC input');
+    h+=rr('Earnings Power Value (EPV/share)',pr(epvPS),'= Adj FCF ÷ WACC = '+D(fcfLTM)+' ÷ '+pc(wacc0)+' = '+D(epv)+' equity value ÷ '+d.sh.toFixed(0)+'M shares');
     var epvVsPrice=d.p>0?(epvPS-d.p)/d.p:0;
     h+=rr('EPV vs Current Price',pc(epvVsPrice),epvVsPrice>0?'Worth more than price even with NO growth':'Price includes growth expectations',epvVsPrice>0?'var(--gn)':'var(--yw)');
     if(yearsGrowth!=null){
@@ -596,7 +614,18 @@ function render(){
     // ── Yield Section ──
     h+='<div style="height:1px;background:var(--bd);margin:12px 0"></div>';
     h+='<div style="font-size:10px;font-weight:700;color:var(--yw);letter-spacing:1px;margin-bottom:6px">YIELD COMPARISON</div>';
-    h+=rr('FCF Yield (FCF/EV)',pc(fcfYield),'Adj FCF '+D(fcfLTM)+' / EV '+D(evM));
+    var _cfo0=d.cfoH&&d.cfoH[0]?+(d.cfoH[0].v||0):0;
+    var _sbc0=d.sbcH&&d.sbcH[0]?+(d.sbcH[0].v||0):0;
+    var _cx0=d.capexH&&d.capexH[0]?+(d.capexH[0].v||0):0;
+    var _mp0=(d.mp||50)/100;
+    var _mxCalc=_cx0*_mp0;
+    h+='<div style="background:#0d1520;padding:8px 12px;border-radius:5px;margin-bottom:8px;font-size:10px">';
+    h+='<b style="color:var(--yw)">Adj FCF = CFO − SBC − Maint CapEx</b><br>';
+    h+='<span style="color:var(--dm)">'+D(_cfo0)+'(CFO) − '+D(_sbc0)+'(SBC) − '+D(_mxCalc)+'(CapEx×'+Math.round(_mp0*100)+'% maint) = </span>';
+    h+='<b style="color:var(--bl)">'+D(fcfLTM)+'</b>';
+    h+='<span style="font-size:9px;color:var(--dm)"> (maint % adjustable in 5Y DCF below)</span>';
+    h+='</div>';
+    h+=rr('Adj FCF Yield (Adj FCF / EV)',pc(fcfYield),'Adj FCF '+D(fcfLTM)+' / EV '+D(evM));
     h+=rr('10Y Treasury Rate',pc(riskFree),'Risk-free benchmark');
     h+=rr('Yield Spread over Treasury',pc(yieldSpread),yieldSpread>0?'Being paid for equity risk':'Negative spread \u2014 demanding valuation',yieldSpread>0.02?'var(--gn)':yieldSpread>0?'var(--yw)':'var(--rd)');
     h+=rr('FCF Per Share',pr(fcfPS),'Adj FCF / Shares');
@@ -761,7 +790,7 @@ function render(){
     var a3Fcf=av(hFcf.slice(hn-3,hn));
     var a3So=av(hSo.slice(hn-3,hn));
 
-    h+='<div style="overflow-x:auto"><table class="t"><thead><tr>';
+    h+='<div id="dcft" style="overflow-x:auto"><table class="t"><thead><tr>';
     h+='<th style="min-width:150px">Row</th>';
     histRv.forEach(function(r){h+='<th style="color:var(--dm)">'+r.y+'</th>';});
     h+='<th style="color:var(--yw);background:#0d1520;border-left:1px solid var(--bd)">3Y Avg</th>';
@@ -1017,6 +1046,9 @@ function render(){
   document.getElementById('out').innerHTML=h;
   updateSaveBtn();
   var _sl=document.getElementById('scrlink');if(_sl&&d&&d.t)_sl.href='https://valuetimeovermoney.github.io/valuation-screener/?t='+encodeURIComponent(d.t);
+  window.scrollTo(0,_sy);
+  var _dcftNew=document.getElementById('dcft');if(_dcftNew)_dcftNew.scrollLeft=_dcftSL;
+  if(_fid){var _rfe=document.getElementById(_fid);if(_rfe){_rfe.focus({preventScroll:true});if(_fs>=0&&_rfe.setSelectionRange){try{_rfe.value=_fv;_rfe.setSelectionRange(_fs,_fs);}catch(e){}}}}
 }
 
 function calcTri(){
