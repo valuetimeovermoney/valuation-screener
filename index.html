@@ -238,7 +238,6 @@ async function buildCo(tk){
     fmp('revenue-product-segmentation?symbol='+tk+'&period=annual').catch(function(){return null;}),
 ]);
   var segData=Array.isArray(segs)?segs:(segs&&typeof segs==='object'&&!segs['Error Message']?[segs]:[]);
-  if(typeof console!=='undefined')console.log('[SEG] raw:',segs,'segData len:',segData.length);
   if(!prof||(Array.isArray(prof)&&prof.length===0)){throw new Error('No data found for '+tk+'. Try with exchange suffix (e.g. .TO for TSX, .L for London).');}
   var p=(Array.isArray(prof)?prof[0]:prof)||{};
   var cfA=Array.isArray(cfs)?cfs:cfs?[cfs]:[];var cf0=cfA[0]||{};
@@ -755,38 +754,7 @@ function render(){
   // Header
   h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;background:var(--cd);border-radius:8px;padding:14px 16px;border:1px solid var(--bd);margin-bottom:12px"><div><div style="font-size:18px;font-weight:800;color:var(--br)">'+d.n+'</div><div style="font-size:11px;color:var(--dm)">'+d.t+' · '+d.sec+' · '+d.industry+'</div><div style="font-size:10px;color:var(--dm);margin-top:2px">Fiscal year ends: '+d.fyEnd+' · Latest: '+d.fy+'</div></div><div style="text-align:right"><div style="font-size:24px;font-weight:800;font-family:var(--m);color:var(--bl)">'+pr(d.p)+'</div><div style="font-size:10px;color:var(--dm)">'+d.pd+'</div></div></div>';
 
-  // ── REVENUE SEGMENTS ────────────────────────────────────
-  if(d.segments&&d.segments.length&&d.segments[0]){
-    var _segL=d.segments[0];
-    var _segKeys=Object.keys(_segL).filter(function(k){return k!=='date'&&k!=='symbol'&&k!=='period'&&k!=='reportedCurrency'&&typeof _segL[k]==='number'&&_segL[k]>0;});
-    if(_segKeys.length>1){
-      var _segTot=_segKeys.reduce(function(s,k){return s+_segL[k];},0);
-      var _segColors=['var(--bl)','var(--pu)','var(--gn)','var(--yw)','var(--tl)','var(--rd)','#e879f9','#38bdf8'];
-      h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="margin-bottom:8px">Revenue by Segment <span style="font-size:9px;color:var(--dm);font-weight:400">FY'+((_segL.date||'').slice(0,4))+'</span></div>';
-      _segKeys.sort(function(a,b){return _segL[b]-_segL[a];}).slice(0,8).forEach(function(k,i){
-        var v=_segL[k],pct=_segTot>0?v/_segTot:0,bw=Math.round(pct*100);
-        h+='<div style="margin-bottom:6px">';
-        h+='<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px">';
-        h+='<span style="color:var(--lb)">'+k+'</span>';
-        h+='<span style="font-family:var(--m)"><b>$'+(v/1e9>=1?(v/1e9).toFixed(1)+'B':(v/1e6).toFixed(0)+'M')+'</b> <span style="color:var(--dm)">'+pc(pct)+'</span></span>';
-        h+='</div>';
-        h+='<div style="height:6px;background:var(--ib);border-radius:3px"><div style="height:6px;width:'+bw+'%;background:'+_segColors[i%_segColors.length]+';border-radius:3px"></div></div>';
-        h+='</div>';
-      });
-      // YoY trend for top segments
-      if(d.segments.length>=2&&d.segments[1]){
-        var _seg1=d.segments[1];
-        h+='<div style="font-size:9px;color:var(--dm);margin-top:4px">YoY: ';
-        _segKeys.slice(0,4).forEach(function(k){
-          var cv=_segL[k]||0,pv=_seg1[k]||0;
-          if(pv>0){var chg=(cv/pv-1);h+='<span style="color:'+(chg>0?'var(--gn)':'var(--rd)')+'">'+k.slice(0,12)+' '+pc(chg)+'</span>  ';}
-        });
-        h+='</div>';
-      }
-      h+='<div style="font-size:9px;color:var(--dm);margin-top:2px">Source: FMP revenue-product-segmentation</div>';
-      h+='</div><div class="cs"><b class="s">Segment context:</b><br><br>Revenue breakdown shows relative contribution of each business unit. YoY trend highlights where growth is accelerating or decelerating. Focus on: (1) are high-margin segments growing faster? (2) is mix shifting to better or worse economics?</div></div></div>';
-    }
-  }
+
 
   // ── NET-NET & DEEP VALUE DETECTION ──────────────────────
   var _latBs0=(d.bsH||[])[0]||{};
