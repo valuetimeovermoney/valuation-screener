@@ -150,11 +150,38 @@ async function fmpSearch(q){
       return null;
     }
     // Try: the raw input as ticker, first word as ticker, each word as ticker
-    var words=qu.replace(/[^A-Z0-9 .]/g,'').split(/\s+/).filter(Boolean);
+    var words=qu.replace(/[^A-Z0-9 .\-]/g,'').split(/\s+/).filter(Boolean);
     var candidates=[qu];
-    if(words.length>1)words.forEach(function(w){if(w.length>=2&&w.length<=6&&candidates.indexOf(w)<0)candidates.push(w);});
+    if(words.length>1)words.forEach(function(w){if(w.length>=2&&w.length<=8&&candidates.indexOf(w)<0)candidates.push(w);});
     // Also try input without spaces
     var joined=qu.replace(/\s+/g,'');if(joined!==qu&&candidates.indexOf(joined)<0)candidates.push(joined);
+    // Canadian trust/REIT/preferred units: FMP uses hyphen format.
+    // e.g. user types 'AP.UN' or 'AP-UN' -> try 'AP-UN.TO', 'AP-UN', 'AP.UN.TO', and base 'AP.TO'
+    var unitForms=[];
+    candidates.slice().forEach(function(c3){
+      // Match patterns like XXX.UN, XXX-UN, XXX.PR.A, XXX-PR-A
+      var m=c3.match(/^([A-Z0-9]+)[.\-](UN|PR|PF|RT|WT|U|A|B)([.\-]([A-Z]))?$/);
+      if(m){
+        var base=m[1],cls=m[2],sub=m[4]?('-'+m[4]):'';
+        // hyphen format (FMP standard for TSX units/prefs)
+        unitForms.push(base+'-'+cls+sub+'.TO');
+        unitForms.push(base+'-'+cls+sub+'.V');
+        unitForms.push(base+'-'+cls+sub);
+        // dot format with exchange
+        unitForms.push(base+'.'+cls+sub.replace('-','.')+'.TO');
+        // base ticker alone on TSX
+        unitForms.push(base+'.TO');
+      } else {
+        // Plain ticker — also try converting any remaining dot-class to hyphen
+        var m2=c3.match(/^([A-Z0-9]+)\.([A-Z]{1,2})$/);
+        if(m2&&['TO','V','L','MI','AS','PA','DE','F','SW','HK','T','SI','ST','OL','CO','HE','BR','LS','MC','WA','JK','AX','NZ','SA','NS','BO','KQ','KS'].indexOf(m2[2])<0){
+          // dot class that's NOT a known exchange suffix -> likely a share class, try hyphen+TO
+          unitForms.push(m2[1]+'-'+m2[2]+'.TO');
+          unitForms.push(m2[1]+'-'+m2[2]);
+        }
+      }
+    });
+    unitForms.forEach(function(u){if(candidates.indexOf(u)<0)candidates.push(u);});
     var allProbes=[];
     candidates.forEach(function(c2){suffixes.forEach(function(sfx){allProbes.push(c2+sfx);});});
     // Run in batches of 15 for speed
