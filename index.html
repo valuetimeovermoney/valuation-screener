@@ -267,12 +267,19 @@ async function buildCo(tk){
 ]);
   var _segRaw=Array.isArray(segs)?segs:(segs&&typeof segs==='object'&&!segs['Error Message']?[segs]:[]);
   // Parse dividend payment history (per-share, dates, frequency)
-  var divList=Array.isArray(divs)?divs:(divs&&divs.historical?divs.historical:[]);
-  console.log('[DIV] raw divs:', divs, '| divList len:', divList.length);
-  var divSchedule=divList.filter(function(x){return x&&(x.dividend||x.adjDividend);}).slice(0,12).map(function(x){
-    // FMP dividends: 'date' is the ex-dividend date; also has recordDate, paymentDate, declarationDate
-    return{date:x.date||'',exDate:x.date||x.exDate||'',amount:+(x.adjDividend||x.dividend||0),
-      recordDate:x.recordDate||'',payDate:x.paymentDate||'',declDate:x.declarationDate||''};
+  // Robust to FMP formats: stable array, v3 {historical:[]}, or single object
+  var divList=[];
+  if(Array.isArray(divs))divList=divs;
+  else if(divs&&Array.isArray(divs.historical))divList=divs.historical;
+  else if(divs&&typeof divs==='object'&&(divs.date||divs.dividend))divList=[divs];
+  function _divAmt(x){
+    var a=x.adjDividend!=null?x.adjDividend:(x.dividend!=null?x.dividend:(x.adjustedDividend!=null?x.adjustedDividend:(x.amount!=null?x.amount:0)));
+    return +a||0;
+  }
+  console.log('[DIV] divs type:', Array.isArray(divs)?'array['+divs.length+']':typeof divs, '| divList:', divList.length, '| first raw:', JSON.stringify(divList[0]||'none').slice(0,250));
+  var divSchedule=divList.filter(function(x){return x&&x.date&&_divAmt(x)>0;}).slice(0,12).map(function(x){
+    return{date:x.date||'',exDate:x.date||x.exDate||x.exDividendDate||'',amount:_divAmt(x),
+      recordDate:x.recordDate||x.recordDateDate||'',payDate:x.paymentDate||x.payDate||'',declDate:x.declarationDate||''};
   });
   // Normalize: stable endpoint nests values under 'data'; v3/v4 has them flat or as {date:{seg:val}}
   var segData=_segRaw.map(function(row){
@@ -455,7 +462,6 @@ async function buildCo(tk){
     _ppe:+((gf(bs0,'propertyPlantAndEquipmentNet','propertyPlantAndEquipment'))/1e6).toFixed(1),
     _intang:+((gf(bs0,'goodwillAndIntangibleAssets','intangibleAssets'))/1e6).toFixed(1),
     segments:(segData||[]).slice(0,5),
-    _divDebug:(function(){console.log('[DIV] divSchedule len:', divSchedule.length, '| sample:', JSON.stringify(divSchedule[0]||'empty'));return null;})(),
     _wc:+((gf(bs0,'totalCurrentAssets')-gf(bs0,'totalCurrentLiabilities'))/1e6).toFixed(1),
     _tbv:+(Math.max(0,(gf(bs0,'totalStockholdersEquity')-gf(bs0,'goodwillAndIntangibleAssets')-gf(bs0,'intangibleAssets')))/1e6).toFixed(1),
     _bvps:+(gf(bs0,'totalStockholdersEquity')/1e6).toFixed(1),
