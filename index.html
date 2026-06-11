@@ -1129,8 +1129,11 @@ function render(){
     // ── REVENUE SEGMENTS (inline under Revenue) ──────────────────────────
     // Debug/fallback for segment data
     if(!d.segments||!d.segments.length){
-      h+='<tr style="font-size:9px;background:#0a0e18"><td colspan="99" style="color:var(--dm);padding:3px 8px">';
-      h+='\u21b3 Segment breakdown: not available for this ticker via FMP API</td></tr>';
+      h+='<tr style="background:#0d1520"><td colspan="99" style="padding:6px 10px">';
+      h+='<span style="font-size:10px;color:var(--yw);font-weight:600">\u21b3 Revenue by Segment</span> ';
+      h+='<span style="font-size:10px;color:var(--dm)">Not available \u2014 FMP segment endpoint requires Professional plan or data not reported for this ticker.</span>';
+      h+='<span style="font-size:9px;color:var(--dm)"> (US large-caps like AAPL, MSFT typically have data; Canadian/smaller companies often do not.)</span>';
+      h+='</td></tr>';
     }
     if(d.segments&&d.segments.length){
       // Align segment years with income statement years
