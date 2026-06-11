@@ -235,9 +235,10 @@ async function buildCo(tk){
     fmpFlex('key-executives?symbol='+tk).catch(function(){return null;}),
     fmpFlex('insider-trading?symbol='+tk+'&limit=10').catch(function(){return null;}),
     fmpFlex('institutional-ownership?symbol='+tk+'&limit=1').catch(function(){return null;}),
-    fmpFlex('revenue-product-segmentation?symbol='+tk+'&period=annual').catch(function(){return null;}),
+    fmp('revenue-product-segmentation?symbol='+tk+'&period=annual').catch(function(){return null;}),
 ]);
   var segData=Array.isArray(segs)?segs:(segs&&typeof segs==='object'&&!segs['Error Message']?[segs]:[]);
+  if(typeof console!=='undefined')console.log('[SEG] raw:',segs,'segData len:',segData.length);
   if(!prof||(Array.isArray(prof)&&prof.length===0)){throw new Error('No data found for '+tk+'. Try with exchange suffix (e.g. .TO for TSX, .L for London).');}
   var p=(Array.isArray(prof)?prof[0]:prof)||{};
   var cfA=Array.isArray(cfs)?cfs:cfs?[cfs]:[];var cf0=cfA[0]||{};
@@ -1158,6 +1159,11 @@ function render(){
     hlRow('Revenue',fsRv,'r',true,'var(--bl)',hasTTM?ttmRev:null);yoyHL(fsRv,'r');
 
     // ── REVENUE SEGMENTS (inline under Revenue) ──────────────────────────
+    // Debug/fallback for segment data
+    if(!d.segments||!d.segments.length){
+      h+='<tr style="font-size:9px;background:#0a0e18"><td colspan="99" style="color:var(--dm);padding:3px 8px">';
+      h+='\u21b3 Segment breakdown: not available for this ticker via FMP API</td></tr>';
+    }
     if(d.segments&&d.segments.length){
       // Align segment years with income statement years
       var _segColors2=['var(--bl)','var(--pu)','var(--gn)','var(--yw)','var(--tl)','var(--rd)'];
@@ -1178,7 +1184,11 @@ function render(){
           _segYrs.forEach(function(yr){
             var segYr=null;
             for(var si=0;si<d.segments.length;si++){
-              if(d.segments[si]&&(d.segments[si].date||'').slice(0,4)===yr){segYr=d.segments[si];break;}
+              var _sd=d.segments[si];
+              if(!_sd)continue;
+              var _sy=(_sd.date||'').slice(0,4);
+              // Match: same year, or fiscal offset (e.g. Oct-Sep FY: date year = income stmt yr)
+              if(_sy===yr||_sy===String(+yr+1)){segYr=_sd;break;}
             }
             var sv=segYr&&segYr[k]!=null?segYr[k]/1e6:null;
             var stot=segYr?Object.keys(segYr).filter(function(kk){return kk!=='date'&&kk!=='symbol'&&kk!=='period'&&kk!=='reportedCurrency'&&typeof segYr[kk]==='number'&&segYr[kk]>0;}).reduce(function(s,kk){return s+segYr[kk];},0):0;
