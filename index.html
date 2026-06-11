@@ -269,7 +269,8 @@ async function buildCo(tk){
   // Parse dividend payment history (per-share, dates, frequency)
   var divList=Array.isArray(divs)?divs:(divs&&divs.historical?divs.historical:[]);
   var divSchedule=divList.filter(function(x){return x&&(x.dividend||x.adjDividend);}).slice(0,12).map(function(x){
-    return{date:x.date||x.paymentDate||'',amount:+(x.adjDividend||x.dividend||0),
+    // FMP dividends: 'date' is the ex-dividend date; also has recordDate, paymentDate, declarationDate
+    return{date:x.date||'',exDate:x.date||x.exDate||'',amount:+(x.adjDividend||x.dividend||0),
       recordDate:x.recordDate||'',payDate:x.paymentDate||'',declDate:x.declarationDate||''};
   });
   // Normalize: stable endpoint nests values under 'data'; v3/v4 has them flat or as {date:{seg:val}}
@@ -919,13 +920,27 @@ function render(){
       if(_divPerShareYld>0)h+='<span style="font-size:11px;color:var(--lb)">Yield: <b style="color:var(--gn)">'+pc(_divPerShareYld)+'</b></span>';
       if(d.divFreq)h+='<span style="font-size:11px;color:var(--lb)">Pays: <b style="color:var(--bl)">'+d.divFreq.label+'</b> ('+d.divFreq.perYr+'x/yr)</span>';
       h+='</div>';
+      // Next/most-recent ex-dividend date callout
+      if(d.divNextEx&&d.divNextEx.exDate){
+        var _exDt=new Date(d.divNextEx.exDate);var _now2=new Date();
+        var _isFuture=!isNaN(_exDt)&&_exDt>=_now2;
+        var _daysAway=!isNaN(_exDt)?Math.round((_exDt-_now2)/86400000):null;
+        h+='<div style="display:inline-flex;align-items:center;gap:8px;background:'+(_isFuture?'#1a1505':'#0d1520')+';border:1px solid '+(_isFuture?'var(--yw)':'var(--bd)')+';border-radius:6px;padding:6px 12px;margin-bottom:8px">';
+        h+='<span style="font-size:10px;color:'+(_isFuture?'var(--yw)':'var(--dm)')+';font-weight:700">'+(_isFuture?'\u26a1 NEXT EX-DATE':'LAST EX-DATE')+'</span>';
+        h+='<span style="font-size:12px;font-family:var(--m);color:var(--lb)"><b>'+d.divNextEx.exDate+'</b></span>';
+        h+='<span style="font-size:11px;color:var(--gn);font-family:var(--m)">$'+d.divNextEx.amount.toFixed(4)+'/sh</span>';
+        if(_isFuture&&_daysAway!=null)h+='<span style="font-size:10px;color:var(--dm)">in '+_daysAway+' day'+(_daysAway===1?'':'s')+' \u2014 buy before to receive</span>';
+        h+='</div><br>';
+      }
       h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:10px;width:100%"><thead><tr style="color:var(--dm)">';
       h+='<th style="text-align:left;padding:3px 8px;border-bottom:1px solid var(--bd)">Ex-Date</th>';
       h+='<th style="text-align:right;padding:3px 8px;border-bottom:1px solid var(--bd)">Amount/Share</th>';
+      h+='<th style="text-align:left;padding:3px 8px;border-bottom:1px solid var(--bd)">Record Date</th>';
       h+='<th style="text-align:left;padding:3px 8px;border-bottom:1px solid var(--bd)">Pay Date</th></tr></thead><tbody>';
       d.divSchedule.slice(0,8).forEach(function(dv){
-        h+='<tr><td style="padding:3px 8px;font-family:var(--m);color:var(--lb)">'+(dv.date||'—')+'</td>';
+        h+='<tr><td style="padding:3px 8px;font-family:var(--m);color:var(--lb)">'+(dv.exDate||dv.date||'—')+'</td>';
         h+='<td style="padding:3px 8px;text-align:right;font-family:var(--m);color:var(--gn)">$'+dv.amount.toFixed(4)+'</td>';
+        h+='<td style="padding:3px 8px;font-family:var(--m);color:var(--dm)">'+(dv.recordDate||'—')+'</td>';
         h+='<td style="padding:3px 8px;font-family:var(--m);color:var(--dm)">'+(dv.payDate||'—')+'</td></tr>';
       });
       h+='</tbody></table></div>';
