@@ -268,6 +268,7 @@ async function buildCo(tk){
   var _segRaw=Array.isArray(segs)?segs:(segs&&typeof segs==='object'&&!segs['Error Message']?[segs]:[]);
   // Parse dividend payment history (per-share, dates, frequency)
   var divList=Array.isArray(divs)?divs:(divs&&divs.historical?divs.historical:[]);
+  console.log('[DIV] raw divs:', divs, '| divList len:', divList.length);
   var divSchedule=divList.filter(function(x){return x&&(x.dividend||x.adjDividend);}).slice(0,12).map(function(x){
     // FMP dividends: 'date' is the ex-dividend date; also has recordDate, paymentDate, declarationDate
     return{date:x.date||'',exDate:x.date||x.exDate||'',amount:+(x.adjDividend||x.dividend||0),
@@ -454,6 +455,7 @@ async function buildCo(tk){
     _ppe:+((gf(bs0,'propertyPlantAndEquipmentNet','propertyPlantAndEquipment'))/1e6).toFixed(1),
     _intang:+((gf(bs0,'goodwillAndIntangibleAssets','intangibleAssets'))/1e6).toFixed(1),
     segments:(segData||[]).slice(0,5),
+    _divDebug:(function(){console.log('[DIV] divSchedule len:', divSchedule.length, '| sample:', JSON.stringify(divSchedule[0]||'empty'));return null;})(),
     _wc:+((gf(bs0,'totalCurrentAssets')-gf(bs0,'totalCurrentLiabilities'))/1e6).toFixed(1),
     _tbv:+(Math.max(0,(gf(bs0,'totalStockholdersEquity')-gf(bs0,'goodwillAndIntangibleAssets')-gf(bs0,'intangibleAssets')))/1e6).toFixed(1),
     _bvps:+(gf(bs0,'totalStockholdersEquity')/1e6).toFixed(1),
