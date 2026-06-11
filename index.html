@@ -252,7 +252,7 @@ function calcM(d){
 }
 
 async function buildCo(tk){
-  var[prof,cfs,bss,incs,qIncs,qCfs,keyM,execs,insiders,instOwn,segs]=await Promise.all([
+  var[prof,cfs,bss,incs,qIncs,qCfs,keyM,execs,insiders,instOwn,segs,divs]=await Promise.all([
     fmpFlex('profile?symbol='+tk),fmpFlex('cash-flow-statement?symbol='+tk+'&period=annual&limit=10'),
     fmpFlex('balance-sheet-statement?symbol='+tk+'&period=annual&limit=5'),
     fmpFlex('income-statement?symbol='+tk+'&period=annual&limit=10'),
@@ -263,8 +263,15 @@ async function buildCo(tk){
     fmpFlex('insider-trading?symbol='+tk+'&limit=10').catch(function(){return null;}),
     fmpFlex('institutional-ownership?symbol='+tk+'&limit=1').catch(function(){return null;}),
     fmp('revenue-product-segmentation?symbol='+tk+'&period=annual').catch(function(){return null;}),
+    fmp('dividends?symbol='+tk+'&limit=20').catch(function(){return null;}),
 ]);
   var _segRaw=Array.isArray(segs)?segs:(segs&&typeof segs==='object'&&!segs['Error Message']?[segs]:[]);
+  // Parse dividend payment history (per-share, dates, frequency)
+  var divList=Array.isArray(divs)?divs:(divs&&divs.historical?divs.historical:[]);
+  var divSchedule=divList.filter(function(x){return x&&(x.dividend||x.adjDividend);}).slice(0,12).map(function(x){
+    return{date:x.date||x.paymentDate||'',amount:+(x.adjDividend||x.dividend||0),
+      recordDate:x.recordDate||'',payDate:x.paymentDate||'',declDate:x.declarationDate||''};
+  });
   // Normalize: stable endpoint nests values under 'data'; v3/v4 has them flat or as {date:{seg:val}}
   var segData=_segRaw.map(function(row){
     if(!row||typeof row!=='object')return null;
@@ -893,13 +900,38 @@ function render(){
     h+='<div style="background:#0a1a0a;border:1px solid #22c55e44;border-radius:8px;padding:8px 12px;margin-bottom:12px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;font-size:11px">';
     h+='<span style="color:var(--gn);font-weight:700">💰 Dividend Payer</span>';
     if(_latDivYld>0)h+='<span style="color:var(--lb)">Current Yield: <b style="color:var(--gn)">'+pc(_latDivYld)+'</b></span>';
-    h+='<span style="color:var(--lb)">5Y History: ';
+    h+='<span style="color:var(--lb)">5Y Total Paid ($M): ';
     (d.divH||[]).slice(0,5).reverse().forEach(function(x){
       h+='<span style="color:'+( x&&x.v>0?'var(--tl)':'var(--dm)')+'">'+( x&&x.v>0?D(x.v):'—')+'</span> ';
     });
     h+='</span>';
     if(_divGrow)h+='<span style="color:var(--gn)">▲ Growing</span>';
+    if(d.divFreq)h+='<span style="color:var(--bl)">'+d.divFreq.label+'</span>';
     h+='</div>';
+    // Per-share dividend schedule table
+    if(d.divSchedule&&d.divSchedule.length){
+      var _annDiv=d.divTTM||0;
+      var _divPerShareYld=d.p>0&&_annDiv>0?_annDiv/d.p:0;
+      h+='<div style="background:#0a0e18;border:1px solid var(--bd);border-radius:8px;padding:10px 12px;margin-bottom:12px">';
+      h+='<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:baseline;margin-bottom:8px">';
+      h+='<span style="font-size:11px;font-weight:700;color:var(--yw)">Dividend Schedule (per share)</span>';
+      if(_annDiv>0)h+='<span style="font-size:11px;color:var(--lb)">TTM: <b style="color:var(--gn);font-family:var(--m)">$'+_annDiv.toFixed(4)+'</b>/share</span>';
+      if(_divPerShareYld>0)h+='<span style="font-size:11px;color:var(--lb)">Yield: <b style="color:var(--gn)">'+pc(_divPerShareYld)+'</b></span>';
+      if(d.divFreq)h+='<span style="font-size:11px;color:var(--lb)">Pays: <b style="color:var(--bl)">'+d.divFreq.label+'</b> ('+d.divFreq.perYr+'x/yr)</span>';
+      h+='</div>';
+      h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:10px;width:100%"><thead><tr style="color:var(--dm)">';
+      h+='<th style="text-align:left;padding:3px 8px;border-bottom:1px solid var(--bd)">Ex-Date</th>';
+      h+='<th style="text-align:right;padding:3px 8px;border-bottom:1px solid var(--bd)">Amount/Share</th>';
+      h+='<th style="text-align:left;padding:3px 8px;border-bottom:1px solid var(--bd)">Pay Date</th></tr></thead><tbody>';
+      d.divSchedule.slice(0,8).forEach(function(dv){
+        h+='<tr><td style="padding:3px 8px;font-family:var(--m);color:var(--lb)">'+(dv.date||'—')+'</td>';
+        h+='<td style="padding:3px 8px;text-align:right;font-family:var(--m);color:var(--gn)">$'+dv.amount.toFixed(4)+'</td>';
+        h+='<td style="padding:3px 8px;font-family:var(--m);color:var(--dm)">'+(dv.payDate||'—')+'</td></tr>';
+      });
+      h+='</tbody></table></div>';
+      h+='<div style="font-size:9px;color:var(--dm);margin-top:4px">Source: FMP dividends endpoint. Amounts are per-share, adjusted for splits.</div>';
+      h+='</div>';
+    }
   }else{
     h+='<div style="background:#0a0e18;border:1px solid var(--bd);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--dm)">No dividend — reinvests earnings or buys back stock.</div>';
   }
