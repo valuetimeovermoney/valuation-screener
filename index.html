@@ -263,7 +263,14 @@ async function buildCo(tk){
     fmpFlex('insider-trading?symbol='+tk+'&limit=10').catch(function(){return null;}),
     fmpFlex('institutional-ownership?symbol='+tk+'&limit=1').catch(function(){return null;}),
     fmp('revenue-product-segmentation?symbol='+tk+'&period=annual').catch(function(){return null;}),
-    fmp('dividends?symbol='+tk+'&limit=20').catch(function(){return null;}),
+    (async function(){
+      // Try stable dividends first, then v3 historical
+      var _d1=await fmp('dividends?symbol='+tk+'&limit=20').catch(function(){return null;});
+      if(_d1&&(Array.isArray(_d1)?_d1.length:((_d1.historical||[]).length)))return _d1;
+      // Fallback: v3 format
+      var _d2=await fetch('https://financialmodelingprep.com/api/v3/historical-price-full/stock_dividend/'+tk+'?apikey='+AK).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});
+      return _d2||null;
+    })(),
 ]);
   var _segRaw=Array.isArray(segs)?segs:(segs&&typeof segs==='object'&&!segs['Error Message']?[segs]:[]);
   // Parse dividend payment history (per-share, dates, frequency)
@@ -276,7 +283,6 @@ async function buildCo(tk){
     var a=x.adjDividend!=null?x.adjDividend:(x.dividend!=null?x.dividend:(x.adjustedDividend!=null?x.adjustedDividend:(x.amount!=null?x.amount:0)));
     return +a||0;
   }
-  console.log('[DIV] divs type:', Array.isArray(divs)?'array['+divs.length+']':typeof divs, '| divList:', divList.length, '| first raw:', JSON.stringify(divList[0]||'none').slice(0,250));
   var divSchedule=divList.filter(function(x){return x&&x.date&&_divAmt(x)>0;}).slice(0,12).map(function(x){
     return{date:x.date||'',exDate:x.date||x.exDate||x.exDividendDate||'',amount:_divAmt(x),
       recordDate:x.recordDate||x.recordDateDate||'',payDate:x.paymentDate||x.payDate||'',declDate:x.declarationDate||''};
@@ -920,7 +926,9 @@ function render(){
     // Per-share dividend schedule table
     if(d.divSchedule&&d.divSchedule.length){
       var _annDiv=d.divTTM||0;
-      var _divPerShareYld=d.p>0&&_annDiv>0?_annDiv/d.p:0;
+      // Fallback: derive from yield in key-metrics if schedule missing
+      if(!_annDiv&&_latDivYld>0&&d.p>0)_annDiv=_latDivYld*d.p;
+      var _divPerShareYld=d.p>0&&_annDiv>0?_annDiv/d.p:(_latDivYld||0);
       h+='<div style="background:#0a0e18;border:1px solid var(--bd);border-radius:8px;padding:10px 12px;margin-bottom:12px">';
       h+='<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:baseline;margin-bottom:8px">';
       h+='<span style="font-size:11px;font-weight:700;color:var(--yw)">Dividend Schedule (per share)</span>';
@@ -952,7 +960,33 @@ function render(){
         h+='<td style="padding:3px 8px;font-family:var(--m);color:var(--dm)">'+(dv.payDate||'—')+'</td></tr>';
       });
       h+='</tbody></table></div>';
-      h+='<div style="font-size:9px;color:var(--dm);margin-top:4px">Source: FMP dividends endpoint. Amounts are per-share, adjusted for splits.</div>';
+      h+='<div style="font-size:9px;color:var(--dm);margin-top:4px">Ex-date = date you must own shares before to receive dividend. Source: FMP dividends/v3 stock_dividend.</div>';
+      h+='</div>';
+    }
+    // Payout ratios + CAGR (always show if dividend payer)
+    var _divTotal=d.divH&&d.divH[0]?d.divH[0].v:0;
+    var _niLTM=d.incH&&d.incH[0]?d.incH[0].ni:0;
+    var _afLTM=d.af||0;
+    var _earnPayout=_niLTM>0&&_divTotal>0?_divTotal/_niLTM:null;
+    var _fcfPayout=_afLTM>0&&_divTotal>0?_divTotal/_afLTM:null;
+    var _divCagr=(function(){
+      var dd=(d.divH||[]).filter(function(x){return x&&x.v>0;});
+      if(dd.length>=3){var old=dd[dd.length-1].v,nw=dd[0].v,yrs=dd.length-1;return Math.pow(nw/old,1/yrs)-1;}
+      return null;
+    })();
+    if(_earnPayout!=null||_fcfPayout!=null||_divCagr!=null){
+      h+='<div style="display:flex;flex-wrap:wrap;gap:10px;font-size:11px;padding:8px 10px;background:#0a0e18;border:1px solid var(--bd);border-radius:6px">';
+      if(_earnPayout!=null){
+        var _epCol=_earnPayout<0.5?'var(--gn)':_earnPayout<0.8?'var(--yw)':'var(--rd)';
+        h+='<span style="color:var(--dm)">Earnings Payout: <b style="color:'+_epCol+'">'+pc(_earnPayout)+'</b> <span style="font-size:9px">(\u226550% sustainable)</span></span>';
+      }
+      if(_fcfPayout!=null){
+        var _fpCol=_fcfPayout<0.6?'var(--gn)':_fcfPayout<0.9?'var(--yw)':'var(--rd)';
+        h+='<span style="color:var(--dm)">FCF Payout: <b style="color:'+_fpCol+'">'+pc(_fcfPayout)+'</b> <span style="font-size:9px">(key for safety)</span></span>';
+      }
+      if(_divCagr!=null){
+        h+='<span style="color:var(--dm)">Div CAGR: <b style="color:'+(_divCagr>0?'var(--gn)':'var(--rd)')+'">'+pc(_divCagr)+'</b></span>';
+      }
       h+='</div>';
     }
   }else{
