@@ -237,9 +237,27 @@ async function buildCo(tk){
     fmpFlex('institutional-ownership?symbol='+tk+'&limit=1').catch(function(){return null;}),
     fmp('revenue-product-segmentation?symbol='+tk+'&period=annual').catch(function(){return null;}),
 ]);
-  var segData=Array.isArray(segs)?segs:(segs&&typeof segs==='object'&&!segs['Error Message']?[segs]:[]);
-  console.log('[SEG] raw segs type:', typeof segs, '| isArray:', Array.isArray(segs), '| value:', JSON.stringify(segs)&&JSON.stringify(segs).slice(0,200));
-  console.log('[SEG] segData len:', segData.length, '| first item:', segData[0]?JSON.stringify(segData[0]).slice(0,200):'empty');
+  var _segRaw=Array.isArray(segs)?segs:(segs&&typeof segs==='object'&&!segs['Error Message']?[segs]:[]);
+  // Normalize: stable endpoint nests values under 'data'; v3/v4 has them flat or as {date:{seg:val}}
+  var segData=_segRaw.map(function(row){
+    if(!row||typeof row!=='object')return null;
+    var date=row.date||row.fiscalYear||row.calendarYear||'';
+    var vals={};
+    if(row.data&&typeof row.data==='object'){
+      // stable format: {symbol,date,period,data:{seg:val}}
+      vals=row.data;
+    } else {
+      // v3/v4 flat format OR {date:{seg:val}}
+      var keys=Object.keys(row).filter(function(k){return k!=='date'&&k!=='symbol'&&k!=='period'&&k!=='fiscalYear'&&k!=='calendarYear'&&k!=='reportedCurrency';});
+      // Check if it's {date:{...}} wrapper (v3 structure)
+      if(keys.length===1&&typeof row[keys[0]]==='object'){
+        date=keys[0];vals=row[keys[0]];
+      } else {
+        keys.forEach(function(k){if(typeof row[k]==='number')vals[k]=row[k];});
+      }
+    }
+    return Object.assign({date:String(date).slice(0,10)},vals);
+  }).filter(Boolean);
   if(!prof||(Array.isArray(prof)&&prof.length===0)){throw new Error('No data found for '+tk+'. Try with exchange suffix (e.g. .TO for TSX, .L for London).');}
   var p=(Array.isArray(prof)?prof[0]:prof)||{};
   var cfA=Array.isArray(cfs)?cfs:cfs?[cfs]:[];var cf0=cfA[0]||{};
@@ -1130,7 +1148,6 @@ function render(){
 
     // ── REVENUE SEGMENTS (inline under Revenue) ──────────────────────────
     // Debug/fallback for segment data
-    console.log('[SEG] render check: d.segments=', d.segments, 'len=', d.segments?d.segments.length:0);
     if(!d.segments||!d.segments.length){
       h+='<tr style="background:#0d1520"><td colspan="99" style="padding:6px 10px">';
       h+='<span style="font-size:10px;color:var(--yw);font-weight:600">\u21b3 Revenue by Segment</span> ';
