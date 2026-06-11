@@ -645,7 +645,7 @@ function renderStockChart(ticker, pts, spPts, ipoYear) {
 
 
 
-var ST={d:null,co:[],priceHist:[],spHist:[],indMult:15,reYrs:5,reMult:null,cagrMethod:null,cagrCustom:null,mpOver:null,fcfMethod:'adj',showPath:true,showFS:true,showBS:true,
+var ST={d:null,co:[],priceHist:[],spHist:[],indMult:15,reYrs:5,reMult:null,cagrMethod:null,cagrCustom:null,mpOver:null,fcfMethod:'adj',showPath:true,showFS:true,showBS:true,showSeg:true,
   dcf:{
     // Per-year revenue growth %
     r1:12,r2:10,r3:9,r4:8,r5:7,
@@ -1092,13 +1092,14 @@ function render(){
     else h+='<span style="color:var(--gn)">✓ Minimal dilution.</span>';
     h+='</div>';
   }
-  h+='</div><div class="cs"><b class="s">Valuation context:</b><br><br><b>P/E:</b> 🟢 &lt;15x cheap<br><b>EV/EBITDA:</b> 🟢 &lt;10x<br><b>EV/FCF:</b> 🟢 &lt;20x<br><b>P/S:</b> 🟢 &lt;2x<br><br><b>Dilution:</b><br>🟢 &lt;2%/yr minimal<br>🟡 2-5%/yr watch<br>🔴 &gt;5%/yr concern</div></div></div>';
+  h+='</div><div class="cs"><b class="s">Valuation context:</b><br><br><b>P/E:</b> 🟢 &lt;15x cheap<br><b>EV/EBITDA:</b> 🟢 &lt;10x<br><b>EV/FCF:</b> 🟢 &lt;20x<br><b>P/S:</b> 🟢 &lt;2x<br><br><b>Dilution:</b><br>🟢 &lt;2%/yr minimal<br>🟡 2-5%/yr watch<br>🔴 &gt;5%/yr concern<br><br><b class="s" style="color:var(--yw)">ROIC vs ROCE:</b><br><br><b>ROIC</b> = NOPAT \u00f7 Invested Capital<br>\u2022 NOPAT = EBIT\u00d7(1\u2212tax), <i>after-tax</i><br>\u2022 Invested Capital = Equity + Debt \u2212 Cash<br>\u2022 After-tax return to all capital providers. Best vs WACC.<br><br><b>ROCE</b> = EBIT \u00f7 Capital Employed<br>\u2022 EBIT = operating income, <i>pre-tax</i><br>\u2022 Capital Employed = Net Working Capital + Net Fixed Assets, <i>excl. excess cash</i> (Pulak Prasad, \'Investing from Darwin\')<br>\u2022 Pre-tax; strips excess cash to isolate operating-capital return.<br><br><b>Use:</b> ROCE to <i>find</i> quality (durable high ROCE = moat), ROIC to <i>value</i> it vs cost of capital.<br><br><b>Both:</b> 🟢 &gt;20% \u00b7 🟡 15-20% \u00b7 🔴 &lt;15%<br><span style="color:var(--dm)">Not meaningful for banks/insurers.</span></div></div></div>';
 
   h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div class="ct" style="color:var(--tl);margin-bottom:0">Financial Highlights (5 Years)'+curNote()+'</div><span style="font-size:9px;color:var(--dm);cursor:pointer" onclick="ST.hlScroll=!ST.hlScroll;render();">'+( ST.hlScroll?'↕ Scroll':'📋 Scroll')+' table →</span></div>';
   {
     var fsMp=ST.mpOver!=null?ST.mpOver:(d.mp||50);
     var fsRv=(d.rv||[]).slice(0,5).reverse();
     var fsNi=(d.ni||[]).slice(0,5).reverse();
+    var fsEbit=(d.incH||[]).slice(0,5).reverse().map(function(x){return{v:x?x.ebit:null};});
     var fsGm=(d.gm||[]).slice(0,5).reverse();
     var fsCfo=(d.cfoH||[]).slice(0,5).reverse();
     var fsSbc=(d.sbcH||[]).slice(0,5).reverse();
@@ -1116,9 +1117,9 @@ function render(){
     var latFyDate=fsRv.length?fsRv[fsRv.length-1].y:'';
     var qI=d.qInc||[];var qC=d.qCf||[];
     var hasTTM=qI.length>=4;
-    var ttmRev=0,ttmNI=0,ttmCFO=0,ttmSBC=0,ttmCX=0,ttmGP=0,ttmGM=null;
+    var ttmRev=0,ttmNI=0,ttmCFO=0,ttmSBC=0,ttmCX=0,ttmGP=0,ttmGM=null,ttmEbit=0;
     if(hasTTM){
-      qI.forEach(function(q){ttmRev+=gf(q,'revenue')/1e6;ttmNI+=gf(q,'netIncome')/1e6;ttmGP+=gf(q,'grossProfit')/1e6;});
+      qI.forEach(function(q){ttmRev+=gf(q,'revenue')/1e6;ttmNI+=gf(q,'netIncome')/1e6;ttmGP+=gf(q,'grossProfit')/1e6;ttmEbit+=gf(q,'operatingIncome','ebit')/1e6;});
       ttmGM=ttmRev>0?ttmGP/ttmRev:null;
       qC.forEach(function(q){ttmCFO+=gf(q,'operatingCashFlow','netCashProvidedByOperatingActivities')/1e6;ttmSBC+=gf(q,'stockBasedCompensation')/1e6;ttmCX+=Math.abs(gf(q,'capitalExpenditure'))/1e6;});
     }
@@ -1179,9 +1180,9 @@ function render(){
         return k!=='date'&&k!=='symbol'&&k!=='period'&&k!=='reportedCurrency'&&typeof d.segments[0][k]==='number'&&d.segments[0][k]>0;
       }).sort(function(a,b){return d.segments[0][b]-d.segments[0][a];}).slice(0,6):[];
       if(_segK.length>1){
-        // Section sub-header
-        h+='<tr style="background:#0a0e18"><td colspan="99" style="font-size:9px;color:var(--yw);font-weight:700;padding:3px 6px;letter-spacing:0.5px">\u21b3 Revenue by Segment</td></tr>';
-        _segK.forEach(function(k,ki){
+        // Collapsible sub-header
+        h+='<tr style="background:#0a0e18"><td colspan="99" style="padding:3px 6px;cursor:pointer" onclick="togSection(\'Seg\')"><span style="font-size:9px;color:var(--yw);font-weight:700;letter-spacing:0.5px">\u21b3 Revenue by Segment '+(ST.showSeg?'\u25bc':'\u25b6 (tap to show)')+'</span></td></tr>';
+        if(ST.showSeg)_segK.forEach(function(k,ki){
           h+='<tr style="font-size:9px;background:#0d1520">';
           h+='<td style="color:'+_segColors2[ki%6]+';padding-left:12px">'+k+'</td>';
           // For each year column, find matching segment data
@@ -1229,6 +1230,8 @@ function render(){
     fsGm.forEach(function(x){h+='<td>'+pc(x?x.v:null)+'</td>';});
     if(hasTTM)h+='<td style="color:var(--bl)">'+pc(ttmGM)+'</td>';
     h+='<td>'+pc(av(fsGm.map(function(x){return x?x.v:null;})))+'</td><td></td></tr>';
+    hlRow('EBIT (Operating Income)',fsEbit,'v',false,'',hasTTM?ttmEbit:null);
+    pctRowHL('EBIT Margin',fsEbit,fsRv,null);
     hlRow('Net Income',fsNi,'v',false,'',hasTTM?ttmNI:null);yoyHL(fsNi,'v');
     pctRowHL('NI Margin',fsNi,fsRv,null);
 
