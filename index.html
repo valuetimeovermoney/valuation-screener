@@ -351,9 +351,14 @@ async function buildCo(tk){
     var _eq=gf(_bs,'totalStockholdersEquity'),_debt=gf(_bs,'longTermDebt')+gf(_bs,'shortTermDebt');
     var _cash=gf(_bs,'cashAndShortTermInvestments')||gf(_bs,'cashAndCashEquivalents');
     var _ic=_eq+_debt-_cash;
-    // ROCE = EBIT / Capital Employed; Capital Employed = Total Assets - Current Liabilities
-    var _totAssets=gf(_bs,'totalAssets'),_curLiab=gf(_bs,'totalCurrentLiabilities');
-    var _capEmployed=_totAssets-_curLiab;
+    // ROCE (Pulak Prasad, 'What I Learned About Investing from Darwin'):
+    // ROCE = EBIT / (Net Working Capital + Net Fixed Assets)
+    // Net Working Capital excludes EXCESS cash (cash - debt, when cash > debt) — extra cash isn't operating
+    var _curAssets=gf(_bs,'totalCurrentAssets'),_curLiab=gf(_bs,'totalCurrentLiabilities');
+    var _netFixed=gf(_bs,'propertyPlantEquipmentNet');
+    var _excessCash=Math.max(0,_cash-_debt); // excess cash = cash beyond what covers debt
+    var _netWC=(_curAssets-_curLiab)-_excessCash; // exclude excess cash from working capital
+    var _capEmployed=_netWC+_netFixed;
     var _roce=_capEmployed>0?_ebit/_capEmployed:0;
     var _cfo=gf(_cf,'operatingCashFlow'),_cx=Math.abs(gf(_cf,'capitalExpenditure'));
     var _fcf=_cfo-_cx,_sh=gf(_inc,'weightedAverageShsOutDil')||gf(_inc,'weightedAverageShsOut')||1;
@@ -1050,7 +1055,7 @@ function render(){
       vmRow2('P/S',function(k){return k.ps;},_ttmPs,fmtXm,2,5,'<2x cheap, >5x premium');
       vmRow2('P/B',function(k){return k.pb;},_ttmPb,fmtXm,1,3,'<1x below book value');
       vmRow2('ROIC',function(k){return k.roic;},0,fmtPm,0.15,0.10,'NOPAT \u00f7 Invested Capital (Eq+Debt\u2212Cash). >15% good, >25% moat',true);
-      vmRow2('ROCE',function(k){return k.roce;},0,fmtPm,0.15,0.10,'EBIT \u00f7 Capital Employed (Total Assets\u2212Current Liab). >15% good, >20% strong',true);
+      vmRow2('ROCE',function(k){return k.roce;},0,fmtPm,0.20,0.15,'Prasad/Darwin: EBIT \u00f7 (Net Working Capital + Net Fixed Assets), excl. excess cash. >20% strong, >15% good',true);
       vmRow2('ROE',function(k){return k.roe;},0,fmtPm,0.15,0.10,'Net Income \u00f7 Equity. >15% good, >20% strong',true);
       vmRow2('Interest Coverage',function(k){return k.ic;},0,fmtXm,8,3,'EBIT ÷ Interest. >8x fortress');
       vmRow2('Div Yield',function(k){return k.divYld;},0,fmtPm,0,0,'');
