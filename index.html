@@ -351,6 +351,10 @@ async function buildCo(tk){
     var _eq=gf(_bs,'totalStockholdersEquity'),_debt=gf(_bs,'longTermDebt')+gf(_bs,'shortTermDebt');
     var _cash=gf(_bs,'cashAndShortTermInvestments')||gf(_bs,'cashAndCashEquivalents');
     var _ic=_eq+_debt-_cash;
+    // ROCE = EBIT / Capital Employed; Capital Employed = Total Assets - Current Liabilities
+    var _totAssets=gf(_bs,'totalAssets'),_curLiab=gf(_bs,'totalCurrentLiabilities');
+    var _capEmployed=_totAssets-_curLiab;
+    var _roce=_capEmployed>0?_ebit/_capEmployed:0;
     var _cfo=gf(_cf,'operatingCashFlow'),_cx=Math.abs(gf(_cf,'capitalExpenditure'));
     var _fcf=_cfo-_cx,_sh=gf(_inc,'weightedAverageShsOutDil')||gf(_inc,'weightedAverageShsOut')||1;
     var _ev2=_ev||(_mc+_debt-_cash); // calc EV if not in key-metrics
@@ -366,6 +370,7 @@ async function buildCo(tk){
     ev:_ev2,mc:_mc,
     ebitda:_km('ebitda')||_ebitda,
     roic:_km('roic','returnOnInvestedCapital')||(_ic>0?_nopat/_ic:0),
+    roce:_roce,
     roe:_km('roe','returnOnEquity')||(_eq>0?_ni/_eq:0),
     ic:_km('interestCoverage')||(_intE>0?_ebit/_intE:0),
     divYld:_km('dividendYield'),
@@ -1001,21 +1006,23 @@ function render(){
     // 5-year multiples history table
     if(kmH2.length>0){
       // Helper: format row with year columns + TTM + 3Y avg + CAGR
-      function vmRow2(label,fn,ttmV,fmtFn,goodV,okV,tooltip){
+      function vmRow2(label,fn,ttmV,fmtFn,goodV,okV,tooltip,hib){
+        // hib=true means 'higher is better' (ROIC/ROCE/yields): v>=goodV green, v>=okV yellow
         var vals=kmH2.map(fn);
         var vpos=vals.filter(function(v){return v>0;});
         var v3y=vpos.length>=3?av(vpos.slice(-3)):null;
         var _cg=vpos.length>=3?cagr(vpos[0],vpos[vpos.length-1],vpos.length-1):null;
         var _tip=tooltip?' title="'+tooltip+'"':'';
+        function _colr(v){
+          if(!goodV||!(v>0))return 'var(--dm)';
+          if(hib)return v>=goodV?'var(--gn)':v>=okV?'var(--yw)':'var(--rd)';
+          return v<goodV?'var(--gn)':v<okV?'var(--yw)':'var(--dm)';
+        }
         h+='<tr><td'+_tip+'>'+label+'</td>';
-        vals.forEach(function(v){
-          var col=goodV&&v>0?(v<goodV?'var(--gn)':v<okV?'var(--yw)':'var(--dm)'):'var(--dm)';
-          h+='<td style="color:'+col+'">'+( v?fmtFn(v):'—')+'</td>';
-        });
-        // TTM col
-        var tc=goodV&&ttmV>0?(ttmV<goodV?'var(--gn)':ttmV<okV?'var(--yw)':'var(--dm)'):'var(--bl)';
+        vals.forEach(function(v){h+='<td style="color:'+_colr(v)+'">'+( v?fmtFn(v):'—')+'</td>';});
+        var tc=goodV&&ttmV>0?_colr(ttmV):'var(--bl)';
         h+='<td style="color:'+tc+'">'+( ttmV?fmtFn(ttmV):'—')+'</td>';
-        h+='<td>'+( v3y?fmtFn(v3y):'—')+'</td>';
+        h+='<td style="color:'+_colr(v3y)+'">'+( v3y?fmtFn(v3y):'—')+'</td>';
         h+='<td style="color:var(--tl)">'+(_cg&&Math.abs(_cg)<3?pc(_cg):'—')+'</td></tr>';
       }
       function fmtXm(v){return v>0?v.toFixed(1)+'x':'—';}
@@ -1042,8 +1049,9 @@ function render(){
       vmRow2('P/CFO',function(k){return k.mc&&k.cfoPs&&k.cfoPs>0?k.mc/1e6/k.cfoPs:0;},_ttmPCfo,fmtXm,10,20,'Price to cash from ops per share. <10x cheap');
       vmRow2('P/S',function(k){return k.ps;},_ttmPs,fmtXm,2,5,'<2x cheap, >5x premium');
       vmRow2('P/B',function(k){return k.pb;},_ttmPb,fmtXm,1,3,'<1x below book value');
-      vmRow2('ROIC',function(k){return k.roic;},0,fmtPm,0,0,'NOPAT ÷ Invested Capital. >25% = moat');
-      vmRow2('ROE',function(k){return k.roe;},0,fmtPm,0,0,'Net Income ÷ Equity');
+      vmRow2('ROIC',function(k){return k.roic;},0,fmtPm,0.15,0.10,'NOPAT \u00f7 Invested Capital (Eq+Debt\u2212Cash). >15% good, >25% moat',true);
+      vmRow2('ROCE',function(k){return k.roce;},0,fmtPm,0.15,0.10,'EBIT \u00f7 Capital Employed (Total Assets\u2212Current Liab). >15% good, >20% strong',true);
+      vmRow2('ROE',function(k){return k.roe;},0,fmtPm,0.15,0.10,'Net Income \u00f7 Equity. >15% good, >20% strong',true);
       vmRow2('Interest Coverage',function(k){return k.ic;},0,fmtXm,8,3,'EBIT ÷ Interest. >8x fortress');
       vmRow2('Div Yield',function(k){return k.divYld;},0,fmtPm,0,0,'');
       vmRow2('FCF Yield',function(k){return k.fcfYld;},c.fy,fmtPm,0.10,0.05,'FCF ÷ EV. >10% strong');
