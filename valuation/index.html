@@ -173,7 +173,17 @@ async function buildCo(tk){
     fmp('balance-sheet-statement?symbol='+tk+'&period=annual&limit=5',true),
     fmp('income-statement?symbol='+tk+'&period=annual&limit=5',true),
     fmp('revenue-product-segmentation?symbol='+tk+'&period=annual',false)]);
-  var segData=Array.isArray(segs)?segs:(segs&&typeof segs==='object'?[segs]:[]);
+  var _segRaw=Array.isArray(segs)?segs:(segs&&typeof segs==='object'?[segs]:[]);
+  var segData=_segRaw.map(function(row){
+    if(!row||typeof row!=='object')return null;
+    var date=row.date||row.fiscalYear||row.calendarYear||'';
+    var vals={};
+    if(row.data&&typeof row.data==='object'){vals=row.data;}
+    else{var keys=Object.keys(row).filter(function(k){return k!=='date'&&k!=='symbol'&&k!=='period'&&k!=='fiscalYear'&&k!=='calendarYear'&&k!=='reportedCurrency';});
+      if(keys.length===1&&typeof row[keys[0]]==='object'){date=keys[0];vals=row[keys[0]];}
+      else{keys.forEach(function(k){if(typeof row[k]==='number')vals[k]=row[k];});}}
+    return Object.assign({date:String(date).slice(0,10)},vals);
+  }).filter(Boolean);
   var p=(Array.isArray(prof)?prof[0]:prof)||{};
   var cfA=Array.isArray(cfs)?cfs:[];var cf0=cfA[0]||{};
   var bsA=Array.isArray(bss)?bss:[];var bs0=bsA[0]||{};
