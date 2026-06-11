@@ -262,8 +262,8 @@ async function buildCo(tk){
   var p=(Array.isArray(prof)?prof[0]:prof)||{};
   var cfA=Array.isArray(cfs)?cfs:cfs?[cfs]:[];var cf0=cfA[0]||{};
   var bsA=Array.isArray(bss)?bss:bss?[bss]:[];var bs0=bsA[0]||{};
-  var inc5=(incA||[]).filter(Boolean).slice(0,5);
   var incA=Array.isArray(incs)?incs:incs?[incs]:[];
+  var inc5=(incA||[]).filter(Boolean).slice(0,5);
   var sec=p.sector||'';var isL=sec.match(/tech|software|communication|media/i);
   var mcap=gf(p,'marketCap','mktCap');var px=gf(p,'price');
   var capex=Math.abs(gf(cf0,'capitalExpenditure'));var mpct=isL?50:70;
