@@ -287,6 +287,9 @@ async function buildCo(tk){
     return{date:x.date||'',exDate:x.date||x.exDate||x.exDividendDate||'',amount:_divAmt(x),
       recordDate:x.recordDate||x.recordDateDate||'',payDate:x.paymentDate||x.payDate||'',declDate:x.declarationDate||''};
   });
+  var divTTM=(function(){var cut=new Date();cut.setFullYear(cut.getFullYear()-1);return divSchedule.filter(function(x){var dt=new Date(x.date);return !isNaN(dt)&&dt>=cut;}).reduce(function(s,x){return s+x.amount;},0);})();
+  var divFreq=(function(){if(divSchedule.length<2)return null;var dts=divSchedule.map(function(x){return new Date(x.date);}).filter(function(d){return !isNaN(d);});if(dts.length<2)return null;var gaps=[];for(var gi=0;gi<Math.min(dts.length-1,5);gi++)gaps.push(Math.abs(dts[gi]-dts[gi+1])/86400000);var g=gaps.reduce(function(a,b){return a+b;},0)/gaps.length;return g<45?{label:'Monthly',perYr:12}:g<135?{label:'Quarterly',perYr:4}:g<270?{label:'Semi-annual',perYr:2}:{label:'Annual',perYr:1};})();
+  var divNextEx=(function(){var now=new Date();var fut=divSchedule.filter(function(x){var dt=new Date(x.exDate);return !isNaN(dt)&&dt>=now;});if(fut.length){fut.sort(function(a,b){return new Date(a.exDate)-new Date(b.exDate);});return fut[0];}return divSchedule.length?divSchedule[0]:null;})();
   // Normalize: stable endpoint nests values under 'data'; v3/v4 has them flat or as {date:{seg:val}}
   var segData=_segRaw.map(function(row){
     if(!row||typeof row!=='object')return null;
@@ -463,7 +466,9 @@ async function buildCo(tk){
         v=wcC-wcP;
       }
       return{y:yrOf(y),v:+(v/1e6).toFixed(1)};
-    }),cfiH:cfiH,cffH:cffH,ncH:ncH,fcf:fcfH,sbcH:sbcH,capexH:capexH,soH:soH,divH:divH,buyH:buyH,
+    }),cfiH:cfiH,cffH:cffH,ncH:ncH,fcf:fcfH,sbcH:sbcH,capexH:capexH,soH:soH,
+    divSchedule:divSchedule,divTTM:divTTM,divFreq:divFreq,divNextEx:divNextEx,
+    divH:divH,buyH:buyH,
     _ta:+((gf(bs0,'totalAssets'))/1e6).toFixed(1),
     _ppe:+((gf(bs0,'propertyPlantAndEquipmentNet','propertyPlantAndEquipment'))/1e6).toFixed(1),
     _intang:+((gf(bs0,'goodwillAndIntangibleAssets','intangibleAssets'))/1e6).toFixed(1),
