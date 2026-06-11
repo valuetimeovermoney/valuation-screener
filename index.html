@@ -238,6 +238,8 @@ async function buildCo(tk){
     fmp('revenue-product-segmentation?symbol='+tk+'&period=annual').catch(function(){return null;}),
 ]);
   var segData=Array.isArray(segs)?segs:(segs&&typeof segs==='object'&&!segs['Error Message']?[segs]:[]);
+  console.log('[SEG] raw segs type:', typeof segs, '| isArray:', Array.isArray(segs), '| value:', JSON.stringify(segs)&&JSON.stringify(segs).slice(0,200));
+  console.log('[SEG] segData len:', segData.length, '| first item:', segData[0]?JSON.stringify(segData[0]).slice(0,200):'empty');
   if(!prof||(Array.isArray(prof)&&prof.length===0)){throw new Error('No data found for '+tk+'. Try with exchange suffix (e.g. .TO for TSX, .L for London).');}
   var p=(Array.isArray(prof)?prof[0]:prof)||{};
   var cfA=Array.isArray(cfs)?cfs:cfs?[cfs]:[];var cf0=cfA[0]||{};
@@ -1128,6 +1130,7 @@ function render(){
 
     // ── REVENUE SEGMENTS (inline under Revenue) ──────────────────────────
     // Debug/fallback for segment data
+    console.log('[SEG] render check: d.segments=', d.segments, 'len=', d.segments?d.segments.length:0);
     if(!d.segments||!d.segments.length){
       h+='<tr style="background:#0d1520"><td colspan="99" style="padding:6px 10px">';
       h+='<span style="font-size:10px;color:var(--yw);font-weight:600">\u21b3 Revenue by Segment</span> ';
