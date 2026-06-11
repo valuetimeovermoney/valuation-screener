@@ -167,7 +167,7 @@ function calcDCF(){
 
 // ── Build company data ────────────────────────────────────────
 async function buildCo(tk){
-  var[prof,cfs,bss,incs,segs]=await Promise.all([
+  var[prof,cfs,bss,incs,segs,divs]=await Promise.all([
     fmp('profile?symbol='+tk,true),
     fmp('cash-flow-statement?symbol='+tk+'&period=annual&limit=5',true),
     fmp('balance-sheet-statement?symbol='+tk+'&period=annual&limit=5',true),
@@ -248,6 +248,7 @@ async function buildCo(tk){
       });
     })(),
     segments:segData.slice(0,3),
+    divSched:divSched,divTTM:divTTM,divFreq:divFreq,divNextEx:divNextEx,
     buybackTTM:Math.abs(gf(cfA[0]||{},'commonStockRepurchased'))/1e6,
     buyback3Yavg:(function(){var tot=0,n=Math.min(3,cfA.length);for(var _bi=0;_bi<n;_bi++)tot+=Math.abs(gf(cfA[_bi]||{},'commonStockRepurchased'));return n>0?tot/n/1e6:0;})(),
     sh3yCagr:(function(){var _so=soH.slice(0,Math.min(4,soH.length));return _so.length>=2?cagr(_so[_so.length-1].v||1,_so[0].v||1,_so.length-1):null;})(),
@@ -510,6 +511,53 @@ function render(){
 
     h+='<div style="font-size:8px;color:var(--dm);margin-top:6px">Weighted signals from DCF, ROIC, PEG, FCF quality, leverage, replacement value, dilution. Not investment advice.</div>';
     h+='</div></div>';
+  })();
+
+  // ── DIVIDEND ──────────────────────────────────────────────────────
+  (function(){
+    var _dvH=(d.divH||[]).filter(function(x){return x&&x.v>0;});
+    var _kmDv=(d.kmH||[]).filter(function(k){return k&&k.divYld>0;});
+    if(!_dvH.length&&!_kmDv.length&&!(d.divSched&&d.divSched.length))return;
+    var _lYld=_kmDv.length?_kmDv[0].divYld:0;
+    var _aDiv=d.divTTM||(_lYld>0&&d.p>0?_lYld*d.p:0);
+    var _yld=d.p>0&&_aDiv>0?_aDiv/d.p:_lYld;
+    var _niL=+(d.niLTM||0),_afL=+(d.af||0),_dTot=_dvH.length?_dvH[0].v:0;
+    var _ePay=_niL>0&&_dTot>0?_dTot/_niL:null;
+    var _fPay=_afL>0&&_dTot>0?_dTot/_afL:null;
+    h+='<div class="card"><div class="ci"><div class="cm">';
+    h+='<div class="ct" style="margin-bottom:8px">Dividend</div>';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:baseline;margin-bottom:8px">';
+    if(_yld>0)h+='<span style="font-size:16px;font-weight:700;color:var(--gn);font-family:var(--m)">'+pc(_yld)+'</span><span style="color:var(--dm);font-size:10px">yield</span>';
+    if(_aDiv>0)h+='<span style="color:var(--lb)">$'+_aDiv.toFixed(4)+'/share TTM</span>';
+    if(d.divFreq)h+='<span style="color:var(--bl)">'+d.divFreq.label+'</span>';
+    h+='</div>';
+    if(d.divNextEx&&d.divNextEx.exDate){
+      var _eD=new Date(d.divNextEx.exDate),_nw=new Date(),_if=!isNaN(_eD)&&_eD>=_nw;
+      var _da=!isNaN(_eD)?Math.round((_eD-_nw)/86400000):null;
+      h+='<div style="display:inline-flex;align-items:center;gap:8px;background:'+(_if?'#1a1505':'#0d1520')+';border:1px solid '+(_if?'var(--yw)':'var(--bd)')+';border-radius:6px;padding:6px 12px;margin-bottom:8px">';
+      h+='<span style="font-size:10px;font-weight:700;color:'+(_if?'var(--yw)':'var(--dm)')+'">'+(_if?'\u26a1 NEXT EX-DATE':'LAST EX-DATE')+'</span>';
+      h+='<b style="font-family:var(--m);color:var(--lb)">'+d.divNextEx.exDate+'</b>';
+      h+='<span style="color:var(--gn)">$'+d.divNextEx.amount.toFixed(4)+'/sh</span>';
+      if(_if&&_da!=null)h+='<span style="font-size:9px;color:var(--dm)">in '+_da+' day'+(_da===1?'':'s')+' \u2014 buy before to qualify</span>';
+      h+='</div><br>';
+    }
+    h+='<div style="display:flex;flex-wrap:wrap;gap:12px;font-size:11px;margin-bottom:8px">';
+    if(_ePay!=null)h+='<span style="color:var(--dm)">Earnings payout: <b style="color:'+(_ePay<0.5?'var(--gn)':_ePay<0.8?'var(--yw)':'var(--rd)')+'">'+pc(_ePay)+'</b></span>';
+    if(_fPay!=null)h+='<span style="color:var(--dm)">FCF payout: <b style="color:'+(_fPay<0.6?'var(--gn)':_fPay<0.9?'var(--yw)':'var(--rd)')+'">'+pc(_fPay)+'</b> <span style="font-size:9px">(key for safety)</span></span>';
+    h+='</div>';
+    if(d.divSched&&d.divSched.length){
+      h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:10px;width:100%">';
+      h+='<thead><tr style="color:var(--dm)"><th style="text-align:left;padding:3px 8px;border-bottom:1px solid var(--bd)">Ex-Date</th>';
+      h+='<th style="text-align:right;padding:3px 8px;border-bottom:1px solid var(--bd)">/Share</th>';
+      h+='<th style="text-align:left;padding:3px 8px;border-bottom:1px solid var(--bd)">Pay Date</th></tr></thead><tbody>';
+      d.divSched.slice(0,6).forEach(function(dv){
+        h+='<tr><td style="padding:3px 8px;font-family:var(--m);color:var(--lb)">'+(dv.exDate||'\u2014')+'</td>';
+        h+='<td style="padding:3px 8px;text-align:right;color:var(--gn)">$'+dv.amount.toFixed(4)+'</td>';
+        h+='<td style="padding:3px 8px;color:var(--dm)">'+(dv.payDate||'\u2014')+'</td></tr>';
+      });
+      h+='</tbody></table></div>';
+    }
+    h+='</div><div class="cs"><b class="s">Dividend:</b><br><br><b>FCF payout</b> is the sustainability signal \u2014 &gt;90% FCF payout is a risk even if earnings payout looks fine.<br><br><b>Ex-date:</b> own shares before this date to receive payment.</div></div></div>';
   })();
 
   // ── WHAT'S PRICED IN? — Reverse Engineering the Stock Price ──────────────
