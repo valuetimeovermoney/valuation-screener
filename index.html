@@ -290,6 +290,15 @@ async function buildCo(tk){
   var divTTM=(function(){var cut=new Date();cut.setFullYear(cut.getFullYear()-1);return divSchedule.filter(function(x){var dt=new Date(x.date);return !isNaN(dt)&&dt>=cut;}).reduce(function(s,x){return s+x.amount;},0);})();
   var divFreq=(function(){if(divSchedule.length<2)return null;var dts=divSchedule.map(function(x){return new Date(x.date);}).filter(function(d){return !isNaN(d);});if(dts.length<2)return null;var gaps=[];for(var gi=0;gi<Math.min(dts.length-1,5);gi++)gaps.push(Math.abs(dts[gi]-dts[gi+1])/86400000);var g=gaps.reduce(function(a,b){return a+b;},0)/gaps.length;return g<45?{label:'Monthly',perYr:12}:g<135?{label:'Quarterly',perYr:4}:g<270?{label:'Semi-annual',perYr:2}:{label:'Annual',perYr:1};})();
   var divNextEx=(function(){var now=new Date();var fut=divSchedule.filter(function(x){var dt=new Date(x.exDate);return !isNaN(dt)&&dt>=now;});if(fut.length){fut.sort(function(a,b){return new Date(a.exDate)-new Date(b.exDate);});return fut[0];}return divSchedule.length?divSchedule[0]:null;})();
+  // Dividend per-share schedule
+  var _dRaw=Array.isArray(divs)?divs:(divs&&Array.isArray(divs.historical)?divs.historical:[]);
+  function _dAmt(x){return +(x.adjDividend!=null?x.adjDividend:x.dividend!=null?x.dividend:0)||0;}
+  var divSched=_dRaw.filter(function(x){return x&&x.date&&_dAmt(x)>0;}).slice(0,20).map(function(x){
+    return{date:x.date,exDate:x.date,amount:_dAmt(x),payDate:x.paymentDate||'',recordDate:x.recordDate||''};
+  });
+  var divTTM=(function(){var cut=new Date();cut.setFullYear(cut.getFullYear()-1);return divSched.filter(function(x){var d=new Date(x.date);return !isNaN(d)&&d>=cut;}).reduce(function(s,x){return s+x.amount;},0);})();
+  var divFreq=(function(){if(divSched.length<2)return null;var gaps=[];for(var gi=0;gi<Math.min(divSched.length-1,6);gi++){var a=new Date(divSched[gi].date),b=new Date(divSched[gi+1].date);if(!isNaN(a)&&!isNaN(b))gaps.push(Math.abs(a-b)/86400000);}if(!gaps.length)return null;var g=gaps.reduce(function(a,b){return a+b;})/gaps.length;return g<45?{label:'Monthly',perYr:12}:g<135?{label:'Quarterly',perYr:4}:g<270?{label:'Semi-annual',perYr:2}:{label:'Annual',perYr:1};})();
+  var divNextEx=(function(){var now=new Date();var fut=divSched.filter(function(x){var d=new Date(x.exDate);return !isNaN(d)&&d>now;});if(fut.length){fut.sort(function(a,b){return new Date(a.exDate)-new Date(b.exDate);});return fut[0];}return divSched.length?divSched[0]:null;})();
   // Normalize: stable endpoint nests values under 'data'; v3/v4 has them flat or as {date:{seg:val}}
   var segData=_segRaw.map(function(row){
     if(!row||typeof row!=='object')return null;
@@ -467,7 +476,7 @@ async function buildCo(tk){
       }
       return{y:yrOf(y),v:+(v/1e6).toFixed(1)};
     }),cfiH:cfiH,cffH:cffH,ncH:ncH,fcf:fcfH,sbcH:sbcH,capexH:capexH,soH:soH,
-    divSchedule:divSchedule,divTTM:divTTM,divFreq:divFreq,divNextEx:divNextEx,
+    divSched:divSched,divTTM:divTTM,divFreq:divFreq,divNextEx:divNextEx,
     divH:divH,buyH:buyH,
     _ta:+((gf(bs0,'totalAssets'))/1e6).toFixed(1),
     _ppe:+((gf(bs0,'propertyPlantAndEquipmentNet','propertyPlantAndEquipment'))/1e6).toFixed(1),
@@ -915,85 +924,57 @@ function render(){
   var _divKm=(d.kmH||[]).filter(function(k){return k&&k.divYld>0;});
   var _isDivPayer=_divArr.length>0||_divKm.length>0;
   if(_isDivPayer){
-    var _latDivYld=_divKm.length>0?_divKm[0].divYld:0;
-    var _divGrow=_divArr.length>=2&&_divArr[0].v>_divArr[_divArr.length-1].v;
-    h+='<div style="background:#0a1a0a;border:1px solid #22c55e44;border-radius:8px;padding:8px 12px;margin-bottom:12px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;font-size:11px">';
-    h+='<span style="color:var(--gn);font-weight:700">💰 Dividend Payer</span>';
-    if(_latDivYld>0)h+='<span style="color:var(--lb)">Current Yield: <b style="color:var(--gn)">'+pc(_latDivYld)+'</b></span>';
-    h+='<span style="color:var(--lb)">5Y Total Paid ($M): ';
-    (d.divH||[]).slice(0,5).reverse().forEach(function(x){
-      h+='<span style="color:'+( x&&x.v>0?'var(--tl)':'var(--dm)')+'">'+( x&&x.v>0?D(x.v):'—')+'</span> ';
-    });
-    h+='</span>';
-    if(_divGrow)h+='<span style="color:var(--gn)">▲ Growing</span>';
-    if(d.divFreq)h+='<span style="color:var(--bl)">'+d.divFreq.label+'</span>';
-    h+='</div>';
-    // Per-share dividend schedule table
-    if(d.divSchedule&&d.divSchedule.length){
-      var _annDiv=d.divTTM||0;
-      // Fallback: derive from yield in key-metrics if schedule missing
-      if(!_annDiv&&_latDivYld>0&&d.p>0)_annDiv=_latDivYld*d.p;
-      var _divPerShareYld=d.p>0&&_annDiv>0?_annDiv/d.p:(_latDivYld||0);
-      h+='<div style="background:#0a0e18;border:1px solid var(--bd);border-radius:8px;padding:10px 12px;margin-bottom:12px">';
-      h+='<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:baseline;margin-bottom:8px">';
-      h+='<span style="font-size:11px;font-weight:700;color:var(--yw)">Dividend Schedule (per share)</span>';
-      if(_annDiv>0)h+='<span style="font-size:11px;color:var(--lb)">TTM: <b style="color:var(--gn);font-family:var(--m)">$'+_annDiv.toFixed(4)+'</b>/share</span>';
-      if(_divPerShareYld>0)h+='<span style="font-size:11px;color:var(--lb)">Yield: <b style="color:var(--gn)">'+pc(_divPerShareYld)+'</b></span>';
-      if(d.divFreq)h+='<span style="font-size:11px;color:var(--lb)">Pays: <b style="color:var(--bl)">'+d.divFreq.label+'</b> ('+d.divFreq.perYr+'x/yr)</span>';
-      h+='</div>';
-      // Next/most-recent ex-dividend date callout
-      if(d.divNextEx&&d.divNextEx.exDate){
-        var _exDt=new Date(d.divNextEx.exDate);var _now2=new Date();
-        var _isFuture=!isNaN(_exDt)&&_exDt>=_now2;
-        var _daysAway=!isNaN(_exDt)?Math.round((_exDt-_now2)/86400000):null;
-        h+='<div style="display:inline-flex;align-items:center;gap:8px;background:'+(_isFuture?'#1a1505':'#0d1520')+';border:1px solid '+(_isFuture?'var(--yw)':'var(--bd)')+';border-radius:6px;padding:6px 12px;margin-bottom:8px">';
-        h+='<span style="font-size:10px;color:'+(_isFuture?'var(--yw)':'var(--dm)')+';font-weight:700">'+(_isFuture?'\u26a1 NEXT EX-DATE':'LAST EX-DATE')+'</span>';
-        h+='<span style="font-size:12px;font-family:var(--m);color:var(--lb)"><b>'+d.divNextEx.exDate+'</b></span>';
-        h+='<span style="font-size:11px;color:var(--gn);font-family:var(--m)">$'+d.divNextEx.amount.toFixed(4)+'/sh</span>';
-        if(_isFuture&&_daysAway!=null)h+='<span style="font-size:10px;color:var(--dm)">in '+_daysAway+' day'+(_daysAway===1?'':'s')+' \u2014 buy before to receive</span>';
-        h+='</div><br>';
-      }
-      h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:10px;width:100%"><thead><tr style="color:var(--dm)">';
-      h+='<th style="text-align:left;padding:3px 8px;border-bottom:1px solid var(--bd)">Ex-Date</th>';
-      h+='<th style="text-align:right;padding:3px 8px;border-bottom:1px solid var(--bd)">Amount/Share</th>';
-      h+='<th style="text-align:left;padding:3px 8px;border-bottom:1px solid var(--bd)">Record Date</th>';
-      h+='<th style="text-align:left;padding:3px 8px;border-bottom:1px solid var(--bd)">Pay Date</th></tr></thead><tbody>';
-      d.divSchedule.slice(0,8).forEach(function(dv){
-        h+='<tr><td style="padding:3px 8px;font-family:var(--m);color:var(--lb)">'+(dv.exDate||dv.date||'—')+'</td>';
-        h+='<td style="padding:3px 8px;text-align:right;font-family:var(--m);color:var(--gn)">$'+dv.amount.toFixed(4)+'</td>';
-        h+='<td style="padding:3px 8px;font-family:var(--m);color:var(--dm)">'+(dv.recordDate||'—')+'</td>';
-        h+='<td style="padding:3px 8px;font-family:var(--m);color:var(--dm)">'+(dv.payDate||'—')+'</td></tr>';
-      });
-      h+='</tbody></table></div>';
-      h+='<div style="font-size:9px;color:var(--dm);margin-top:4px">Ex-date = date you must own shares before to receive dividend. Source: FMP dividends/v3 stock_dividend.</div>';
-      h+='</div>';
-    }
-    // Payout ratios + CAGR (always show if dividend payer)
-    var _divTotal=d.divH&&d.divH[0]?d.divH[0].v:0;
+    var _latDivYld=_divKm.length?_divKm[0].divYld:0;
+    var _annPS=d.divTTM>0?d.divTTM:(_latDivYld>0&&d.p>0?_latDivYld*d.p:0);
+    var _yld=d.p>0&&_annPS>0?_annPS/d.p:_latDivYld;
+    var _dTot=_divArr.length?_divArr[0].v:0;
     var _niLTM=d.incH&&d.incH[0]?d.incH[0].ni:0;
-    var _afLTM=d.af||0;
-    var _earnPayout=_niLTM>0&&_divTotal>0?_divTotal/_niLTM:null;
-    var _fcfPayout=_afLTM>0&&_divTotal>0?_divTotal/_afLTM:null;
-    var _divCagr=(function(){
-      var dd=(d.divH||[]).filter(function(x){return x&&x.v>0;});
-      if(dd.length>=3){var old=dd[dd.length-1].v,nw=dd[0].v,yrs=dd.length-1;return Math.pow(nw/old,1/yrs)-1;}
-      return null;
-    })();
-    if(_earnPayout!=null||_fcfPayout!=null||_divCagr!=null){
-      h+='<div style="display:flex;flex-wrap:wrap;gap:10px;font-size:11px;padding:8px 10px;background:#0a0e18;border:1px solid var(--bd);border-radius:6px">';
-      if(_earnPayout!=null){
-        var _epCol=_earnPayout<0.5?'var(--gn)':_earnPayout<0.8?'var(--yw)':'var(--rd)';
-        h+='<span style="color:var(--dm)">Earnings Payout: <b style="color:'+_epCol+'">'+pc(_earnPayout)+'</b> <span style="font-size:9px">(\u226550% sustainable)</span></span>';
-      }
-      if(_fcfPayout!=null){
-        var _fpCol=_fcfPayout<0.6?'var(--gn)':_fcfPayout<0.9?'var(--yw)':'var(--rd)';
-        h+='<span style="color:var(--dm)">FCF Payout: <b style="color:'+_fpCol+'">'+pc(_fcfPayout)+'</b> <span style="font-size:9px">(key for safety)</span></span>';
-      }
-      if(_divCagr!=null){
-        h+='<span style="color:var(--dm)">Div CAGR: <b style="color:'+(_divCagr>0?'var(--gn)':'var(--rd)')+'">'+pc(_divCagr)+'</b></span>';
-      }
+    var _afLTM=+(d.af||0);
+    var _ePay=_niLTM>0&&_dTot>0?_dTot/_niLTM:null;
+    var _fPay=_afLTM>0&&_dTot>0?_dTot/_afLTM:null;
+    var _grow=_divArr.length>=2&&_divArr[0].v>_divArr[_divArr.length-1].v;
+    h+='<div style="background:var(--cd);border:1px solid var(--bd);border-radius:8px;padding:12px 14px;margin-bottom:12px">';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:10px">';
+    h+='<span style="color:var(--gn);font-weight:700;font-size:13px">Dividend</span>';
+    if(_yld>0)h+='<span style="font-size:14px;font-weight:700;color:var(--gn);font-family:var(--m)">'+pc(_yld)+'</span>';
+    if(_annPS>0)h+='<span style="font-size:11px;color:var(--lb)">$'+_annPS.toFixed(3)+'/sh TTM</span>';
+    if(d.divFreq)h+='<span style="font-size:11px;color:var(--bl)">'+d.divFreq.label+' ('+d.divFreq.perYr+'x/yr)</span>';
+    if(_grow)h+='<span style="font-size:11px;color:var(--gn)">Growing</span>';
+    h+='</div>';
+    if(d.divNextEx&&d.divNextEx.exDate){
+      var _exD=new Date(d.divNextEx.exDate),_now=new Date();
+      var _fut=!isNaN(_exD)&&_exD>_now,_days=!isNaN(_exD)?Math.round((_exD-_now)/86400000):null;
+      h+='<div style="display:inline-flex;align-items:center;gap:8px;padding:5px 10px;border-radius:5px;margin-bottom:8px;border:1px solid '+(_fut?'var(--yw)':'var(--bd)')+';background:'+(_fut?'#1a1505':'#0d1520')+'">';
+      h+='<span style="font-size:10px;font-weight:700;color:'+(_fut?'var(--yw)':'var(--dm)')+'">'+(_fut?'NEXT EX-DATE':'LAST EX-DATE')+'</span>';
+      h+='<b style="font-family:var(--m)">'+d.divNextEx.exDate+'</b>';
+      h+='<span style="color:var(--gn)"> $'+d.divNextEx.amount.toFixed(4)+'</span>';
+      if(_fut&&_days!=null)h+='<span style="font-size:9px;color:var(--dm)"> — '+_days+'d away</span>';
+      h+='</div><br>';
+    }
+    if(_ePay!=null||_fPay!=null){
+      h+='<div style="display:flex;gap:14px;font-size:11px;margin-bottom:8px">';
+      if(_ePay!=null)h+='<span style="color:var(--dm)">Earnings payout <b style="color:'+(_ePay<0.5?'var(--gn)':_ePay<0.8?'var(--yw)':'var(--rd)')+'">'+pc(_ePay)+'</b></span>';
+      if(_fPay!=null)h+='<span style="color:var(--dm)">FCF payout <b style="color:'+(_fPay<0.6?'var(--gn)':_fPay<0.9?'var(--yw)':'var(--rd)')+'">'+pc(_fPay)+'</b></span>';
       h+='</div>';
     }
+    if(d.divSched&&d.divSched.length){
+      h+='<table style="border-collapse:collapse;font-size:10px;width:100%"><thead><tr style="color:var(--dm)">';
+      h+='<th style="text-align:left;padding:3px 6px;border-bottom:1px solid var(--bd)">Ex-Date</th>';
+      h+='<th style="text-align:right;padding:3px 6px;border-bottom:1px solid var(--bd)">/Share</th>';
+      h+='<th style="text-align:left;padding:3px 6px;border-bottom:1px solid var(--bd)">Pay Date</th>';
+      h+='</tr></thead><tbody>';
+      d.divSched.slice(0,8).forEach(function(x){
+        h+='<tr><td style="padding:3px 6px;font-family:var(--m);color:var(--lb)">'+x.exDate+'</td>';
+        h+='<td style="padding:3px 6px;text-align:right;color:var(--gn)">$'+x.amount.toFixed(4)+'</td>';
+        h+='<td style="padding:3px 6px;color:var(--dm)">'+x.payDate+'</td></tr>';
+      });
+      h+='</tbody></table>';
+    } else {
+      h+='<div style="font-size:10px;color:var(--dm)">Schedule unavailable (FMP dividends endpoint returned no data).</div>';
+    }
+    h+='<div style="margin-top:6px;font-size:10px;color:var(--lb)">5Y dividends paid ($M): ';
+    _divArr.slice(0,5).reverse().forEach(function(x){h+='<span style="color:var(--tl);margin-right:4px">'+D(x.v)+'</span>';});
+    h+='</div></div>';
   }else{
     h+='<div style="background:#0a0e18;border:1px solid var(--bd);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--dm)">No dividend — reinvests earnings or buys back stock.</div>';
   }
