@@ -287,9 +287,6 @@ async function buildCo(tk){
     return{date:x.date||'',exDate:x.date||x.exDate||x.exDividendDate||'',amount:_divAmt(x),
       recordDate:x.recordDate||x.recordDateDate||'',payDate:x.paymentDate||x.payDate||'',declDate:x.declarationDate||''};
   });
-  var divTTM=(function(){var cut=new Date();cut.setFullYear(cut.getFullYear()-1);return divSchedule.filter(function(x){var dt=new Date(x.date);return !isNaN(dt)&&dt>=cut;}).reduce(function(s,x){return s+x.amount;},0);})();
-  var divFreq=(function(){if(divSchedule.length<2)return null;var dts=divSchedule.map(function(x){return new Date(x.date);}).filter(function(d){return !isNaN(d);});if(dts.length<2)return null;var gaps=[];for(var gi=0;gi<Math.min(dts.length-1,5);gi++)gaps.push(Math.abs(dts[gi]-dts[gi+1])/86400000);var g=gaps.reduce(function(a,b){return a+b;},0)/gaps.length;return g<45?{label:'Monthly',perYr:12}:g<135?{label:'Quarterly',perYr:4}:g<270?{label:'Semi-annual',perYr:2}:{label:'Annual',perYr:1};})();
-  var divNextEx=(function(){var now=new Date();var fut=divSchedule.filter(function(x){var dt=new Date(x.exDate);return !isNaN(dt)&&dt>=now;});if(fut.length){fut.sort(function(a,b){return new Date(a.exDate)-new Date(b.exDate);});return fut[0];}return divSchedule.length?divSchedule[0]:null;})();
   // Dividend per-share schedule
   var _dRaw=Array.isArray(divs)?divs:(divs&&Array.isArray(divs.historical)?divs.historical:[]);
   function _dAmt(x){return +(x.adjDividend!=null?x.adjDividend:x.dividend!=null?x.dividend:0)||0;}
@@ -457,6 +454,8 @@ async function buildCo(tk){
     hq:(p.city&&p.country?p.city+', '+p.country:p.country||p.city||''),
     ceo:p.ceo||'',
     employees:p.fullTimeEmployees||0,
+    revPerEmp:(function(){var emp=p.fullTimeEmployees||0;var rev=gf(incA[0]||{},'revenue')/1e6;return emp>0&&rev>0?+(rev/emp*1e6).toFixed(0):0;})(),
+    opexPerEmp:(function(){var emp=p.fullTimeEmployees||0;var sga=gf(incA[0]||{},'sellingGeneralAndAdministrative');var rd=gf(incA[0]||{},'researchAndDevelopmentExpenses');return emp>0&&(sga+rd)>0?+((sga+rd)/emp).toFixed(0):0;})(),
     desc:(p.description||'').slice(0,300),
     website:p.website||'',
     sh:mcap&&px?+(mcap/px/1e6).toFixed(1):0,
@@ -1812,6 +1811,8 @@ function render(){
     h+=d.hq?'<span style="color:var(--dm)">HQ:</span> <b>'+d.hq+'</b><br>':'';
     h+=d.ceo?'<span style="color:var(--dm)">CEO:</span> <b>'+d.ceo+'</b><br>':'';
     h+=d.employees?'<span style="color:var(--dm)">Employees:</span> <b>'+(d.employees>1000?(d.employees/1000).toFixed(1)+'K':d.employees)+'</b><br>':'';
+    if(d.revPerEmp>0)h+='<span style="color:var(--dm)">Rev/Employee:</span> <b>$'+(d.revPerEmp>=1000000?(d.revPerEmp/1000000).toFixed(2)+'M':d.revPerEmp>=1000?(d.revPerEmp/1000).toFixed(0)+'K':d.revPerEmp)+'</b><br>';
+    if(d.opexPerEmp>0)h+='<span style="color:var(--dm)">OPEX/Employee:</span> <b>$'+(d.opexPerEmp>=1000000?(d.opexPerEmp/1000000).toFixed(2)+'M':d.opexPerEmp>=1000?(d.opexPerEmp/1000).toFixed(0)+'K':d.opexPerEmp)+'</b><br>';
     if(d.desc)h+='<div style="font-size:9px;color:var(--dm);margin-top:4px;line-height:1.5">'+d.desc+(d.desc.length>=300?'…':'')+'</div>';
     h+='</div></div>';
 
