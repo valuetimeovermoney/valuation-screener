@@ -67,7 +67,7 @@ b.s{color:var(--lb)}
 <nav class="vtm-nav"><a class="vtm-brand" href="/valuation-screener/">Value<span style="color:#d29922">Time</span></a><a id="vtm-l1" href="/valuation-screener/">Screener</a><a id="vtm-l2" href="/valuation-screener/valuation/">DCF &amp; Triangle</a><a id="vtm-l3" href="/valuation-screener/portfolio-monitor.html">Portfolio Monitor</a><a id="vtm-l4" href="/valuation-screener/watchlist.html">Watchlist</a></nav>
 <script>(function(){var p=location.pathname;if(p.includes('/valuation/'))document.getElementById('vtm-l2').classList.add('vtm-active');else if(p.includes('portfolio-monitor'))document.getElementById('vtm-l3').classList.add('vtm-active');else if(p.includes('watchlist'))document.getElementById('vtm-l4').classList.add('vtm-active');else document.getElementById('vtm-l1').classList.add('vtm-active');})();</script>
 <div class="w">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px"><div><div style="font-size:9px;font-weight:800;letter-spacing:3px;color:var(--bl)">VALUATION SCREENER</div><h1>Company Analysis</h1></div><button id="thbtn" onclick="toggleTheme()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--bd);background:var(--ib);color:var(--lb);font-size:11px;cursor:pointer;font-weight:600">Day Mode</button></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px"><div><div style="font-size:9px;font-weight:800;letter-spacing:3px;color:var(--bl)">VALUATION SCREENER</div><h1>Company Analysis</h1></div><div style="display:flex;gap:8px;align-items:center"><span id="ak-badge" style="font-size:10px;padding:3px 8px;border-radius:4px;cursor:pointer" onclick="promptFmpKey()" title="Click to set FMP API key"></span><button id="thbtn" onclick="toggleTheme()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--bd);background:var(--ib);color:var(--lb);font-size:11px;cursor:pointer;font-weight:600">Day Mode</button></div></div>
   <div class="sb"><input id="qi" placeholder="Ticker (e.g. AAPL, MSFT, GOOG)"/><button id="gb" onclick="go()">Analyze</button></div>
   <div id="sr" style="display:none;background:var(--cd);border:1px solid var(--bd);border-radius:8px;margin-top:-14px;margin-bottom:12px;max-height:350px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4)"></div>
   <div id="ld" style="display:none;text-align:center;padding:50px 0;color:var(--dm)"><div class="sp"></div><div>Fetching…</div></div>
@@ -76,7 +76,9 @@ b.s{color:var(--lb)}
   <div id="es" style="text-align:center;padding:60px 20px;color:#1e2a3a"><div style="font-size:36px;margin-bottom:10px">⬡</div><div style="font-size:13px;color:var(--dm)">Enter a ticker to auto-populate</div></div>
 </div>
 <script>
-var AK='zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J',BASE='https://financialmodelingprep.com/stable/';
+// Read paid FMP key from Portfolio Monitor settings (pm_settings.fmp), fall back to free key
+var _pmS={}; try{_pmS=JSON.parse(localStorage.getItem('pm_settings')||'{}');}catch(e){}
+var AK=(_pmS.fmp&&_pmS.fmp.trim())||'zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J', BASE='https://financialmodelingprep.com/stable/';
 async function fmpFlex(ep){
   // Try stable API first
   try{
@@ -741,6 +743,27 @@ function toggleTheme(){
 }
 (function(){if(localStorage.getItem('vtheme')==='light'){document.body.classList.add('light');
   var b=document.getElementById('thbtn');if(b)b.textContent='Dark Mode';}})();
+
+// ── FMP KEY MANAGEMENT ────────────────────────────────────
+function updateAkBadge(){
+  var badge=document.getElementById('ak-badge');if(!badge)return;
+  var isPaid=AK&&AK!=='zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J';
+  badge.textContent=isPaid?'🔑 Paid FMP Key':'⚠ Free FMP Key';
+  badge.style.background=isPaid?'rgba(34,197,94,0.12)':'rgba(234,179,8,0.12)';
+  badge.style.color=isPaid?'var(--gn)':'var(--yw)';
+  badge.style.border='1px solid '+(isPaid?'rgba(34,197,94,0.3)':'rgba(234,179,8,0.3)');
+}
+function promptFmpKey(){
+  var cur=AK==='zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J'?'':AK;
+  var val=prompt('Enter your FMP API key (saved to Portfolio Monitor settings):',cur);
+  if(val===null)return;
+  val=val.trim();
+  if(!val){alert('Key cleared — reverting to free key.');val='';}
+  try{var s=JSON.parse(localStorage.getItem('pm_settings')||'{}');s.fmp=val;localStorage.setItem('pm_settings',JSON.stringify(s));}catch(e){}
+  AK=val||'zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J';
+  updateAkBadge();
+}
+updateAkBadge();
 
 function updDCF(){
   ST.dcf={r1:gv('dr1'),r2:gv('dr2'),r3:gv('dr3'),r4:gv('dr4'),r5:gv('dr5'),
@@ -2032,39 +2055,43 @@ var _vtNewsLoaded=false,_vtCalLoaded=false,_vtCtLoaded=false;
 // ── NEWS TAB ──────────────────────────────────────────────
 async function loadVtNews(){
   var tk=ST.d&&ST.d.t;var nm=ST.d&&ST.d.n;if(!tk)return;
+  var tkBase=tk.split('.')[0];
   var el=document.getElementById('vt-news-body');if(!el)return;
   el.innerHTML='<div style="text-align:center;padding:30px;color:var(--dm)"><div class="sp"></div><div>Fetching news for '+escH(tk)+'…</div></div>';
+  var sf=function(u){return fetch(u+(u.includes('?')?'&':'?')+'apikey='+AK).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});};
   try{
-    var urls=[
-      BASE+'news?symbols='+encodeURIComponent(tk)+'&limit=30&apikey='+AK,
-      'https://financialmodelingprep.com/api/v3/stock_news?tickers='+encodeURIComponent(tk)+'&limit=30&apikey='+AK,
-      BASE+'news?symbols='+encodeURIComponent(tk.split('.')[0])+'&limit=30&apikey='+AK,
-    ];
-    var data=null,status403=false;
-    for(var i=0;i<urls.length;i++){
-      var r=await fetch(urls[i]);
-      if(r.status===403||r.status===401){status403=true;continue;}
-      if(r.ok){var j=await r.json();if(Array.isArray(j)&&j.length){data=j;break;}}
-    }
-    if(status403&&!data){
-      el.innerHTML='<div style="padding:20px;background:var(--cd);border:1px solid var(--bd);border-radius:8px"><div style="font-size:13px;font-weight:600;color:var(--br);margin-bottom:6px">News requires an FMP paid plan for this ticker</div><div style="font-size:12px;color:var(--lb)">Search for <b>'+escH(nm||tk)+'</b> news on:<br><br>• <a href="https://finance.yahoo.com/quote/'+encodeURIComponent(tk)+'/news/" target="_blank" style="color:var(--bl)">Yahoo Finance</a><br>• <a href="https://seekingalpha.com/symbol/'+encodeURIComponent(tk.split('.')[0])+'" target="_blank" style="color:var(--bl)">Seeking Alpha</a><br>• <a href="https://www.google.com/search?q='+encodeURIComponent((nm||tk)+' stock news')+'&tbm=nws" target="_blank" style="color:var(--bl)">Google News</a></div></div>';
+    // Try symbol-specific news, then base ticker, then press releases in parallel
+    var [news1, news2, press] = await Promise.all([
+      sf(BASE+'news?symbols='+encodeURIComponent(tk)+'&limit=50'),
+      tkBase!==tk ? sf(BASE+'news?symbols='+encodeURIComponent(tkBase)+'&limit=50') : Promise.resolve(null),
+      sf('https://financialmodelingprep.com/api/v3/press-releases/'+encodeURIComponent(tkBase)+'?limit=20'),
+    ]);
+    var newsArr = (Array.isArray(news1)&&news1.length ? news1 : Array.isArray(news2)&&news2.length ? news2 : []);
+    var pressArr = Array.isArray(press)?press:[];
+    if(!newsArr.length&&!pressArr.length){
+      el.innerHTML='<div style="padding:16px;background:var(--cd);border:1px solid var(--bd);border-radius:8px;color:var(--lb)">No news found for <b style="color:var(--br)">'+escH(tk)+'</b> in FMP.<br><br>External: <a href="https://finance.yahoo.com/quote/'+encodeURIComponent(tkBase)+'/news/" target="_blank" style="color:var(--bl)">Yahoo Finance</a> · <a href="https://seekingalpha.com/symbol/'+encodeURIComponent(tkBase)+'" target="_blank" style="color:var(--bl)">Seeking Alpha</a></div>';
       return;
     }
-    if(!data||!data.length){
-      el.innerHTML='<div style="padding:20px;background:var(--cd);border:1px solid var(--bd);border-radius:8px"><div style="font-size:13px;color:var(--lb);margin-bottom:10px">No recent news found for <b style="color:var(--br)">'+escH(tk)+'</b> in FMP database.</div><div style="font-size:12px;color:var(--lb)">Try:<br>• <a href="https://finance.yahoo.com/quote/'+encodeURIComponent(tk)+'/news/" target="_blank" style="color:var(--bl)">Yahoo Finance</a><br>• <a href="https://seekingalpha.com/symbol/'+encodeURIComponent(tk.split('.')[0])+'" target="_blank" style="color:var(--bl)">Seeking Alpha</a><br>• <a href="https://www.google.com/search?q='+encodeURIComponent((nm||tk)+' stock news')+'&tbm=nws" target="_blank" style="color:var(--bl)">Google News</a></div></div>';
-      return;
-    }
-    var h2='<div style="display:flex;flex-direction:column;gap:8px">';
-    data.forEach(function(a){
-      var d2=new Date(a.publishedDate||'');
-      var hrs=Math.floor((Date.now()-d2)/3600000);
+    var renderArticle=function(a,isPress){
+      var pub=a.publishedDate||a.date||'';
+      var hrs=Math.floor((Date.now()-new Date(pub))/3600000);
       var ago=hrs<1?'just now':hrs<24?hrs+'h ago':Math.floor(hrs/24)+'d ago';
-      h2+='<div style="background:var(--cd);border:1px solid var(--bd);border-radius:8px;padding:12px 14px;cursor:pointer" onclick="window.open(\''+a.url+'\',\'_blank\')">';
-      h2+='<div style="font-size:13px;font-weight:600;color:var(--br);line-height:1.4;margin-bottom:4px">'+escH(a.title||'')+'</div>';
-      if(a.text)h2+='<div style="font-size:12px;color:var(--lb);line-height:1.5;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+escH(a.text)+'</div>';
-      h2+='<div style="font-size:11px;color:var(--dm)">'+escH(a.site||a.publisher||'')+'&nbsp;·&nbsp;'+ago+'</div>';
-      h2+='</div>';
-    });
+      return '<div style="background:var(--cd);border:1px solid var(--bd);border-radius:8px;padding:12px 14px;cursor:pointer'+(isPress?';border-left:3px solid var(--pu)':'')+'" onclick="window.open(\''+escH(a.url||'#')+'\',\'_blank\')">'
+        +(isPress?'<div style="font-size:9px;font-weight:700;color:var(--pu);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Press Release</div>':'')
+        +'<div style="font-size:13px;font-weight:600;color:var(--br);line-height:1.4;margin-bottom:4px">'+escH(a.title||'')+'</div>'
+        +(a.text||a.content?'<div style="font-size:12px;color:var(--lb);line-height:1.5;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+escH(a.text||a.content||'')+'</div>':'')
+        +'<div style="font-size:11px;color:var(--dm)">'+escH(a.site||a.publisher||a.symbol||'')+'&nbsp;·&nbsp;'+ago+'</div>'
+        +'</div>';
+    };
+    var h2='<div style="display:flex;flex-direction:column;gap:8px">';
+    if(newsArr.length){
+      h2+='<div style="font-size:10px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">News ('+newsArr.length+')</div>';
+      newsArr.forEach(function(a){h2+=renderArticle(a,false);});
+    }
+    if(pressArr.length){
+      h2+='<div style="font-size:10px;font-weight:700;color:var(--pu);text-transform:uppercase;letter-spacing:1px;margin:'+(newsArr.length?'16px':'0')+'px 0 4px">Press Releases ('+pressArr.length+')</div>';
+      pressArr.forEach(function(a){h2+=renderArticle(a,true);});
+    }
     h2+='</div>';
     el.innerHTML=h2;
   }catch(e){el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
@@ -2073,69 +2100,81 @@ async function loadVtNews(){
 // ── CALENDAR TAB ──────────────────────────────────────────
 async function loadVtCal(){
   var tk=ST.d&&ST.d.t;if(!tk)return;
+  var tkBase=tk.split('.')[0];
   var el=document.getElementById('vt-cal-body');if(!el)return;
   el.innerHTML='<div style="text-align:center;padding:30px;color:var(--dm)"><div class="sp"></div><div>Fetching calendar for '+escH(tk)+'…</div></div>';
   var now=new Date();
-  var safeFetch=function(url){return fetch(url).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});};
+  var sf=function(u){return fetch(u+(u.includes('?')?'&':'?')+'apikey='+AK).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});};
   try{
-    // Try multiple earnings endpoints — stable earnings-surprises works on free tier
-    var earnUrls=[
-      BASE+'earnings-surprises?symbol='+encodeURIComponent(tk),
-      'https://financialmodelingprep.com/api/v3/earnings-surprises/'+encodeURIComponent(tk),
-      'https://financialmodelingprep.com/api/v3/historical/earning_calendar/'+encodeURIComponent(tk)+'?limit=8',
-    ];
-    var divUrls=[
-      BASE+'dividends?symbol='+encodeURIComponent(tk),
-      'https://financialmodelingprep.com/api/v3/stock_dividend/'+encodeURIComponent(tk)+'?limit=8',
-    ];
-    // Append apikey
-    var addKey=function(u){return u+(u.includes('?')?'&':'?')+'apikey='+AK;};
-    earnUrls=earnUrls.map(addKey);divUrls=divUrls.map(addKey);
-
-    var earns=null,divs=null;
-    for(var i=0;i<earnUrls.length&&!earns;i++){var j=await safeFetch(earnUrls[i]);if(j&&(Array.isArray(j)?j.length:(j.historical&&j.historical.length)))earns=j;}
-    for(var i=0;i<divUrls.length&&!divs;i++){var j=await safeFetch(divUrls[i]);if(j&&(Array.isArray(j)?j.length:(j.historical&&j.historical.length)))divs=j;}
+    // Fetch earnings history+surprises, upcoming earnings, and dividend history in parallel
+    var from=new Date(now.getTime()-365*86400000).toISOString().split('T')[0];
+    var to=new Date(now.getTime()+365*86400000).toISOString().split('T')[0];
+    var [surprises, earningCal, divHist] = await Promise.all([
+      sf('https://financialmodelingprep.com/api/v3/earnings-surprises/'+encodeURIComponent(tkBase)),
+      sf('https://financialmodelingprep.com/api/v3/historical/earning_calendar/'+encodeURIComponent(tkBase)+'?limit=12'),
+      sf('https://financialmodelingprep.com/api/v3/historical-price-full/stock_dividend/'+encodeURIComponent(tkBase)),
+    ]);
 
     var h2='';
-    // Earnings
-    var eArr=Array.isArray(earns)?earns:(earns&&earns.historical?earns.historical:[]);
-    if(eArr.length){
-      h2+='<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Earnings History</div>';
-      h2+='<div style="display:flex;flex-direction:column;gap:4px">';
-      eArr.slice(0,8).forEach(function(e2){
-        var dt=e2.date||e2.period||'';
-        var isFuture=dt&&new Date(dt)>now;
-        var eps=e2.actualEarningResult!=null?e2.actualEarningResult:e2.eps;
-        var est=e2.estimatedEarning!=null?e2.estimatedEarning:e2.epsEstimated;
-        var beat=eps!=null&&est!=null?eps>=est:null;
-        h2+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--cd);border:1px solid var(--bd);border-radius:6px">';
-        h2+='<div><span style="font-family:var(--m);font-size:12px;color:var(--br)">'+dt+'</span>';
-        if(e2.time)h2+=' <span style="font-size:10px;color:var(--dm)">'+(e2.time==='bmo'?'Before Open':e2.time==='amc'?'After Close':e2.time)+'</span>';
-        h2+='</div><div style="text-align:right;font-size:11px">';
-        if(eps!=null)h2+='<span style="color:'+(beat===true?'var(--gn)':beat===false?'var(--rd)':'var(--lb)')+'">EPS: <b>'+eps+'</b></span>';
-        if(est!=null)h2+=' <span style="color:var(--dm)">Est: '+est+'</span>';
-        if(beat===true)h2+=' <span style="color:var(--gn);font-size:10px">✓ Beat</span>';
-        else if(beat===false)h2+=' <span style="color:var(--rd);font-size:10px">✗ Miss</span>';
-        h2+='<span style="margin-left:8px;font-size:10px;padding:2px 6px;border-radius:4px;background:'+(isFuture?'rgba(56,189,248,0.15)':'rgba(255,255,255,0.05)')+';color:'+(isFuture?'var(--bl)':'var(--dm)')+'">'+( isFuture?'Upcoming':'Reported')+'</span>';
+
+    // Build earnings list: merge surprises (has actual+estimate) with calendar (has time/upcoming)
+    var surpriseArr=Array.isArray(surprises)?surprises:[];
+    var calArr=Array.isArray(earningCal)?earningCal:(earningCal&&earningCal.historical?earningCal.historical:[]);
+    // Build a map by date from surprises for fast lookup
+    var supMap={};
+    surpriseArr.forEach(function(s){if(s.date)supMap[s.date]=s;});
+
+    // Combine: calendar entries enriched with surprise data
+    var merged=calArr.slice(0,12).map(function(e){
+      var sup=supMap[e.date]||{};
+      return{
+        date:e.date,time:e.time,
+        eps:sup.actualEarningResult!=null?sup.actualEarningResult:e.eps,
+        est:sup.estimatedEarning!=null?sup.estimatedEarning:e.epsEstimated,
+        rev:e.revenue,revEst:e.revenueEstimated,
+      };
+    });
+    // Add any surprise entries not in calendar
+    surpriseArr.forEach(function(s){if(!supMap[s.date]||!calArr.find(function(c){return c.date===s.date;}))merged.push({date:s.date,eps:s.actualEarningResult,est:s.estimatedEarning});});
+    merged.sort(function(a,b){return b.date>a.date?1:-1;});
+
+    if(merged.length){
+      h2+='<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Earnings History &amp; Calendar</div><div style="display:flex;flex-direction:column;gap:4px">';
+      merged.slice(0,12).forEach(function(e){
+        var isFuture=e.date&&new Date(e.date)>now;
+        var beat=e.eps!=null&&e.est!=null?e.eps>=e.est:null;
+        h2+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--cd);border:1px solid '+(isFuture?'rgba(56,189,248,0.3)':'var(--bd)')+';border-radius:6px'+(isFuture?';border-left:3px solid var(--bl)':'')+'">';
+        h2+='<div><span style="font-family:var(--m);font-size:12px;color:var(--br)">'+e.date+'</span>';
+        if(e.time)h2+=' <span style="font-size:10px;color:var(--dm)">'+(e.time==='bmo'?'Before Open':e.time==='amc'?'After Close':e.time)+'</span>';
+        if(isFuture)h2+=' <span style="font-size:10px;font-weight:700;color:var(--bl)">Upcoming</span>';
+        h2+='</div><div style="text-align:right;font-size:11px;display:flex;align-items:center;gap:8px">';
+        if(!isFuture&&e.eps!=null)h2+='<span style="color:'+(beat===true?'var(--gn)':beat===false?'var(--rd)':'var(--lb)')+'">EPS <b>'+e.eps+'</b></span>';
+        if(e.est!=null)h2+='<span style="color:var(--dm)">Est '+e.est+'</span>';
+        if(beat===true)h2+='<span style="background:rgba(34,197,94,0.15);color:var(--gn);font-size:10px;padding:1px 5px;border-radius:3px">✓ Beat</span>';
+        else if(beat===false)h2+='<span style="background:rgba(239,68,68,0.15);color:var(--rd);font-size:10px;padding:1px 5px;border-radius:3px">✗ Miss</span>';
+        if(e.rev!=null)h2+='<span style="color:var(--dm);font-size:10px">Rev '+D(e.rev/1e6)+'</span>';
         h2+='</div></div>';
       });
       h2+='</div></div>';
     }
+
     // Dividends
-    var dArr=Array.isArray(divs)?divs:(divs&&divs.historical?divs.historical:[]);
-    if(dArr.length){
-      h2+='<div><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Dividend History</div>';
-      h2+='<div style="display:flex;flex-direction:column;gap:4px">';
-      dArr.slice(0,8).forEach(function(dv){
+    var divArr=divHist&&divHist.historical?divHist.historical:(Array.isArray(divHist)?divHist:[]);
+    if(divArr.length){
+      h2+='<div><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Dividend History</div><div style="display:flex;flex-direction:column;gap:4px">';
+      divArr.slice(0,10).forEach(function(dv){
         h2+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--cd);border:1px solid var(--bd);border-radius:6px">';
-        h2+='<div><span style="font-family:var(--m);font-size:12px;color:var(--br)">'+(dv.date||dv.recordDate||'')+'</span> <span style="font-size:10px;color:var(--dm)">ex-date</span></div>';
-        h2+='<div style="font-size:12px;font-weight:700;color:var(--gn)">$'+(dv.dividend||dv.adjDividend||dv.amount||'—')+'</div>';
+        h2+='<div><span style="font-family:var(--m);font-size:12px;color:var(--br)">'+(dv.date||'')+'</span>'
+          +' <span style="font-size:10px;color:var(--dm)">ex</span>'
+          +(dv.paymentDate?' <span style="font-size:10px;color:var(--dm)">· pay '+dv.paymentDate+'</span>':'')+'</div>';
+        h2+='<div style="font-size:12px;font-weight:700;color:var(--gn)">$'+(dv.dividend!=null?dv.dividend:dv.adjDividend||'—')+'</div>';
         h2+='</div>';
       });
       h2+='</div></div>';
     }
-    if(!eArr.length&&!dArr.length){
-      h2='<div style="padding:16px;background:var(--cd);border:1px solid var(--bd);border-radius:8px;color:var(--lb);font-size:13px">No earnings or dividend data found for <b style="color:var(--br)">'+escH(tk)+'</b> on the free FMP plan.<br><br><a href="https://finance.yahoo.com/quote/'+encodeURIComponent(tk)+'/financials/" target="_blank" style="color:var(--bl)">Check Yahoo Finance →</a></div>';
+
+    if(!merged.length&&!divArr.length){
+      h2='<div style="padding:16px;background:var(--cd);border:1px solid var(--bd);border-radius:8px;color:var(--lb);font-size:13px">No earnings or dividend data found for <b style="color:var(--br)">'+escH(tk)+'</b>.<br><br><a href="https://finance.yahoo.com/quote/'+encodeURIComponent(tkBase)+'/financials/" target="_blank" style="color:var(--bl)">Check Yahoo Finance →</a></div>';
     }
     el.innerHTML=h2;
   }catch(e){el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
