@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Monitor — Value Investor Dashboard</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<style>
+:root {
+  --bg-primary: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-card: #1c2128;
+  --bg-hover: #21262d;
+  --border: #30363d;
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #656d76;
+  --accent-green: #3fb950;
+  --accent-gold: #d29922;
+  --accent-blue: #58a6ff;
+  --accent-red: #f85149;
+  --accent-purple: #bc8cff;
+  --accent-orange: #e3883d;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg-primary); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; font-size: 14px; min-height: 100vh; }
+
+/* Shared top nav */
+.vtm-nav{background:#0d1117;border-bottom:1px solid #30363d;padding:0 16px;display:flex;align-items:center;gap:2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;position:sticky;top:0;z-index:999}
+.vtm-nav a{color:#8b949e;text-decoration:none;padding:9px 13px;font-size:12px;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s}
+.vtm-nav a:hover{color:#e6edf3}
+.vtm-nav a.vtm-active{color:#58a6ff;border-bottom-color:#58a6ff}
+.vtm-brand{font-weight:800!important;font-size:14px!important;color:#e6edf3!important;padding-right:16px!important;border-bottom:none!important}
+
+/* Header */
+.site-header { background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; gap: 16px; }
+.site-header .logo { font-size: 18px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.3px; }
+.site-header .logo span { color: var(--accent-gold); }
+.badge-count { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-secondary); font-size: 11px; padding: 2px 8px; border-radius: 12px; }
+.header-spacer { flex: 1; }
+.btn-icon { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-secondary); width: 34px; height: 34px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; transition: all 0.15s; }
+.btn-icon:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+/* Tab Nav */
+.tab-nav { background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 0 20px; display: flex; gap: 4px; }
+.tab-btn { background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-secondary); padding: 10px 16px; font-size: 13px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.15s; margin-bottom: -1px; }
+.tab-btn:hover { color: var(--text-primary); }
+.tab-btn.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
+
+/* Layout */
+.main-content { padding: 20px; max-width: 1400px; margin: 0 auto; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Controls */
+.controls-bar { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.ctrl-group { display: flex; flex-direction: column; gap: 4px; }
+.ctrl-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+select.ctrl-select, input.ctrl-input { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); border-radius: 6px; padding: 6px 10px; font-size: 13px; outline: none; transition: border-color 0.15s; min-width: 140px; }
+select.ctrl-select:focus, input.ctrl-input:focus { border-color: var(--accent-blue); }
+.ctrl-spacer { flex: 1; }
+
+/* Buttons */
+.btn-primary-custom { background: var(--accent-blue); color: #0d1117; border: none; border-radius: 6px; padding: 7px 16px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: opacity 0.15s; }
+.btn-primary-custom:hover { opacity: 0.85; }
+.btn-primary-custom:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-outline-custom { background: none; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; transition: all 0.15s; }
+.btn-outline-custom:hover { background: var(--bg-hover); color: var(--text-primary); }
+.btn-outline-custom.active { background: var(--bg-hover); color: var(--text-primary); border-color: var(--accent-blue); }
+
+/* Status bar */
+.status-bar { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-green); display: inline-block; }
+
+/* News Cards */
+.news-grid { display: flex; flex-direction: column; gap: 10px; }
+.news-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; transition: border-color 0.15s, background 0.15s; cursor: pointer; }
+.news-card:hover { border-color: var(--accent-blue); background: var(--bg-hover); }
+.news-card-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
+.news-ticker { background: var(--bg-secondary); border: 1px solid var(--border); color: var(--accent-blue); font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 4px; white-space: nowrap; }
+.news-cat { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 4px; white-space: nowrap; }
+.cat-earnings { background: rgba(63,185,80,0.15); color: var(--accent-green); }
+.cat-management { background: rgba(88,166,255,0.15); color: var(--accent-blue); }
+.cat-capital { background: rgba(210,153,34,0.15); color: var(--accent-gold); }
+.cat-balance { background: rgba(227,136,61,0.15); color: var(--accent-orange); }
+.cat-analyst { background: rgba(139,148,158,0.15); color: var(--text-secondary); }
+.cat-risk { background: rgba(248,81,73,0.2); color: var(--accent-red); }
+.cat-operations { background: rgba(188,140,255,0.15); color: var(--accent-purple); }
+.cat-general { background: rgba(139,148,158,0.1); color: var(--text-muted); }
+.news-title { font-size: 14px; font-weight: 600; color: var(--text-primary); line-height: 1.4; flex: 1; min-width: 200px; }
+.news-meta { display: flex; gap: 12px; font-size: 12px; color: var(--text-muted); margin-top: 6px; align-items: center; flex-wrap: wrap; }
+.news-source { color: var(--text-secondary); font-weight: 500; }
+.news-excerpt { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-top: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.news-sentiment { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; }
+.sent-bullish { color: var(--accent-green); }
+.sent-bearish { color: var(--accent-red); }
+.sent-neutral { color: var(--text-muted); }
+
+/* Empty & Loading states */
+.empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+.empty-state i { font-size: 40px; margin-bottom: 12px; display: block; }
+.empty-state p { margin: 0; font-size: 14px; }
+.loading-state { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
+.spinner { width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--accent-blue); border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; margin-bottom: 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Calendar */
+.cal-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.cal-month-label { font-size: 18px; font-weight: 700; color: var(--text-primary); min-width: 180px; text-align: center; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--border); border-radius: 8px; overflow: hidden; }
+.cal-day-header { background: var(--bg-secondary); padding: 8px; text-align: center; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.cal-day { background: var(--bg-card); min-height: 90px; padding: 6px; position: relative; }
+.cal-day.other-month { background: var(--bg-primary); opacity: 0.5; }
+.cal-day.today { background: var(--bg-hover); }
+.cal-day.today .cal-day-num { color: var(--accent-blue); font-weight: 700; }
+.cal-day-num { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+.cal-event { font-size: 10px; font-weight: 600; padding: 2px 5px; border-radius: 3px; margin-bottom: 2px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: block; transition: opacity 0.1s; }
+.cal-event:hover { opacity: 0.8; }
+.ev-earnings { background: rgba(63,185,80,0.2); color: var(--accent-green); }
+.ev-exdiv { background: rgba(210,153,34,0.2); color: var(--accent-gold); }
+.ev-div { background: rgba(88,166,255,0.2); color: var(--accent-blue); }
+.ev-more { font-size: 10px; color: var(--text-muted); padding: 1px 4px; cursor: pointer; }
+
+/* List view */
+.event-list { display: flex; flex-direction: column; gap: 8px; }
+.event-list-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; display: flex; align-items: center; gap: 14px; }
+.event-date-block { text-align: center; min-width: 46px; }
+.event-date-block .month { font-size: 10px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; }
+.event-date-block .day { font-size: 22px; font-weight: 700; line-height: 1; color: var(--text-primary); }
+.event-info { flex: 1; }
+.event-info .ticker { font-size: 13px; font-weight: 700; color: var(--accent-blue); }
+.event-info .company { font-size: 12px; color: var(--text-secondary); }
+.event-info .details { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.event-type-badge { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 4px; white-space: nowrap; }
+
+/* Legend */
+.legend { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; }
+.legend-item { display: flex; align-items: center; gap: 5px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+/* Settings Modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; display: none; }
+.modal-overlay.open { display: flex; }
+.modal-box { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: 480px; max-width: calc(100vw - 40px); max-height: calc(100vh - 80px); overflow-y: auto; }
+.modal-title { font-size: 16px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+.modal-section { margin-bottom: 18px; }
+.modal-section-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; margin-bottom: 10px; }
+.field-group { margin-bottom: 12px; }
+.field-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+.field-input { width: 100%; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); border-radius: 6px; padding: 8px 10px; font-size: 13px; outline: none; font-family: monospace; }
+.field-input:focus { border-color: var(--accent-blue); }
+.field-hint { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+.alert-no-keys { background: rgba(210,153,34,0.1); border: 1px solid rgba(210,153,34,0.3); color: var(--accent-gold); border-radius: 6px; padding: 10px 12px; font-size: 13px; margin-bottom: 16px; display: none; }
+.alert-no-keys.show { display: block; }
+
+/* Event detail toast */
+.event-detail-toast { position: fixed; bottom: 20px; right: 20px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; padding: 16px; width: 300px; box-shadow: 0 8px 30px rgba(0,0,0,0.5); z-index: 500; display: none; animation: slideUp 0.2s ease; }
+.event-detail-toast.open { display: block; }
+@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.toast-close { position: absolute; top: 10px; right: 12px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; }
+.toast-close:hover { color: var(--text-primary); }
+
+/* Sector dots */
+.sec-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+.sec-Technology { background: #58a6ff; }
+.sec-Healthcare { background: #3fb950; }
+.sec-Materials { background: #d29922; }
+.sec-Consumer { background: #e3883d; }
+.sec-Financial { background: #bc8cff; }
+.sec-Energy { background: #f85149; }
+.sec-Industrials { background: #79c0ff; }
+.sec-Services { background: #a5d6ff; }
+.sec-Real { background: #56d364; }
+.sec-Telecom { background: #ffa657; }
+.sec-Other { background: #8b949e; }
+
+/* Pagination */
+.pagination-bar { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
+.page-btn { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-secondary); padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.15s; }
+.page-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.page-btn.active { background: rgba(88,166,255,0.15); border-color: var(--accent-blue); color: var(--accent-blue); }
+.page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+@media (max-width: 600px) {
+  .controls-bar { flex-direction: column; }
+  .cal-grid { font-size: 11px; }
+  .cal-day { min-height: 60px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Shared top nav -->
+<nav class="vtm-nav"><a class="vtm-brand" href="/valuation-screener/">Value<span style="color:#d29922">Time</span></a><a id="vtm-l1" href="/valuation-screener/">Screener</a><a id="vtm-l2" href="/valuation-screener/valuation/">DCF &amp; Triangle</a><a id="vtm-l3" href="/valuation-screener/portfolio-monitor.html">Portfolio Monitor</a></nav>
+<script>(function(){var p=location.pathname;if(p.includes('/valuation/'))document.getElementById('vtm-l2').classList.add('vtm-active');else if(p.includes('portfolio-monitor'))document.getElementById('vtm-l3').classList.add('vtm-active');else document.getElementById('vtm-l1').classList.add('vtm-active');})();</script>
+
+<!-- Header -->
+<header class="site-header">
+  <div class="logo">Portfolio<span>Monitor</span></div>
+  <span class="badge-count" id="portfolioCount">141 companies</span>
+  <div class="header-spacer"></div>
+  <div class="btn-icon" onclick="openSettings()" title="API Settings">
+    <i class="bi bi-gear"></i>
+  </div>
+</header>
+
+<!-- Tab Nav -->
+<nav class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('news', this)">
+    <i class="bi bi-newspaper"></i> News &amp; Analysis
+  </button>
+  <button class="tab-btn" onclick="switchTab('calendar', this)">
+    <i class="bi bi-calendar3"></i> Events Calendar
+  </button>
+</nav>
+
+<!-- Main Content -->
+<div class="main-content">
+
+  <!-- ===================== NEWS TAB ===================== -->
+  <div id="tab-news" class="tab-panel active">
+    <div class="alert-no-keys" id="noKeysAlert">
+      <i class="bi bi-key me-1"></i> No API keys configured.
+      <a href="#" onclick="openSettings(); return false;" style="color:inherit;font-weight:600;">Open Settings</a>
+      to add FMP, Alpha Vantage, or NewsAPI keys.
+    </div>
+
+    <div class="controls-bar">
+      <div class="ctrl-group">
+        <div class="ctrl-label">Sector</div>
+        <select class="ctrl-select" id="newsSectorFilter" onchange="onSectorChange()">
+          <option value="">All Sectors</option>
+          <option>Technology</option>
+          <option>Healthcare</option>
+          <option>Materials</option>
+          <option>Consumer</option>
+          <option>Financial Services</option>
+          <option>Energy</option>
+          <option>Industrials</option>
+          <option>Services</option>
+          <option>Real Estate</option>
+          <option>Telecommunication Services</option>
+        </select>
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Company</div>
+        <select class="ctrl-select" id="newsCompanyFilter" style="min-width:200px">
+          <option value="">All in sector</option>
+        </select>
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Date Range</div>
+        <select class="ctrl-select" id="newsDateRange">
+          <option value="7">Last 7 days</option>
+          <option value="14">Last 14 days</option>
+          <option value="30" selected>Last 30 days</option>
+          <option value="90">Last 90 days</option>
+        </select>
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Category</div>
+        <select class="ctrl-select" id="newsCatFilter" onchange="renderNews()">
+          <option value="">All Categories</option>
+          <option value="earnings">Earnings</option>
+          <option value="management">Management</option>
+          <option value="capital">Capital Allocation</option>
+          <option value="balance">Balance Sheet</option>
+          <option value="analyst">Analyst Coverage</option>
+          <option value="risk">Risk Flags</option>
+          <option value="operations">Operations</option>
+        </select>
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Source</div>
+        <select class="ctrl-select" id="newsSource">
+          <option value="fmp">FMP (Recommended)</option>
+          <option value="alphavantage">Alpha Vantage</option>
+          <option value="newsapi">NewsAPI + proxy</option>
+        </select>
+      </div>
+      <div class="ctrl-spacer"></div>
+      <button class="btn-primary-custom" onclick="fetchNews()" id="fetchNewsBtn">
+        <i class="bi bi-arrow-clockwise"></i> Load News
+      </button>
+    </div>
+
+    <div class="status-bar" id="newsStatus">
+      <span>Select filters and click <strong>Load News</strong></span>
+    </div>
+
+    <div id="newsContainer">
+      <div class="empty-state">
+        <i class="bi bi-newspaper"></i>
+        <p>News will appear here after you click <strong>Load News</strong></p>
+        <p style="font-size:12px;margin-top:6px;color:var(--text-muted)">Value Investor Focus: Earnings quality · Capital allocation · Management changes · Balance sheet signals</p>
+      </div>
+    </div>
+    <div id="newsPagination" class="pagination-bar"></div>
+  </div>
+
+  <!-- ===================== CALENDAR TAB ===================== -->
+  <div id="tab-calendar" class="tab-panel">
+    <div class="alert-no-keys" id="noKeysAlertCal">
+      <i class="bi bi-key me-1"></i> FMP API key required for calendar data.
+      <a href="#" onclick="openSettings(); return false;" style="color:inherit;font-weight:600;">Open Settings</a>
+    </div>
+
+    <div class="controls-bar">
+      <div class="ctrl-group">
+        <div class="ctrl-label">Sector Filter</div>
+        <select class="ctrl-select" id="calSectorFilter">
+          <option value="">All Sectors</option>
+          <option>Technology</option>
+          <option>Healthcare</option>
+          <option>Materials</option>
+          <option>Consumer</option>
+          <option>Financial Services</option>
+          <option>Energy</option>
+          <option>Industrials</option>
+          <option>Services</option>
+          <option>Real Estate</option>
+          <option>Telecommunication Services</option>
+        </select>
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Event Type</div>
+        <select class="ctrl-select" id="calEventFilter">
+          <option value="">All Events</option>
+          <option value="earnings">Earnings</option>
+          <option value="exdiv">Ex-Dividend</option>
+          <option value="div">Dividend Payment</option>
+        </select>
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">View</div>
+        <div style="display:flex;gap:4px">
+          <button class="btn-outline-custom active" id="btnCalView" onclick="toggleCalView('calendar')">
+            <i class="bi bi-grid"></i> Calendar
+          </button>
+          <button class="btn-outline-custom" id="btnListView" onclick="toggleCalView('list')">
+            <i class="bi bi-list-ul"></i> List
+          </button>
+        </div>
+      </div>
+      <div class="ctrl-spacer"></div>
+      <button class="btn-primary-custom" onclick="fetchCalendar()" id="fetchCalBtn">
+        <i class="bi bi-arrow-clockwise"></i> Load Events
+      </button>
+    </div>
+
+    <div class="cal-header">
+      <button class="btn-outline-custom" onclick="changeMonth(-1)"><i class="bi bi-chevron-left"></i></button>
+      <div class="cal-month-label" id="calMonthLabel">June 2026</div>
+      <button class="btn-outline-custom" onclick="changeMonth(1)"><i class="bi bi-chevron-right"></i></button>
+
+      <div class="legend ms-auto">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent-green)"></div> Earnings</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent-gold)"></div> Ex-Dividend</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent-blue)"></div> Dividend Pay</div>
+      </div>
+    </div>
+
+    <div id="calendarContainer">
+      <div class="empty-state">
+        <i class="bi bi-calendar3"></i>
+        <p>Click <strong>Load Events</strong> to fetch earnings &amp; dividend dates for your portfolio</p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main-content -->
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal-box">
+    <div class="modal-title">
+      <span><i class="bi bi-gear me-2"></i>API Settings</span>
+      <button class="btn-icon" onclick="closeSettings()" style="font-size:18px">&times;</button>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-label">Financial Modeling Prep (FMP)</div>
+      <div class="field-group">
+        <div class="field-label">API Key</div>
+        <input class="field-input" type="password" id="fmpKey" placeholder="Enter your FMP API key">
+        <div class="field-hint">Used for news, earnings calendar &amp; dividend calendar. Free tier: 250 calls/day.</div>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-label">Alpha Vantage</div>
+      <div class="field-group">
+        <div class="field-label">API Key</div>
+        <input class="field-input" type="password" id="avKey" placeholder="Enter your Alpha Vantage API key">
+        <div class="field-hint">Used for news sentiment analysis. Free tier: 25 calls/day.</div>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-label">NewsAPI</div>
+      <div class="field-group">
+        <div class="field-label">API Key</div>
+        <input class="field-input" type="password" id="napiKey" placeholder="Enter your NewsAPI key">
+        <div class="field-hint">Requires a CORS proxy when running from browser.</div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">CORS Proxy URL (optional)</div>
+        <input class="field-input" type="text" id="corsProxy" placeholder="e.g. https://cors-anywhere.herokuapp.com/">
+        <div class="field-hint">A proxy is required for NewsAPI in browser environments.</div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
+      <button class="btn-outline-custom" onclick="closeSettings()">Cancel</button>
+      <button class="btn-primary-custom" onclick="saveSettings()"><i class="bi bi-check2"></i> Save Keys</button>
+    </div>
+  </div>
+</div>
+
+<!-- Event Detail Toast -->
+<div class="event-detail-toast" id="eventToast">
+  <button class="toast-close" onclick="closeToast()">&times;</button>
+  <div id="toastContent"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ─── PORTFOLIO DATA ────────────────────────────────────────────────────────────
+const PORTFOLIO = [
+  { name:"1stDibs.com", ticker:"DIBS", apiTicker:"DIBS", exchange:"NASDAQ", cap:200, sector:"Technology", industry:"E-commerce", country:"US" },
+  { name:"5E Advanced Materials", ticker:"FEAM", apiTicker:"FEAM", exchange:"NASDAQ", cap:76, sector:"Materials", industry:"Specialty Chemicals", country:"US" },
+  { name:"a.k.a. Brands", ticker:"AKA", apiTicker:"AKA", exchange:"NYSE", cap:98, sector:"Consumer", industry:"Apparel Retail", country:"US" },
+  { name:"ACCESS Newswire", ticker:"ACCS", apiTicker:"ACCS", exchange:"NYSE American", cap:33, sector:"Services", industry:"Advertising Agencies", country:"US" },
+  { name:"Aclarion", ticker:"ACON", apiTicker:"ACON", exchange:"NASDAQ", cap:9, sector:"Healthcare", industry:"Medical Technology", country:"US" },
+  { name:"Acorn Energy", ticker:"ACFN", apiTicker:"ACFN", exchange:"NASDAQ", cap:49, sector:"Technology", industry:"Scientific Instruments", country:"US" },
+  { name:"AirBoss of America", ticker:"BOS.TO", apiTicker:"ABSSF", exchange:"TSX", cap:178, sector:"Materials", industry:"Specialty Chemicals", country:"CA" },
+  { name:"Altigen Communications", ticker:"ATGN", apiTicker:"ATGN", exchange:"OTCQB", cap:13, sector:"Services", industry:"Telecom Services", country:"US" },
+  { name:"ALUULA Composites", ticker:"AUUA", apiTicker:"AUUAF", exchange:"TSX-V", cap:97, sector:"Materials", industry:"Tech/Clean-tech", country:"CA" },
+  { name:"Amerigo Resources", ticker:"ARG.TO", apiTicker:"ARREF", exchange:"TSX", cap:831, sector:"Materials", industry:"Copper", country:"CA" },
+  { name:"Amtech Systems", ticker:"ASYS", apiTicker:"ASYS", exchange:"NASDAQ", cap:192, sector:"Technology", industry:"Semiconductors", country:"US" },
+  { name:"Armanino Foods", ticker:"AMNF", apiTicker:"AMNF", exchange:"OTCQB", cap:360, sector:"Consumer", industry:"Packaged Foods", country:"US" },
+  { name:"Ascent Industries", ticker:"ACNT", apiTicker:"ACNT", exchange:"NASDAQ", cap:145, sector:"Industrials", industry:"Chemicals", country:"US" },
+  { name:"Atlas Salt", ticker:"SALT", apiTicker:"SALT", exchange:"TSX-V", cap:75, sector:"Materials", industry:"Mining", country:"CA" },
+  { name:"AtlasClear Holdings", ticker:"ATCH", apiTicker:"ATCH", exchange:"NYSE American", cap:37, sector:"Financial Services", industry:"Capital Markets", country:"US" },
+  { name:"Aytu BioPharma", ticker:"AYTU", apiTicker:"AYTU", exchange:"NASDAQ", cap:50, sector:"Healthcare", industry:"Commercial Pharma", country:"US" },
+  { name:"Backblaze", ticker:"BLZE", apiTicker:"BLZE", exchange:"NASDAQ", cap:212, sector:"Technology", industry:"Software Infrastructure", country:"US" },
+  { name:"Baylin Technologies", ticker:"BYL", apiTicker:"BYL", exchange:"TSX", cap:40, sector:"Technology", industry:"Wireless Infrastructure", country:"CA" },
+  { name:"BioStem Technologies", ticker:"BSEM", apiTicker:"BSEM", exchange:"OTC", cap:74, sector:"Healthcare", industry:"Biotechnology", country:"US" },
+  { name:"BioSyent", ticker:"RX.V", apiTicker:"RX.V", exchange:"TSX-V", cap:176, sector:"Healthcare", industry:"Drug Manufacturers", country:"CA" },
+  { name:"BluMetric Environmental", ticker:"BLM", apiTicker:"BLM", exchange:"TSX-V", cap:90, sector:"Technology", industry:"Water Technology", country:"CA" },
+  { name:"Borealis Mining", ticker:"BOGO", apiTicker:"BOGO", exchange:"TSX-V", cap:175, sector:"Materials", industry:"Mining", country:"CA" },
+  { name:"Braiin", ticker:"BRAI", apiTicker:"BRAI", exchange:"NASDAQ", cap:1600, sector:"Technology", industry:"AI / IT Services", country:"US" },
+  { name:"Branchout Food", ticker:"BOF", apiTicker:"BOF", exchange:"NASDAQ", cap:47, sector:"Consumer", industry:"Food", country:"US" },
+  { name:"Buda Juice", ticker:"BUDA", apiTicker:"BUDA", exchange:"NYSE American", cap:120, sector:"Consumer", industry:"Beverages", country:"US" },
+  { name:"BuildDirect", ticker:"BILD.V", apiTicker:"BILD.V", exchange:"TSX-V", cap:100, sector:"Consumer", industry:"Flooring", country:"CA" },
+  { name:"Caliber Company", ticker:"CWD", apiTicker:"CWD", exchange:"NASDAQ", cap:10, sector:"Real Estate", industry:"Real Estate", country:"US" },
+  { name:"Cannara Biotech", ticker:"LOVE.TO", apiTicker:"LOVFF", exchange:"TSX", cap:126, sector:"Consumer", industry:"Cannabis", country:"CA" },
+  { name:"CitroTech", ticker:"CITR", apiTicker:"CITR", exchange:"NYSE American", cap:200, sector:"Materials", industry:"Specialty Chemicals", country:"US" },
+  { name:"Cizzle Brands", ticker:"CZZL.NE", apiTicker:"CZZLF", exchange:"Cboe Canada", cap:81, sector:"Consumer", industry:"Packaged Foods", country:"CA" },
+  { name:"Comstock", ticker:"LODE", apiTicker:"LODE", exchange:"NYSE American", cap:211, sector:"Materials", industry:"Solar Recycling / Metals", country:"US" },
+  { name:"Creative Realities", ticker:"CREX", apiTicker:"CREX", exchange:"NASDAQ", cap:35, sector:"Technology", industry:"Digital Media Systems", country:"US" },
+  { name:"Crexendo", ticker:"CXDO", apiTicker:"CXDO", exchange:"NASDAQ", cap:225, sector:"Telecommunication Services", industry:"Cloud Comms/SaaS", country:"US" },
+  { name:"CTW", ticker:"CTW", apiTicker:"CTW", exchange:"NASDAQ", cap:125, sector:"Technology", industry:"Gaming", country:"US" },
+  { name:"Cybeats Technologies", ticker:"CYBT.CN", apiTicker:"CYBT.CN", exchange:"CSE", cap:37, sector:"Technology", industry:"Software Infrastructure", country:"CA" },
+  { name:"Dakota Gold", ticker:"DC", apiTicker:"DC", exchange:"NYSE American", cap:685, sector:"Materials", industry:"Gold Exploration", country:"US" },
+  { name:"Data I/O", ticker:"DAIO", apiTicker:"DAIO", exchange:"NASDAQ", cap:32, sector:"Technology", industry:"Semiconductors", country:"US" },
+  { name:"Decibel Cannabis", ticker:"DB.V", apiTicker:"DBCCF", exchange:"TSX-V", cap:78, sector:"Consumer", industry:"Cannabis", country:"CA" },
+  { name:"DHI Group", ticker:"DHX", apiTicker:"DHX", exchange:"NYSE", cap:85, sector:"Services", industry:"SaaS Software", country:"US" },
+  { name:"DIRTT Environmental", ticker:"DRT", apiTicker:"DRT", exchange:"TSX", cap:170, sector:"Materials", industry:"Prefabricated Construction", country:"CA" },
+  { name:"DocGo", ticker:"DCGO", apiTicker:"DCGO", exchange:"NASDAQ", cap:67, sector:"Healthcare", industry:"Medical Care Facilities", country:"US" },
+  { name:"Dolphin Entertainment", ticker:"DLPN", apiTicker:"DLPN", exchange:"NASDAQ", cap:19, sector:"Services", industry:"Advertising Agencies", country:"US" },
+  { name:"Dot Ai", ticker:"DAIC", apiTicker:"DAIC", exchange:"NASDAQ", cap:6, sector:"Technology", industry:"IT Services", country:"US" },
+  { name:"Duos Technologies", ticker:"DUOT", apiTicker:"DUOT", exchange:"NASDAQ", cap:250, sector:"Technology", industry:"Data Center/AI", country:"US" },
+  { name:"Earth Science Tech", ticker:"ETST", apiTicker:"ETST", exchange:"OTC", cap:34, sector:"Healthcare", industry:"Pharmaceutical Preparations", country:"US" },
+  { name:"Eco Wave Power", ticker:"WAVE", apiTicker:"WAVE", exchange:"NASDAQ", cap:38, sector:"Energy", industry:"Renewable Energy", country:"US" },
+  { name:"Elauwit Corporation", ticker:"ELWT", apiTicker:"ELWT", exchange:"NASDAQ", cap:46, sector:"Technology", industry:"Internet Services", country:"US" },
+  { name:"electroCore", ticker:"ECOR", apiTicker:"ECOR", exchange:"NASDAQ", cap:45, sector:"Technology", industry:"Med-tech", country:"US" },
+  { name:"Elutia", ticker:"ELUT", apiTicker:"ELUT", exchange:"NASDAQ", cap:53, sector:"Healthcare", industry:"Medical Technology", country:"US" },
+  { name:"Energous", ticker:"WATT", apiTicker:"WATT", exchange:"NASDAQ", cap:30, sector:"Technology", industry:"Wireless IoT", country:"US" },
+  { name:"Envoy Medical", ticker:"COCH", apiTicker:"COCH", exchange:"NASDAQ", cap:35, sector:"Healthcare", industry:"Medical Devices", country:"US" },
+  { name:"EnWave", ticker:"ENW", apiTicker:"ENW", exchange:"TSX-V", cap:45, sector:"Technology", industry:"Food Manufacturing", country:"CA" },
+  { name:"Eon Resources", ticker:"EONR", apiTicker:"EONR", exchange:"NYSE American", cap:52, sector:"Energy", industry:"Oil & Gas E&P", country:"US" },
+  { name:"First Canadian Graphite", ticker:"FCI", apiTicker:"FCI", exchange:"TSX-V", cap:13, sector:"Materials", industry:"Mining: Graphite", country:"CA" },
+  { name:"Flotek Industries", ticker:"FTK", apiTicker:"FTK", exchange:"NYSE", cap:610, sector:"Energy", industry:"Energy", country:"US" },
+  { name:"Fortune Bay", ticker:"FOR.V", apiTicker:"FOR.V", exchange:"TSX-V", cap:45, sector:"Materials", industry:"Gold", country:"CA" },
+  { name:"Forum Energy Technologies", ticker:"FET", apiTicker:"FET", exchange:"NYSE", cap:644, sector:"Energy", industry:"Oil & Gas Equipment", country:"US" },
+  { name:"FST Corp", ticker:"KBSX", apiTicker:"KBSX", exchange:"OTC", cap:65, sector:"Materials", industry:"Steel", country:"US" },
+  { name:"Gelteq", ticker:"GELS", apiTicker:"GELS", exchange:"NASDAQ", cap:10, sector:"Healthcare", industry:"Drug Delivery", country:"US" },
+  { name:"Heritage Global", ticker:"HGBL", apiTicker:"HGBL", exchange:"NASDAQ", cap:47, sector:"Financial Services", industry:"Capital Markets", country:"US" },
+  { name:"High Tide", ticker:"HITI", apiTicker:"HITI", exchange:"NASDAQ", cap:259, sector:"Consumer", industry:"Cannabis Retail", country:"CA" },
+  { name:"Hydreight Technologies", ticker:"NURS.V", apiTicker:"HYDTF", exchange:"TSX-V", cap:157, sector:"Healthcare", industry:"Health Information Services", country:"CA" },
+  { name:"Idaho Strategic Resources", ticker:"IDR", apiTicker:"IDR", exchange:"NYSE American", cap:600, sector:"Materials", industry:"Mining", country:"US" },
+  { name:"IEH Corporation", ticker:"IEHC", apiTicker:"IEHC", exchange:"OTCQX", cap:33, sector:"Industrials", industry:"Defense / Aerospace", country:"US" },
+  { name:"Indonesia Energy", ticker:"INDO", apiTicker:"INDO", exchange:"NYSE American", cap:70, sector:"Energy", industry:"Energy", country:"US" },
+  { name:"Intellicheck", ticker:"IDN", apiTicker:"IDN", exchange:"NASDAQ", cap:125, sector:"Technology", industry:"SaaS ID Validation", country:"US" },
+  { name:"Intelligent Bio Systems", ticker:"INBS", apiTicker:"INBS", exchange:"NASDAQ", cap:5, sector:"Healthcare", industry:"Medical Devices", country:"US" },
+  { name:"Interlink Electronics", ticker:"LINK", apiTicker:"LINK", exchange:"NASDAQ", cap:52, sector:"Technology", industry:"Electronic Components", country:"US" },
+  { name:"Intermap Technologies", ticker:"IMP", apiTicker:"ITMSF", exchange:"TSX", cap:151, sector:"Technology", industry:"Geospatial", country:"CA" },
+  { name:"INVO Fertility", ticker:"IVF", apiTicker:"IVF", exchange:"NASDAQ", cap:15, sector:"Healthcare", industry:"IVF Healthcare Services", country:"US" },
+  { name:"IQSTel", ticker:"IQST", apiTicker:"IQST", exchange:"NASDAQ", cap:12, sector:"Telecommunication Services", industry:"Connectivity", country:"US" },
+  { name:"Iridex", ticker:"IRIX", apiTicker:"IRIX", exchange:"NASDAQ", cap:22, sector:"Healthcare", industry:"MedTech", country:"US" },
+  { name:"Jerash Holdings", ticker:"JRSH", apiTicker:"JRSH", exchange:"NASDAQ", cap:40, sector:"Consumer", industry:"Apparel Manufacturing", country:"US" },
+  { name:"Jones Soda", ticker:"JSDA", apiTicker:"JSDA", exchange:"OTCQB", cap:32, sector:"Consumer", industry:"Beverages", country:"US" },
+  { name:"Kelyniam Global", ticker:"KLYG", apiTicker:"KLYG", exchange:"OTC", cap:8, sector:"Healthcare", industry:"Medical Device", country:"US" },
+  { name:"Kidoz", ticker:"KDOZ", apiTicker:"KDOZ", exchange:"TSX-V", cap:30, sector:"Technology", industry:"Adtech", country:"CA" },
+  { name:"Kingstone Companies", ticker:"KINS", apiTicker:"KINS", exchange:"NASDAQ", cap:250, sector:"Financial Services", industry:"Insurance", country:"US" },
+  { name:"Kingsway Financial", ticker:"KFS", apiTicker:"KFS", exchange:"NYSE", cap:293, sector:"Consumer", industry:"Auto & Truck Dealerships", country:"US" },
+  { name:"KITS Eyecare", ticker:"KITS.TO", apiTicker:"KITS.TO", exchange:"TSX", cap:396, sector:"Consumer", industry:"Specialty Retail", country:"CA" },
+  { name:"Koil Energy Solutions", ticker:"KLNG", apiTicker:"KLNG", exchange:"OTCQB", cap:30, sector:"Energy", industry:"Offshore Oilfield Services", country:"US" },
+  { name:"Kopin", ticker:"KOPN", apiTicker:"KOPN", exchange:"NASDAQ", cap:363, sector:"Technology", industry:"Electronic Components", country:"US" },
+  { name:"Laird Superfood", ticker:"LSF", apiTicker:"LSF", exchange:"NYSE", cap:34, sector:"Consumer", industry:"Food", country:"US" },
+  { name:"LibertyStream Infrastructure", ticker:"LIB.V", apiTicker:"VLTLF", exchange:"TSX-V", cap:181, sector:"Materials", industry:"Mining", country:"CA" },
+  { name:"Luminar Media Group", ticker:"LRGR", apiTicker:"LRGR", exchange:"OTC", cap:16, sector:"Financial Services", industry:"Merchant Cash Advance", country:"US" },
+  { name:"M-tron Industries", ticker:"MPTI", apiTicker:"MPTI", exchange:"NYSE American", cap:233, sector:"Technology", industry:"Electronic Components", country:"US" },
+  { name:"Mama's Creations", ticker:"MAMA", apiTicker:"MAMA", exchange:"NASDAQ", cap:550, sector:"Consumer", industry:"Packaged Foods", country:"US" },
+  { name:"McCoy Global", ticker:"MCB", apiTicker:"MCB", exchange:"TSX", cap:86, sector:"Energy", industry:"Equipment & Technologies", country:"CA" },
+  { name:"MDB Capital Holdings", ticker:"MDBH", apiTicker:"MDBH", exchange:"NASDAQ", cap:29, sector:"Financial Services", industry:"Capital Markets", country:"US" },
+  { name:"Mount Logan Capital", ticker:"MLCI", apiTicker:"MLCI", exchange:"NASDAQ", cap:59, sector:"Financial Services", industry:"Asset Management", country:"US" },
+  { name:"NCS Multistage", ticker:"NCSM", apiTicker:"NCSM", exchange:"NASDAQ", cap:101, sector:"Energy", industry:"Oilfield Services", country:"US" },
+  { name:"NEO Battery Materials", ticker:"NBM.V", apiTicker:"NBM.V", exchange:"TSX-V", cap:82, sector:"Technology", industry:"Electrical Components", country:"CA" },
+  { name:"NeuroOne Medical", ticker:"NMTC", apiTicker:"NMTC", exchange:"NASDAQ", cap:36, sector:"Healthcare", industry:"MedTech", country:"US" },
+  { name:"NevGold Corp", ticker:"NAU.V", apiTicker:"NAUFF", exchange:"TSX-V", cap:311, sector:"Materials", industry:"Precious Metals Mining", country:"CA" },
+  { name:"NewLake Capital Partners", ticker:"NLCP", apiTicker:"NLCP", exchange:"OTCQX", cap:293, sector:"Real Estate", industry:"REIT Specialty", country:"US" },
+  { name:"NewtekOne", ticker:"NEWT", apiTicker:"NEWT", exchange:"NASDAQ", cap:343, sector:"Financial Services", industry:"Banking / FinTech", country:"US" },
+  { name:"Newton Golf", ticker:"NWTG", apiTicker:"NWTG", exchange:"NASDAQ", cap:8, sector:"Consumer", industry:"Golf Equipment", country:"US" },
+  { name:"NEXGEL", ticker:"NXGL", apiTicker:"NXGL", exchange:"NASDAQ", cap:6, sector:"Healthcare", industry:"Medical Instruments", country:"US" },
+  { name:"NexLiving Communities", ticker:"NXLV", apiTicker:"NXLV", exchange:"TSX-V", cap:80, sector:"Real Estate", industry:"Multi-family", country:"CA" },
+  { name:"NextTrip", ticker:"NTRP", apiTicker:"NTRP", exchange:"NASDAQ", cap:50, sector:"Technology", industry:"Media & Travel", country:"US" },
+  { name:"Nova Leap Health", ticker:"NLH.V", apiTicker:"NLH.V", exchange:"TSX-V", cap:22, sector:"Healthcare", industry:"Home Health", country:"CA" },
+  { name:"Oil States International", ticker:"OIS", apiTicker:"OIS", exchange:"NYSE", cap:654, sector:"Energy", industry:"Oil & Gas Equipment", country:"US" },
+  { name:"Optimi Health", ticker:"OPTI", apiTicker:"OPTHF", exchange:"CSE", cap:30, sector:"Healthcare", industry:"Biotechnology", country:"CA" },
+  { name:"OptimumBank Holdings", ticker:"OPHC", apiTicker:"OPHC", exchange:"NYSE American", cap:55, sector:"Financial Services", industry:"Regional Banks", country:"US" },
+  { name:"Paragon Advanced Labs", ticker:"PALS.V", apiTicker:"PALS.V", exchange:"TSX-V", cap:106, sector:"Technology", industry:"Scientific Instruments", country:"CA" },
+  { name:"Paysign", ticker:"PAYS", apiTicker:"PAYS", exchange:"NASDAQ", cap:335, sector:"Financial Services", industry:"Healthcare Services", country:"US" },
+  { name:"PCS Edventures!", ticker:"PCSV", apiTicker:"PCSV", exchange:"OTCQB", cap:13, sector:"Consumer", industry:"Education & Training", country:"US" },
+  { name:"Perimeter Medical Imaging AI", ticker:"PINK.V", apiTicker:"PYNKF", exchange:"TSX-V", cap:44, sector:"Healthcare", industry:"Medical Devices", country:"CA" },
+  { name:"Pharmx Technologies", ticker:"PHX", apiTicker:"PHX", exchange:"ASX", cap:80, sector:"Healthcare", industry:"Technology", country:"AU" },
+  { name:"PHX Energy Services", ticker:"PHX.TO", apiTicker:"PHX.TO", exchange:"TSX", cap:600, sector:"Energy", industry:"Oil & Gas Drilling", country:"CA" },
+  { name:"Pioneer Power Solutions", ticker:"PPSI", apiTicker:"PPSI", exchange:"NASDAQ", cap:40, sector:"Industrials", industry:"Industrial Goods", country:"US" },
+  { name:"Playboy", ticker:"PLBY", apiTicker:"PLBY", exchange:"NASDAQ", cap:177, sector:"Consumer", industry:"Leisure & Lifestyle", country:"US" },
+  { name:"Precipio", ticker:"PRPO", apiTicker:"PRPO", exchange:"NASDAQ", cap:50, sector:"Healthcare", industry:"Diagnostics", country:"US" },
+  { name:"Precision Optics", ticker:"POCI", apiTicker:"POCI", exchange:"NASDAQ", cap:34, sector:"Healthcare", industry:"Medical Instruments", country:"US" },
+  { name:"Pro-Dex", ticker:"PDEX", apiTicker:"PDEX", exchange:"NASDAQ", cap:160, sector:"Healthcare", industry:"Medical Instruments", country:"US" },
+  { name:"QHSLab", ticker:"USAQ", apiTicker:"USAQ", exchange:"OTCQB", cap:7, sector:"Healthcare", industry:"Primary Care", country:"US" },
+  { name:"Range Impact", ticker:"RNGE", apiTicker:"RNGE", exchange:"OTCQB", cap:18, sector:"Materials", industry:"Mining", country:"US" },
+  { name:"Replenish Nutrients", ticker:"ERTH.CN", apiTicker:"VVIVF", exchange:"CSE", cap:30, sector:"Materials", industry:"Agriculture Technology", country:"CA" },
+  { name:"Rubicon Organics", ticker:"ROMJ", apiTicker:"ROMJF", exchange:"TSX-V", cap:23, sector:"Consumer", industry:"Cannabis", country:"CA" },
+  { name:"SANUWAVE", ticker:"SNWV", apiTicker:"SNWV", exchange:"NASDAQ", cap:200, sector:"Healthcare", industry:"Medical Device", country:"US" },
+  { name:"Shelly Group", ticker:"SLYG", apiTicker:"SLYG", exchange:"FSE", cap:1000, sector:"Technology", industry:"IoT", country:"DE" },
+  { name:"SKYX Platforms", ticker:"SKYX", apiTicker:"SKYX", exchange:"NASDAQ", cap:140, sector:"Technology", industry:"Platform Technologies", country:"US" },
+  { name:"Sofwave Medical", ticker:"SOFW", apiTicker:"SOFW", exchange:"TASE", cap:550, sector:"Healthcare", industry:"MedTech", country:"IL" },
+  { name:"Stardust Solar Energy", ticker:"SUNXF", apiTicker:"SUNXF", exchange:"OTCQB", cap:88, sector:"Energy", industry:"Solar", country:"CA" },
+  { name:"Strawberry Fields REIT", ticker:"STRW", apiTicker:"STRW", exchange:"NYSE", cap:750, sector:"Real Estate", industry:"Healthcare Real Estate", country:"US" },
+  { name:"Tantalus Systems", ticker:"GRID", apiTicker:"GRID", exchange:"TSX", cap:200, sector:"Technology", industry:"Grid Modernization", country:"CA" },
+  { name:"TAT Technologies", ticker:"TATT", apiTicker:"TATT", exchange:"NASDAQ", cap:515, sector:"Industrials", industry:"Aerospace & Defense", country:"US" },
+  { name:"Telescope Innovations", ticker:"TELIF", apiTicker:"TELIF", exchange:"OTCQB", cap:25, sector:"Technology", industry:"Clean Technology", country:"CA" },
+  { name:"The LGL Group", ticker:"LGL", apiTicker:"LGL", exchange:"NYSE American", cap:46, sector:"Technology", industry:"Scientific Instruments", country:"US" },
+  { name:"Thermal Energy International", ticker:"TMG.V", apiTicker:"TMGEF", exchange:"TSX-V", cap:26, sector:"Industrials", industry:"Pollution Controls", country:"CA" },
+  { name:"Track Group", ticker:"TRCK", apiTicker:"TRCK", exchange:"OTCQB", cap:8, sector:"Technology", industry:"Scientific Instruments", country:"US" },
+  { name:"TSS, Inc.", ticker:"TSSI", apiTicker:"TSSI", exchange:"NASDAQ", cap:350, sector:"Technology", industry:"Software & IT Services", country:"US" },
+  { name:"Unusual Machines", ticker:"UMAC", apiTicker:"UMAC", exchange:"NYSE American", cap:500, sector:"Technology", industry:"Defense Tech / Drones", country:"US" },
+  { name:"Usio", ticker:"USIO", apiTicker:"USIO", exchange:"NASDAQ", cap:40, sector:"Technology", industry:"FinTech", country:"US" },
+  { name:"Velo3D", ticker:"VELO", apiTicker:"VELO", exchange:"NASDAQ", cap:345, sector:"Technology", industry:"Computer Hardware", country:"US" },
+  { name:"Vertical Data", ticker:"VDTA", apiTicker:"VDTA", exchange:"OTCQB", cap:26, sector:"Technology", industry:"Computing / Data Centers", country:"US" },
+  { name:"Xtract One Technologies", ticker:"XTRA", apiTicker:"XTRA", exchange:"TSX", cap:150, sector:"Technology", industry:"Security", country:"CA" },
+  { name:"Zedcor Security Solutions", ticker:"ZDC", apiTicker:"ZDC", exchange:"TSX-V", cap:625, sector:"Industrials", industry:"Security", country:"CA" },
+  { name:"Zedge", ticker:"ZDGE", apiTicker:"ZDGE", exchange:"NYSE American", cap:38, sector:"Services", industry:"Internet Content", country:"US" },
+  { name:"Zoomd", ticker:"ZOMD.V", apiTicker:"ZOMD.V", exchange:"TSX-V", cap:140, sector:"Technology", industry:"Software & IT Services", country:"CA" },
+];
+
+// ─── SETTINGS ─────────────────────────────────────────────────────────────────
+const SETTINGS_KEY = 'pm_settings';
+let settings = { fmp:'', av:'', napi:'', corsProxy:'' };
+
+function loadSettings() {
+  try { const s = JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}'); Object.assign(settings, s); } catch(e) {}
+  document.getElementById('fmpKey').value = settings.fmp || '';
+  document.getElementById('avKey').value = settings.av || '';
+  document.getElementById('napiKey').value = settings.napi || '';
+  document.getElementById('corsProxy').value = settings.corsProxy || '';
+  checkApiKeys();
+}
+function saveSettings() {
+  settings.fmp = document.getElementById('fmpKey').value.trim();
+  settings.av = document.getElementById('avKey').value.trim();
+  settings.napi = document.getElementById('napiKey').value.trim();
+  settings.corsProxy = document.getElementById('corsProxy').value.trim();
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  closeSettings();
+  checkApiKeys();
+}
+function checkApiKeys() {
+  const noKeys = !settings.fmp && !settings.av && !settings.napi;
+  document.getElementById('noKeysAlert').classList.toggle('show', noKeys);
+  document.getElementById('noKeysAlertCal').classList.toggle('show', !settings.fmp);
+}
+function openSettings() { loadSettings(); document.getElementById('settingsModal').classList.add('open'); }
+function closeSettings() { document.getElementById('settingsModal').classList.remove('open'); }
+
+// ─── TAB SWITCHING ────────────────────────────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ─── COMPANY FILTER ───────────────────────────────────────────────────────────
+function onSectorChange() {
+  const sector = document.getElementById('newsSectorFilter').value;
+  const sel = document.getElementById('newsCompanyFilter');
+  sel.innerHTML = '<option value="">All in sector</option>';
+  const filtered = sector ? PORTFOLIO.filter(c => c.sector === sector) : PORTFOLIO;
+  filtered.sort((a,b) => a.name.localeCompare(b.name)).forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.apiTicker;
+    opt.textContent = `${c.name} (${c.ticker})`;
+    sel.appendChild(opt);
+  });
+}
+
+// ─── NEWS MODULE ──────────────────────────────────────────────────────────────
+const NEWS_CATS = {
+  earnings:   { label:'Earnings',      cls:'cat-earnings',   kw:['earnings','revenue','profit','loss','quarterly','q1','q2','q3','q4','fiscal','guidance','eps','results','beat','miss'] },
+  management: { label:'Management',    cls:'cat-management', kw:['ceo','cfo','coo','president','director','board','appoints','resigns','resignation','executive','officer','insider'] },
+  capital:    { label:'Capital Alloc.',cls:'cat-capital',    kw:['buyback','repurchase','dividend','acquisition','acquires','merger','deal','partnership','investment','m&a'] },
+  balance:    { label:'Balance Sheet', cls:'cat-balance',    kw:['debt','credit','loan','financing','equity offering','dilution','shares','capital raise','refinanc','balance sheet'] },
+  analyst:    { label:'Analyst',       cls:'cat-analyst',    kw:['upgrade','downgrade','price target','analyst','rating','initiat','coverage','overweight','underweight','hold','buy','sell'] },
+  risk:       { label:'Risk Flag',     cls:'cat-risk',       kw:['sec','lawsuit','fraud','investigation','delist','going concern','restatement','subpoena','regulatory','violation'] },
+  operations: { label:'Operations',   cls:'cat-operations', kw:['launch','contract','partnership','expands','opens','announces','signs','awarded','wins','milestone'] },
+};
+
+function categorize(title, summary) {
+  const text = (title + ' ' + (summary||'')).toLowerCase();
+  for (const [key, cat] of Object.entries(NEWS_CATS)) {
+    if (cat.kw.some(kw => text.includes(kw))) return { key, ...cat };
+  }
+  return { key:'general', label:'General', cls:'cat-general', kw:[] };
+}
+
+function relTime(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const diff = Date.now() - d.getTime();
+  const hrs = Math.floor(diff/3600000);
+  if (hrs < 1) return 'just now';
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs/24);
+  if (days < 7) return `${days}d ago`;
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
+
+let allNews = [];
+let newsPage = 0;
+const PAGE_SIZE = 20;
+
+async function fetchNews() {
+  if (!settings.fmp && !settings.av && !settings.napi) { openSettings(); return; }
+  const btn = document.getElementById('fetchNewsBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:16px;height:16px"></div> Loading...';
+  document.getElementById('newsContainer').innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Fetching news…</p></div>';
+  document.getElementById('newsPagination').innerHTML = '';
+  document.getElementById('newsStatus').innerHTML = '<span>Fetching news…</span>';
+
+  const sector = document.getElementById('newsSectorFilter').value;
+  const company = document.getElementById('newsCompanyFilter').value;
+  const days = parseInt(document.getElementById('newsDateRange').value);
+  const source = document.getElementById('newsSource').value;
+
+  let companies;
+  if (company) companies = PORTFOLIO.filter(c => c.apiTicker === company);
+  else if (sector) companies = PORTFOLIO.filter(c => c.sector === sector);
+  else companies = PORTFOLIO;
+
+  const dateFrom = new Date(Date.now() - days * 86400000).toISOString().split('T')[0];
+
+  try {
+    let articles = [];
+    if (source === 'fmp' && settings.fmp) articles = await fetchFmpNews(companies, dateFrom);
+    else if (source === 'alphavantage' && settings.av) articles = await fetchAvNews(companies, dateFrom);
+    else if (source === 'newsapi' && settings.napi) articles = await fetchNapiNews(companies, dateFrom);
+    else {
+      if (settings.fmp) articles = await fetchFmpNews(companies, dateFrom);
+      else if (settings.av) articles = await fetchAvNews(companies, dateFrom);
+      else if (settings.napi) articles = await fetchNapiNews(companies, dateFrom);
+    }
+    allNews = articles;
+    newsPage = 0;
+    renderNews();
+    updateNewsStatus(companies.length);
+  } catch(e) {
+    document.getElementById('newsContainer').innerHTML = `<div class="empty-state"><i class="bi bi-exclamation-triangle"></i><p style="color:var(--accent-red)">Error: ${e.message}</p><p>Check your API key and try again.</p></div>`;
+    document.getElementById('newsStatus').innerHTML = `<span style="color:var(--accent-red)">Failed to fetch news</span>`;
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Load News';
+}
+
+async function fetchFmpNews(companies, dateFrom) {
+  const BATCH = 25;
+  const tickers = companies.map(c => c.apiTicker).filter(t => !t.includes('.V') && !t.includes('.TO') && !t.includes('.CN') && !t.includes('.NE') && !t.includes('.v'));
+  const allArticles = [];
+  for (let i = 0; i < tickers.length; i += BATCH) {
+    const batch = tickers.slice(i, i + BATCH).join(',');
+    const url = `https://financialmodelingprep.com/api/v3/stock_news?tickers=${encodeURIComponent(batch)}&limit=50&apikey=${settings.fmp}`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`FMP API error ${r.status}: ${r.statusText}`);
+    const data = await r.json();
+    if (data['Error Message']) throw new Error(data['Error Message']);
+    if (Array.isArray(data)) {
+      data.forEach(item => {
+        const pub = new Date(item.publishedDate || '');
+        if (pub >= new Date(dateFrom)) {
+          const co = companies.find(c => c.apiTicker === item.symbol);
+          allArticles.push({ title:item.title, url:item.url, source:item.site, published:item.publishedDate, summary:item.text, ticker:item.symbol, companyName:co?co.name:item.symbol, sector:co?co.sector:'' });
+        }
+      });
+    }
+    if (i + BATCH < tickers.length) await sleep(200);
+  }
+  return allArticles.sort((a,b) => new Date(b.published) - new Date(a.published));
+}
+
+async function fetchAvNews(companies, dateFrom) {
+  const tickers = companies.slice(0,5).map(c => c.apiTicker).filter(t => !t.includes('.'));
+  if (!tickers.length) throw new Error('No US-listed tickers selected for Alpha Vantage');
+  const timeFrom = dateFrom.replace(/-/g,'') + 'T0000';
+  const url = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${encodeURIComponent(tickers.join(','))}&time_from=${timeFrom}&limit=50&apikey=${settings.av}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`Alpha Vantage error ${r.status}`);
+  const data = await r.json();
+  if (data['Information']) throw new Error(data['Information']);
+  const articles = [];
+  (data.feed || []).forEach(item => {
+    (item.ticker_sentiment || []).forEach(ts => {
+      const co = companies.find(c => c.apiTicker === ts.ticker);
+      if (!co) return;
+      articles.push({ title:item.title, url:item.url, source:item.source, published:item.time_published, summary:item.summary, ticker:ts.ticker, companyName:co.name, sector:co.sector, sentiment:parseFloat(ts.ticker_sentiment_score), sentLabel:ts.ticker_sentiment_label });
+    });
+  });
+  return articles.sort((a,b) => new Date(b.published) - new Date(a.published));
+}
+
+async function fetchNapiNews(companies, dateFrom) {
+  const articles = [];
+  const proxy = settings.corsProxy || '';
+  const limit = Math.min(companies.length, 5);
+  for (let i = 0; i < limit; i++) {
+    const co = companies[i];
+    const q = encodeURIComponent(`"${co.ticker}" OR "${co.name}"`);
+    const url = `${proxy}https://newsapi.org/v2/everything?q=${q}&from=${dateFrom}&language=en&sortBy=publishedAt&pageSize=20&apiKey=${settings.napi}`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`NewsAPI error ${r.status} — ensure CORS proxy is set`);
+    const data = await r.json();
+    if (data.status !== 'ok') throw new Error(data.message || 'NewsAPI error');
+    (data.articles || []).forEach(item => {
+      articles.push({ title:item.title, url:item.url, source:item.source?.name, published:item.publishedAt, summary:item.description, ticker:co.ticker, companyName:co.name, sector:co.sector });
+    });
+    if (i < limit-1) await sleep(300);
+  }
+  return articles.sort((a,b) => new Date(b.published) - new Date(a.published));
+}
+
+function renderNews() {
+  const catFilter = document.getElementById('newsCatFilter').value;
+  let filtered = allNews;
+  if (catFilter) filtered = filtered.filter(a => categorize(a.title, a.summary).key === catFilter);
+  if (!filtered.length) {
+    document.getElementById('newsContainer').innerHTML = `<div class="empty-state"><i class="bi bi-inbox"></i><p>No articles found${catFilter?' for this category':''}</p></div>`;
+    document.getElementById('newsPagination').innerHTML = '';
+    return;
+  }
+  const slice = filtered.slice(newsPage * PAGE_SIZE, (newsPage + 1) * PAGE_SIZE);
+  document.getElementById('newsContainer').innerHTML = `<div class="news-grid">${slice.map(buildNewsCard).join('')}</div>`;
+  renderNewsPagination(filtered.length, catFilter);
+}
+
+function buildNewsCard(a) {
+  const cat = categorize(a.title, a.summary);
+  const sent = a.sentiment !== undefined ? sentBadge(a.sentiment, a.sentLabel) : '';
+  const co = PORTFOLIO.find(c => c.apiTicker === a.ticker || c.ticker === a.ticker);
+  const secDot = co ? `<span class="sec-dot sec-${co.sector.split(' ')[0]}"></span>` : '';
+  return `<div class="news-card" onclick="window.open('${escHtml(a.url||'#')}','_blank')">
+    <div class="news-card-header">
+      <span class="news-ticker">${escHtml(a.ticker||'')}</span>
+      <span class="news-cat ${cat.cls}">${cat.label}</span>
+      ${sent}
+      <div class="news-title">${escHtml(a.title||'')}</div>
+    </div>
+    ${a.summary ? `<div class="news-excerpt">${escHtml(a.summary)}</div>` : ''}
+    <div class="news-meta">
+      ${secDot}<span class="news-source">${escHtml(a.source||'')}</span>
+      <span>${relTime(a.published)}</span>
+      ${co ? `<span style="color:var(--text-muted)">${co.sector}</span>` : ''}
+    </div>
+  </div>`;
+}
+
+function sentBadge(score, label) {
+  const cls = score > 0.1 ? 'sent-bullish' : score < -0.1 ? 'sent-bearish' : 'sent-neutral';
+  const icon = score > 0.1 ? '↑' : score < -0.1 ? '↓' : '~';
+  return `<span class="news-sentiment ${cls}">${icon} ${(label||'Neutral').replace('_',' ')}</span>`;
+}
+
+function renderNewsPagination(total, catFilter) {
+  const pages = Math.ceil(total / PAGE_SIZE);
+  if (pages <= 1) { document.getElementById('newsPagination').innerHTML = ''; return; }
+  let html = `<button class="page-btn" onclick="goPage(${newsPage-1},'${catFilter}')" ${newsPage===0?'disabled':''}>‹ Prev</button>`;
+  for (let i = 0; i < Math.min(pages,8); i++) html += `<button class="page-btn ${i===newsPage?'active':''}" onclick="goPage(${i},'${catFilter}')">${i+1}</button>`;
+  if (pages > 8) html += `<span style="color:var(--text-muted);font-size:13px">… ${pages} pages</span>`;
+  html += `<button class="page-btn" onclick="goPage(${newsPage+1},'${catFilter}')" ${newsPage===pages-1?'disabled':''}>Next ›</button>`;
+  document.getElementById('newsPagination').innerHTML = html;
+}
+
+function goPage(p, catFilter) {
+  newsPage = p;
+  document.getElementById('newsCatFilter').value = catFilter;
+  renderNews();
+  window.scrollTo(0, 0);
+}
+
+function updateNewsStatus(coCount) {
+  const src = document.getElementById('newsSource').value.toUpperCase();
+  document.getElementById('newsStatus').innerHTML = `<span class="status-dot"></span><span><strong>${allNews.length}</strong> articles · <strong>${coCount}</strong> companies · Source: <strong>${src}</strong></span><span style="color:var(--text-muted)">Last updated ${new Date().toLocaleTimeString()}</span>`;
+}
+
+// ─── CALENDAR MODULE ──────────────────────────────────────────────────────────
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+let calEvents = [];
+let calView = 'calendar';
+
+function changeMonth(dir) {
+  calMonth += dir;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  updateMonthLabel();
+  renderCalendar();
+}
+
+function updateMonthLabel() {
+  document.getElementById('calMonthLabel').textContent = new Date(calYear, calMonth, 1).toLocaleDateString('en-US', { month:'long', year:'numeric' });
+}
+
+function toggleCalView(v) {
+  calView = v;
+  document.getElementById('btnCalView').classList.toggle('active', v==='calendar');
+  document.getElementById('btnListView').classList.toggle('active', v==='list');
+  renderCalendar();
+}
+
+async function fetchCalendar() {
+  if (!settings.fmp) { openSettings(); return; }
+  const btn = document.getElementById('fetchCalBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:16px;height:16px"></div> Loading...';
+  document.getElementById('calendarContainer').innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Fetching events…</p></div>';
+
+  const from = new Date(calYear, calMonth, 1).toISOString().split('T')[0];
+  const to = new Date(calYear, calMonth+1, 0).toISOString().split('T')[0];
+
+  try {
+    const [earningsData, divData] = await Promise.all([
+      fetchFmpCalendar('earning_calendar', from, to),
+      fetchFmpCalendar('stock_dividend_calendar', from, to),
+    ]);
+    const events = [];
+    if (Array.isArray(earningsData)) {
+      earningsData.forEach(e => {
+        if (!e.symbol) return;
+        const co = PORTFOLIO.find(c => c.apiTicker.toUpperCase() === e.symbol.toUpperCase() || c.ticker.toUpperCase() === e.symbol.toUpperCase());
+        if (!co) return;
+        events.push({ type:'earnings', date:e.date, ticker:e.symbol, company:co.name, sector:co.sector, eps:e.eps, epsEst:e.epsEstimated, revenue:e.revenue, revenueEst:e.revenueEstimated, time:e.time });
+      });
+    }
+    if (Array.isArray(divData)) {
+      divData.forEach(d => {
+        if (!d.symbol) return;
+        const co = PORTFOLIO.find(c => c.apiTicker.toUpperCase() === d.symbol.toUpperCase() || c.ticker.toUpperCase() === d.symbol.toUpperCase());
+        if (!co) return;
+        if (d.date) events.push({ type:'exdiv', date:d.date, ticker:d.symbol, company:co.name, sector:co.sector, amount:d.dividend, currency:d.currency });
+        if (d.paymentDate) events.push({ type:'div', date:d.paymentDate, ticker:d.symbol, company:co.name, sector:co.sector, amount:d.dividend, currency:d.currency });
+      });
+    }
+    calEvents = events;
+    renderCalendar();
+  } catch(e) {
+    document.getElementById('calendarContainer').innerHTML = `<div class="empty-state"><i class="bi bi-exclamation-triangle"></i><p style="color:var(--accent-red)">Error: ${e.message}</p></div>`;
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Load Events';
+}
+
+async function fetchFmpCalendar(endpoint, from, to) {
+  const url = `https://financialmodelingprep.com/api/v3/${endpoint}?from=${from}&to=${to}&apikey=${settings.fmp}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`FMP ${endpoint} error ${r.status}`);
+  const data = await r.json();
+  if (data['Error Message']) throw new Error(data['Error Message']);
+  return data;
+}
+
+function renderCalendar() {
+  const sectorFilter = document.getElementById('calSectorFilter').value;
+  const typeFilter = document.getElementById('calEventFilter').value;
+  let events = calEvents;
+  if (sectorFilter) events = events.filter(e => e.sector === sectorFilter);
+  if (typeFilter) events = events.filter(e => e.type === typeFilter);
+  calView === 'list' ? renderListView(events) : renderGridView(events);
+}
+
+function renderGridView(events) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const firstDay = new Date(calYear, calMonth, 1);
+  const lastDay = new Date(calYear, calMonth+1, 0);
+  const startDow = (firstDay.getDay() + 6) % 7;
+  const evMap = {};
+  events.forEach(e => { if (!evMap[e.date]) evMap[e.date] = []; evMap[e.date].push(e); });
+
+  let html = '<div class="cal-grid">';
+  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(d => { html += `<div class="cal-day-header">${d}</div>`; });
+  for (let i = 0; i < startDow; i++) html += '<div class="cal-day other-month"></div>';
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    const date = new Date(calYear, calMonth, d);
+    const dateStr = date.toISOString().split('T')[0];
+    const isToday = date.getTime() === today.getTime();
+    const dayEvents = evMap[dateStr] || [];
+    const shown = dayEvents.slice(0, 3);
+    const extra = dayEvents.length - 3;
+    html += `<div class="cal-day${isToday?' today':''}"><div class="cal-day-num">${d}</div>${shown.map(calEventPill).join('')}${extra > 0 ? `<div class="ev-more" onclick="showDayEvents('${dateStr}')">+${extra} more</div>` : ''}</div>`;
+  }
+  const trailing = (7 - ((startDow + lastDay.getDate()) % 7)) % 7;
+  for (let i = 0; i < trailing; i++) html += '<div class="cal-day other-month"></div>';
+  html += '</div>';
+  document.getElementById('calendarContainer').innerHTML = `<div class="status-bar" style="margin-bottom:8px"><span class="status-dot"></span><span><strong>${events.length}</strong> events this month for portfolio companies</span></div>` + html;
+}
+
+function calEventPill(e) {
+  const cls = e.type === 'earnings' ? 'ev-earnings' : e.type === 'exdiv' ? 'ev-exdiv' : 'ev-div';
+  const label = e.type === 'earnings' ? `📊 ${e.ticker}` : e.type === 'exdiv' ? `÷ ${e.ticker}` : `$ ${e.ticker}`;
+  return `<span class="cal-event ${cls}" onclick="event.stopPropagation();showEventDetail(${JSON.stringify(JSON.stringify(e)).slice(1,-1)})" title="${escHtml(e.company)}: ${e.type}">${label}</span>`;
+}
+
+function renderListView(events) {
+  if (!events.length) { document.getElementById('calendarContainer').innerHTML = '<div class="empty-state"><i class="bi bi-calendar-x"></i><p>No events found for selected filters</p></div>'; return; }
+  const sorted = [...events].sort((a,b) => a.date.localeCompare(b.date));
+  const html = sorted.map(e => {
+    const d = new Date(e.date + 'T12:00:00');
+    const cls = e.type === 'earnings' ? 'ev-earnings' : e.type === 'exdiv' ? 'ev-exdiv' : 'ev-div';
+    const typeLabel = e.type === 'earnings' ? 'Earnings' : e.type === 'exdiv' ? 'Ex-Dividend' : 'Dividend Pay';
+    const detail = e.type === 'earnings'
+      ? (e.epsEst !== undefined ? `Est. EPS: ${e.epsEst}` : '') + (e.revenueEst ? ` · Est. Rev: ${fmtNum(e.revenueEst)}` : '')
+      : e.amount ? `$${e.amount}/share` : '';
+    return `<div class="event-list-item">
+      <div class="event-date-block"><div class="month">${d.toLocaleDateString('en-US',{month:'short'})}</div><div class="day">${d.getDate()}</div></div>
+      <div class="event-info"><div class="ticker">${e.ticker}</div><div class="company">${escHtml(e.company)}</div>${detail?`<div class="details">${escHtml(detail)}</div>`:''}</div>
+      <span class="event-type-badge ${cls}">${typeLabel}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('calendarContainer').innerHTML = `<div class="status-bar" style="margin-bottom:8px"><span class="status-dot"></span><span><strong>${events.length}</strong> events</span></div><div class="event-list">${html}</div>`;
+}
+
+function showDayEvents(dateStr) { showEventDetailMulti(calEvents.filter(e => e.date === dateStr), dateStr); }
+function showEventDetail(jsonStr) { try { const e = JSON.parse(jsonStr); showEventDetailMulti([e], e.date); } catch(err) {} }
+
+function showEventDetailMulti(evs, dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  let html = `<div style="font-weight:700;margin-bottom:10px;color:var(--text-primary)">${d.toLocaleDateString('en-US',{weekday:'short',month:'long',day:'numeric'})}</div>`;
+  evs.forEach(e => {
+    const cls = e.type==='earnings'?'ev-earnings':e.type==='exdiv'?'ev-exdiv':'ev-div';
+    const typeLabel = e.type==='earnings'?'Earnings':e.type==='exdiv'?'Ex-Dividend':'Dividend Pay';
+    html += `<div style="margin-bottom:10px;padding:10px;background:var(--bg-card);border-radius:6px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-weight:700;color:var(--accent-blue)">${e.ticker}</span><span class="event-type-badge ${cls}" style="font-size:10px">${typeLabel}</span></div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">${escHtml(e.company)}</div>
+      ${e.type==='earnings'?`${e.epsEst!==undefined?`<div style="font-size:12px;color:var(--text-muted)">Est. EPS: <strong style="color:var(--text-primary)">${e.epsEst}</strong></div>`:''} ${e.eps!=null?`<div style="font-size:12px;color:var(--text-muted)">Actual EPS: <strong style="color:${e.eps>=e.epsEst?'var(--accent-green)':'var(--accent-red)'}">${e.eps}</strong></div>`:''} ${e.revenueEst?`<div style="font-size:12px;color:var(--text-muted)">Est. Rev: <strong>${fmtNum(e.revenueEst)}</strong></div>`:''} ${e.time?`<div style="font-size:11px;color:var(--text-muted)">Time: ${e.time==='bmo'?'Before Market Open':e.time==='amc'?'After Market Close':e.time}</div>`:''}`:`${e.amount?`<div style="font-size:12px;color:var(--text-muted)">Amount: <strong style="color:var(--accent-green)">$${e.amount} ${e.currency||''}</strong></div>`:''}`}
+      <div style="font-size:11px;color:var(--text-muted)">${e.sector}</div>
+    </div>`;
+  });
+  document.getElementById('toastContent').innerHTML = html;
+  document.getElementById('eventToast').classList.add('open');
+}
+
+function closeToast() { document.getElementById('eventToast').classList.remove('open'); }
+
+// ─── UTILITIES ────────────────────────────────────────────────────────────────
+function escHtml(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function fmtNum(n) { if (!n) return ''; if (n>=1e9) return '$'+(n/1e9).toFixed(2)+'B'; if (n>=1e6) return '$'+(n/1e6).toFixed(1)+'M'; return '$'+n.toLocaleString(); }
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('portfolioCount').textContent = PORTFOLIO.length + ' companies';
+  loadSettings();
+  updateMonthLabel();
+  onSectorChange();
+  document.getElementById('settingsModal').addEventListener('click', function(e) { if (e.target === this) closeSettings(); });
+});
+</script>
+</body>
+</html>
