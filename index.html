@@ -1264,11 +1264,7 @@ function render(){
     // ── REVENUE SEGMENTS (inline under Revenue) ──────────────────────────
     // Debug/fallback for segment data
     if(!d.segments||!d.segments.length){
-      h+='<tr style="background:#0d1520"><td colspan="99" style="padding:6px 10px">';
-      h+='<span style="font-size:10px;color:var(--yw);font-weight:600">\u21b3 Revenue by Segment</span> ';
-      h+='<span style="font-size:10px;color:var(--dm)">Not available \u2014 FMP segment endpoint requires Professional plan or data not reported for this ticker.</span>';
-      h+='<span style="font-size:9px;color:var(--dm)"> (US large-caps like AAPL, MSFT typically have data; Canadian/smaller companies often do not.)</span>';
-      h+='</td></tr>';
+      h+='<tr style="background:#0d1520"><td colspan="99" style="padding:3px 8px;font-size:9px;color:var(--dm)">\u21b3 Segments: no data</td></tr>';
     }
     if(d.segments&&d.segments.length){
       // Align segment years with income statement years
@@ -1811,8 +1807,14 @@ function render(){
     h+=d.hq?'<span style="color:var(--dm)">HQ:</span> <b>'+d.hq+'</b><br>':'';
     h+=d.ceo?'<span style="color:var(--dm)">CEO:</span> <b>'+d.ceo+'</b><br>':'';
     h+=d.employees?'<span style="color:var(--dm)">Employees:</span> <b>'+(d.employees>1000?(d.employees/1000).toFixed(1)+'K':d.employees)+'</b><br>':'';
-    if(d.revPerEmp>0)h+='<span style="color:var(--dm)">Rev/Employee:</span> <b>$'+(d.revPerEmp>=1000000?(d.revPerEmp/1000000).toFixed(2)+'M':d.revPerEmp>=1000?(d.revPerEmp/1000).toFixed(0)+'K':d.revPerEmp)+'</b><br>';
-    if(d.opexPerEmp>0)h+='<span style="color:var(--dm)">OPEX/Employee:</span> <b>$'+(d.opexPerEmp>=1000000?(d.opexPerEmp/1000000).toFixed(2)+'M':d.opexPerEmp>=1000?(d.opexPerEmp/1000).toFixed(0)+'K':d.opexPerEmp)+'</b><br>';
+    if(d.revPerEmp>0||d.opexPerEmp>0){
+      h+='<span style="color:var(--dm)">';
+      function _fmtE(v){return v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'K':v;}
+      if(d.revPerEmp>0)h+='Rev/emp: <b>$'+_fmtE(d.revPerEmp)+'</b>';
+      if(d.revPerEmp>0&&d.opexPerEmp>0)h+=' &middot; ';
+      if(d.opexPerEmp>0)h+='OPEX/emp: <b>$'+_fmtE(d.opexPerEmp)+'</b>';
+      h+='</span><br>';
+    }
     if(d.desc)h+='<div style="font-size:9px;color:var(--dm);margin-top:4px;line-height:1.5">'+d.desc+(d.desc.length>=300?'…':'')+'</div>';
     h+='</div></div>';
 
