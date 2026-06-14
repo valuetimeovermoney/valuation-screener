@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Watchlist — ValueTime</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#090c14;--cd:#0f1320;--bd:#1a2234;--bl:#38bdf8;--lb:#7a8494;--br:#f0f4f8;--gn:#22c55e;--rd:#ef4444;--yw:#eab308;--dm:#4a5568;--f:'DM Sans',system-ui,sans-serif;--m:'JetBrains Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+body{min-height:100vh;background:var(--bg);font-family:var(--f);color:#c8d0dc}
+.w{max-width:980px;margin:0 auto;padding:24px 16px}
+.sp{width:28px;height:28px;border:3px solid var(--bd);border-top-color:var(--bl);border-radius:50%;margin:0 auto 12px;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.wl-card{background:var(--cd);border:1px solid var(--bd);border-radius:10px;padding:16px 20px;display:flex;align-items:center;gap:16px;margin-bottom:10px;flex-wrap:wrap}
+.wl-name{font-size:15px;font-weight:700;color:var(--br);flex:1;min-width:160px}
+.wl-ticker{font-family:var(--m);font-size:13px;color:var(--bl);font-weight:700}
+.wl-sector{font-size:11px;color:var(--dm);background:#1a2234;border-radius:4px;padding:2px 8px;white-space:nowrap}
+.wl-price{font-family:var(--m);font-size:18px;font-weight:800;color:var(--bl);white-space:nowrap}
+.wl-chg-pos{color:var(--gn);font-size:12px;font-family:var(--m)}
+.wl-chg-neg{color:var(--rd);font-size:12px;font-family:var(--m)}
+.wl-btn-analyze{background:none;border:1px solid var(--bl);color:var(--bl);border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--f);text-decoration:none;white-space:nowrap;transition:background .15s}
+.wl-btn-analyze:hover{background:rgba(56,189,248,0.1)}
+.wl-btn-remove{background:none;border:none;color:var(--dm);font-size:18px;cursor:pointer;padding:4px 6px;border-radius:4px;line-height:1;transition:color .15s}
+.wl-btn-remove:hover{color:var(--rd)}
+.empty-state{text-align:center;padding:80px 20px;color:var(--lb)}
+.empty-state h2{font-size:18px;color:var(--br);margin-bottom:12px}
+.empty-state p{font-size:14px;line-height:1.7;margin-bottom:20px}
+.empty-state a{color:var(--bl);text-decoration:none;font-weight:600}
+</style>
+</head>
+<body>
+<style>.vtm-nav{background:#0d1117;border-bottom:1px solid #30363d;padding:0 16px;display:flex;align-items:center;gap:2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;position:sticky;top:0;z-index:999}.vtm-nav a{color:#8b949e;text-decoration:none;padding:9px 13px;font-size:12px;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s}.vtm-nav a:hover{color:#e6edf3}.vtm-nav a.vtm-active{color:#58a6ff;border-bottom-color:#58a6ff}.vtm-brand{font-weight:800!important;font-size:14px!important;color:#e6edf3!important;padding-right:16px!important;border-bottom:none!important}</style>
+<nav class="vtm-nav"><a class="vtm-brand" href="/valuation-screener/">Value<span style="color:#d29922">Time</span></a><a id="vtm-l1" href="/valuation-screener/">Screener</a><a id="vtm-l2" href="/valuation-screener/valuation/">DCF &amp; Triangle</a><a id="vtm-l3" href="/valuation-screener/portfolio-monitor.html">Portfolio Monitor</a><a id="vtm-l4" href="/valuation-screener/watchlist.html">Watchlist</a></nav>
+<script>(function(){var p=location.pathname;if(p.includes('/valuation/'))document.getElementById('vtm-l2').classList.add('vtm-active');else if(p.includes('portfolio-monitor'))document.getElementById('vtm-l3').classList.add('vtm-active');else if(p.includes('watchlist'))document.getElementById('vtm-l4').classList.add('vtm-active');else document.getElementById('vtm-l1').classList.add('vtm-active');})();</script>
+
+<div class="w">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+    <div>
+      <h1 style="font-size:22px;font-weight:800;color:var(--br)">★ My Watchlist</h1>
+      <div style="font-size:12px;color:var(--lb);margin-top:4px">Companies you've saved for later</div>
+    </div>
+    <button onclick="refreshPrices()" style="background:none;border:1px solid var(--bd);color:var(--lb);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--f)">↻ Refresh</button>
+  </div>
+  <div id="wl-out"><div style="text-align:center;padding:40px;color:var(--dm)"><div class="sp"></div><div>Loading…</div></div></div>
+</div>
+
+<script>
+var AK='zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J';
+var BASE='https://financialmodelingprep.com/stable/';
+var WL_KEY='vtm_wl';
+
+function wlGet(){try{return JSON.parse(localStorage.getItem(WL_KEY)||'[]');}catch(e){return[];}}
+function wlSave(a){localStorage.setItem(WL_KEY,JSON.stringify(a));}
+
+function wlRemove(t){
+  var a=wlGet().filter(function(x){return x.t!==t;});
+  wlSave(a);
+  renderWl(window._wlPrices||{});
+}
+
+var _wlPrices={};
+
+async function refreshPrices(){
+  var items=wlGet();
+  if(!items.length){renderWl({});return;}
+  var tickers=items.map(function(x){return x.t;});
+  try{
+    var results=await Promise.all(tickers.map(function(tk){
+      return fetch(BASE+'quote?symbol='+encodeURIComponent(tk)+'&apikey='+AK)
+        .then(function(r){return r.ok?r.json():null;})
+        .catch(function(){return null;});
+    }));
+    results.forEach(function(res,i){
+      if(!res)return;
+      var arr=Array.isArray(res)?res:[res];
+      if(arr[0]){_wlPrices[tickers[i]]=arr[0];}
+    });
+  }catch(e){}
+  renderWl(_wlPrices);
+}
+
+function pr(v){if(v==null||isNaN(v))return'—';return'$'+Number(v).toFixed(2);}
+
+function renderWl(prices){
+  var items=wlGet();
+  var el=document.getElementById('wl-out');
+  if(!items.length){
+    el.innerHTML='<div class="empty-state"><h2>Your watchlist is empty</h2><p>Star companies from the screener to save them here.<br>Use the <b>☆ Save</b> button in the top-right of any company analysis.</p><a href="/valuation-screener/">← Go to Screener</a></div>';
+    return;
+  }
+  var h='';
+  items.forEach(function(item){
+    var q=prices[item.t]||{};
+    var price=q.price!=null?pr(q.price):'—';
+    var chg=q.changesPercentage;
+    var chgHtml='';
+    if(chg!=null){
+      var sign=chg>=0?'+':'';
+      var cls=chg>=0?'wl-chg-pos':'wl-chg-neg';
+      chgHtml='<span class="'+cls+'">'+sign+Number(chg).toFixed(2)+'%</span>';
+    }
+    h+='<div class="wl-card" id="wlc-'+item.t+'">';
+    h+='<div style="font-size:18px;color:var(--yw)">★</div>';
+    h+='<div class="wl-name"><div class="wl-ticker">'+item.t+'</div><div style="font-size:13px;color:var(--lb);font-weight:500;margin-top:2px">'+item.n+'</div></div>';
+    if(item.sec)h+='<span class="wl-sector">'+item.sec+'</span>';
+    h+='<div style="display:flex;align-items:baseline;gap:8px"><span class="wl-price">'+price+'</span>'+chgHtml+'</div>';
+    h+='<a class="wl-btn-analyze" href="/valuation-screener/?t='+encodeURIComponent(item.t)+'">Analyze →</a>';
+    h+='<button class="wl-btn-remove" onclick="wlRemove(\''+item.t+'\')" title="Remove from watchlist">⊗</button>';
+    h+='</div>';
+  });
+  el.innerHTML=h;
+}
+
+// Init
+(function(){
+  var items=wlGet();
+  if(!items.length){renderWl({});return;}
+  renderWl({});
+  refreshPrices();
+})();
+</script>
+</body>
+</html>

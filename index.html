@@ -57,12 +57,15 @@ b.s{color:var(--lb)}
 
 .chart-svg{overflow:visible;display:block}
 .cl{font-size:9px;font-family:'JetBrains Mono',monospace}
+.vtab{background:none;border:none;color:var(--lb);padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--f);transition:color .15s}
+.vtab:hover{color:var(--br)}
+.vtab.vtab-active{color:var(--bl);border-bottom-color:var(--bl)}
 </style>
 </head>
 <body>
 <style>.vtm-nav{background:#0d1117;border-bottom:1px solid #30363d;padding:0 16px;display:flex;align-items:center;gap:2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;position:sticky;top:0;z-index:999}.vtm-nav a{color:#8b949e;text-decoration:none;padding:9px 13px;font-size:12px;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s}.vtm-nav a:hover{color:#e6edf3}.vtm-nav a.vtm-active{color:#58a6ff;border-bottom-color:#58a6ff}.vtm-brand{font-weight:800!important;font-size:14px!important;color:#e6edf3!important;padding-right:16px!important;border-bottom:none!important}</style>
-<nav class="vtm-nav"><a class="vtm-brand" href="/valuation-screener/">Value<span style="color:#d29922">Time</span></a><a id="vtm-l1" href="/valuation-screener/">Screener</a><a id="vtm-l2" href="/valuation-screener/valuation/">DCF &amp; Triangle</a><a id="vtm-l3" href="/valuation-screener/portfolio-monitor.html">Portfolio Monitor</a></nav>
-<script>(function(){var p=location.pathname;if(p.includes('/valuation/'))document.getElementById('vtm-l2').classList.add('vtm-active');else if(p.includes('portfolio-monitor'))document.getElementById('vtm-l3').classList.add('vtm-active');else document.getElementById('vtm-l1').classList.add('vtm-active');})();</script>
+<nav class="vtm-nav"><a class="vtm-brand" href="/valuation-screener/">Value<span style="color:#d29922">Time</span></a><a id="vtm-l1" href="/valuation-screener/">Screener</a><a id="vtm-l2" href="/valuation-screener/valuation/">DCF &amp; Triangle</a><a id="vtm-l3" href="/valuation-screener/portfolio-monitor.html">Portfolio Monitor</a><a id="vtm-l4" href="/valuation-screener/watchlist.html">Watchlist</a></nav>
+<script>(function(){var p=location.pathname;if(p.includes('/valuation/'))document.getElementById('vtm-l2').classList.add('vtm-active');else if(p.includes('portfolio-monitor'))document.getElementById('vtm-l3').classList.add('vtm-active');else if(p.includes('watchlist'))document.getElementById('vtm-l4').classList.add('vtm-active');else document.getElementById('vtm-l1').classList.add('vtm-active');})();</script>
 <div class="w">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px"><div><div style="font-size:9px;font-weight:800;letter-spacing:3px;color:var(--bl)">VALUATION SCREENER</div><h1>Company Analysis</h1></div><button id="thbtn" onclick="toggleTheme()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--bd);background:var(--ib);color:var(--lb);font-size:11px;cursor:pointer;font-weight:600">Day Mode</button></div>
   <div class="sb"><input id="qi" placeholder="Ticker (e.g. AAPL, MSFT, GOOG)"/><button id="gb" onclick="go()">Analyze</button></div>
@@ -847,7 +850,10 @@ function render(){
 
   var h='';
   // Header
-  h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;background:var(--cd);border-radius:8px;padding:14px 16px;border:1px solid var(--bd);margin-bottom:12px"><div><div style="font-size:18px;font-weight:800;color:var(--br)">'+d.n+'</div><div style="font-size:11px;color:var(--dm)">'+d.t+' · '+d.sec+' · '+d.industry+'</div><div style="font-size:10px;color:var(--dm);margin-top:2px">Fiscal year ends: '+d.fyEnd+' · Latest: '+d.fy+'</div></div><div style="text-align:right"><div style="font-size:24px;font-weight:800;font-family:var(--m);color:var(--bl)">'+pr(d.p)+'</div><div style="font-size:10px;color:var(--dm)">'+d.pd+'</div></div></div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;background:var(--cd);border-radius:8px;padding:14px 16px;border:1px solid var(--bd);margin-bottom:12px"><div><div style="font-size:18px;font-weight:800;color:var(--br)">'+d.n+'</div><div style="font-size:11px;color:var(--dm)">'+d.t+' · '+d.sec+' · '+d.industry+'</div><div style="font-size:10px;color:var(--dm);margin-top:2px">Fiscal year ends: '+d.fyEnd+' · Latest: '+d.fy+'</div></div><div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px"><div style="display:flex;align-items:center;gap:10px"><button id="wl-btn" style="background:none;border:1px solid var(--bd);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:13px;color:'+(wlHas(d.t)?'var(--yw)':'var(--lb)')+';font-family:var(--f)">'+(wlHas(d.t)?'★ Saved':'☆ Save')+'</button><div style="font-size:24px;font-weight:800;font-family:var(--m);color:var(--bl)">'+pr(d.p)+'</div></div><div style="font-size:10px;color:var(--dm)">'+d.pd+'</div></div></div>';
+  // Tab strip + open overview div
+  h+='<div style="display:flex;border-bottom:2px solid var(--bd);margin-bottom:14px"><button class="vtab vtab-active" onclick="vtSwitch(\'overview\',this)">Overview</button><button class="vtab" onclick="vtSwitch(\'news\',this)">News</button><button class="vtab" onclick="vtSwitch(\'calendar\',this)">Calendar</button><button class="vtab" onclick="vtSwitch(\'transcripts\',this)">Transcripts</button><button class="vtab" onclick="vtSwitch(\'captable\',this)">Cap Table</button></div>';
+  h+='<div id="vt-overview">';
 
 
 
@@ -1980,12 +1986,176 @@ function render(){
 
   
   h+='<div style="font-size:9px;color:#2a3040;padding-top:8px;border-top:1px solid var(--bd)">Quality ≥25% 🟢 | Adj FCF = CFO − SBC − Maint CapEx | Data: FMP (SEC 10-K) | <a id="vallink" href="/valuation-screener/valuation/" style="color:#4a5568">DCF & Valuation Model →</a></div>';
+  h+='</div><!-- /vt-overview -->';
+  h+='<div id="vt-news" style="display:none"><div id="vt-news-body"><div style="text-align:center;padding:40px;color:var(--dm)">Click to load news<br><br><button onclick="loadVtNews()" class="vtab vtab-active" style="padding:8px 20px">Load News for '+d.t+'</button></div></div></div>';
+  h+='<div id="vt-calendar" style="display:none"><div id="vt-cal-body"><div style="text-align:center;padding:40px;color:var(--dm)">Click to load earnings &amp; dividend calendar<br><br><button onclick="loadVtCal()" class="vtab vtab-active" style="padding:8px 20px">Load Calendar</button></div></div></div>';
+  h+='<div id="vt-transcripts" style="display:none"><div style="padding:24px;background:var(--cd);border:1px solid var(--bd);border-radius:8px"><div style="font-size:14px;font-weight:700;color:var(--br);margin-bottom:8px">Earnings Call Transcripts</div><div style="font-size:13px;color:var(--lb)">Transcripts require an FMP paid plan. You can access them at:<br><br><a href="https://financialmodelingprep.com/" target="_blank" style="color:var(--bl)">financialmodelingprep.com</a> (paid) — or search <a href="https://seekingalpha.com/" target="_blank" style="color:var(--bl)">seekingalpha.com</a> for free transcripts.</div></div></div>';
+  h+='<div id="vt-captable" style="display:none"><div style="padding:24px;background:var(--cd);border:1px solid var(--bd);border-radius:8px"><div style="font-size:14px;font-weight:700;color:var(--br);margin-bottom:8px">Cap Table — Insider &amp; Institutional Ownership</div><div id="vt-ct-body"><div style="text-align:center;padding:20px;color:var(--dm)"><button onclick="loadVtCapTable()" class="vtab vtab-active" style="padding:8px 20px">Load Ownership Data</button></div></div></div></div>';
   document.getElementById('out').innerHTML=h;
   var _vl=document.getElementById('vallink');if(_vl){var _tk=document.getElementById('qi').value.trim().toUpperCase();if(_tk)_vl.href='/valuation-screener/valuation/?t='+encodeURIComponent(_tk);}
+  var _wlb=document.getElementById('wl-btn');
+  if(_wlb){_wlb.onclick=function(){wlToggle(ST.d.t,ST.d.n,ST.d.sec);};}
   window.scrollTo(0,_scrollY);
   // Restore focus to prevent scroll jump
   if(_focId){var _el=document.getElementById(_focId);if(_el){_el.focus({preventScroll:true});if(_focVal!=null)_el.value=_focVal;if(_focPos!=null)try{_el.setSelectionRange(_focPos,_focPos);}catch(e){}}}
 }
+
+// ── WATCHLIST ─────────────────────────────────────────────
+var WL_KEY='vtm_wl';
+function wlGet(){try{return JSON.parse(localStorage.getItem(WL_KEY)||'[]');}catch(e){return[];}}
+function wlSave(a){localStorage.setItem(WL_KEY,JSON.stringify(a));}
+function wlHas(t){return wlGet().some(function(x){return x.t===t;});}
+function wlToggle(t,n,sec){
+  var a=wlGet();
+  var idx=a.findIndex(function(x){return x.t===t;});
+  if(idx>=0)a.splice(idx,1);else a.push({t:t,n:n||t,sec:sec||''});
+  wlSave(a);
+  var btn=document.getElementById('wl-btn');
+  if(btn){btn.textContent=idx>=0?'☆ Save':'★ Saved';btn.style.color=idx>=0?'var(--lb)':'var(--yw)';}
+}
+
+// ── TAB SWITCHING ─────────────────────────────────────────
+function vtSwitch(id,btn){
+  ['overview','news','calendar','transcripts','captable'].forEach(function(k){
+    var el=document.getElementById('vt-'+k);if(el)el.style.display=k===id?'block':'none';
+  });
+  document.querySelectorAll('.vtab').forEach(function(b){b.classList.remove('vtab-active');});
+  if(btn)btn.classList.add('vtab-active');
+  if(id==='news'&&!_vtNewsLoaded)loadVtNews();
+  if(id==='calendar'&&!_vtCalLoaded)loadVtCal();
+  if(id==='captable'&&!_vtCtLoaded)loadVtCapTable();
+}
+
+var _vtNewsLoaded=false,_vtCalLoaded=false,_vtCtLoaded=false;
+
+// ── NEWS TAB ──────────────────────────────────────────────
+async function loadVtNews(){
+  var tk=ST.d&&ST.d.t;if(!tk)return;
+  _vtNewsLoaded=true;
+  var el=document.getElementById('vt-news-body');
+  if(!el)return;
+  el.innerHTML='<div style="text-align:center;padding:30px;color:var(--dm)"><div class="sp"></div><div>Fetching news…</div></div>';
+  try{
+    var urls=[
+      BASE+'news?symbols='+encodeURIComponent(tk)+'&limit=30&apikey='+AK,
+      'https://financialmodelingprep.com/api/v3/stock_news?tickers='+encodeURIComponent(tk)+'&limit=30&apikey='+AK
+    ];
+    var data=null;
+    for(var i=0;i<urls.length;i++){
+      var r=await fetch(urls[i]);
+      if(r.ok){var j=await r.json();if(Array.isArray(j)&&j.length){data=j;break;}}
+    }
+    if(!data||!data.length){el.innerHTML='<div style="text-align:center;padding:30px;color:var(--dm)">No recent news found for '+tk+'</div>';return;}
+    var h2='<div style="display:flex;flex-direction:column;gap:8px">';
+    data.forEach(function(a){
+      var d2=new Date(a.publishedDate||'');
+      var ago='';var diff=Date.now()-d2;var hrs=Math.floor(diff/3600000);
+      if(hrs<1)ago='just now';else if(hrs<24)ago=hrs+'h ago';else ago=Math.floor(hrs/24)+'d ago';
+      h2+='<div style="background:var(--cd);border:1px solid var(--bd);border-radius:8px;padding:12px 14px;cursor:pointer" onclick="window.open(\''+a.url+'\',\'_blank\')">';
+      h2+='<div style="font-size:13px;font-weight:600;color:var(--br);line-height:1.4;margin-bottom:4px">'+escH(a.title||'')+'</div>';
+      if(a.text)h2+='<div style="font-size:12px;color:var(--lb);line-height:1.5;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+escH(a.text)+'</div>';
+      h2+='<div style="font-size:11px;color:var(--dm)">'+escH(a.site||'')+'&nbsp;·&nbsp;'+ago+'</div>';
+      h2+='</div>';
+    });
+    h2+='</div>';
+    el.innerHTML=h2;
+  }catch(e){el.innerHTML='<div style="padding:20px;color:var(--rd)">Error loading news: '+escH(e.message)+'</div>';}
+}
+
+// ── CALENDAR TAB ──────────────────────────────────────────
+async function loadVtCal(){
+  var tk=ST.d&&ST.d.t;if(!tk)return;
+  _vtCalLoaded=true;
+  var el=document.getElementById('vt-cal-body');
+  if(!el)return;
+  el.innerHTML='<div style="text-align:center;padding:30px;color:var(--dm)"><div class="sp"></div><div>Fetching calendar…</div></div>';
+  try{
+    var now=new Date();
+    var [earns,divs]=await Promise.all([
+      fetch('https://financialmodelingprep.com/api/v3/historical/earning_calendar/'+encodeURIComponent(tk)+'?limit=8&apikey='+AK).then(function(r){return r.ok?r.json():[];}),
+      fetch('https://financialmodelingprep.com/api/v3/stock_dividend/'+encodeURIComponent(tk)+'?limit=8&apikey='+AK).then(function(r){return r.ok?r.json():{historical:[]};})
+    ]);
+    var h2='';
+    var eArr=Array.isArray(earns)?earns:(earns&&earns.historical?earns.historical:[]);
+    if(eArr.length){
+      h2+='<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Earnings Dates</div>';
+      h2+='<div style="display:flex;flex-direction:column;gap:4px">';
+      eArr.slice(0,8).forEach(function(e2){
+        var isFuture=e2.date&&new Date(e2.date)>now;
+        h2+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--cd);border:1px solid var(--bd);border-radius:6px">';
+        h2+='<div><span style="font-family:var(--m);font-size:12px;color:var(--br)">'+e2.date+'</span>';
+        if(e2.time)h2+=' <span style="font-size:10px;color:var(--dm)">'+(e2.time==='bmo'?'Before Open':e2.time==='amc'?'After Close':e2.time)+'</span>';
+        h2+='</div>';
+        h2+='<div style="text-align:right;font-size:11px">';
+        if(isFuture){
+          if(e2.epsEstimated!=null)h2+='<span style="color:var(--lb)">Est. EPS: <b style="color:var(--br)">'+e2.epsEstimated+'</b></span>';
+        }else{
+          if(e2.eps!=null)h2+='<span style="color:'+(e2.eps>=(e2.epsEstimated||e2.eps)?'var(--gn)':'var(--rd)')+'">EPS: '+e2.eps+'</span>';
+          if(e2.epsEstimated!=null)h2+=' <span style="color:var(--dm)">Est:'+e2.epsEstimated+'</span>';
+        }
+        h2+='<span style="margin-left:8px;font-size:10px;padding:2px 6px;border-radius:4px;background:'+(isFuture?'rgba(56,189,248,0.15)':'rgba(255,255,255,0.05)')+';color:'+(isFuture?'var(--bl)':'var(--dm)')+'">'+( isFuture?'Upcoming':'Reported')+'</span>';
+        h2+='</div></div>';
+      });
+      h2+='</div></div>';
+    }
+    var dArr=Array.isArray(divs)?divs:(divs&&divs.historical?divs.historical:[]);
+    if(dArr.length){
+      h2+='<div><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Dividend History</div>';
+      h2+='<div style="display:flex;flex-direction:column;gap:4px">';
+      dArr.slice(0,8).forEach(function(dv){
+        h2+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--cd);border:1px solid var(--bd);border-radius:6px">';
+        h2+='<div><span style="font-family:var(--m);font-size:12px;color:var(--br)">'+dv.date+'</span> <span style="font-size:10px;color:var(--dm)">ex-date</span></div>';
+        h2+='<div style="font-size:12px;font-weight:700;color:var(--gn)">$'+(dv.dividend||dv.adjDividend||'—')+'</div>';
+        h2+='</div>';
+      });
+      h2+='</div></div>';
+    }
+    if(!eArr.length&&!dArr.length)h2='<div style="text-align:center;padding:30px;color:var(--dm)">No earnings or dividend data found for '+tk+'</div>';
+    el.innerHTML=h2;
+  }catch(e){el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
+}
+
+// ── CAP TABLE TAB ─────────────────────────────────────────
+async function loadVtCapTable(){
+  var tk=ST.d&&ST.d.t;if(!tk)return;
+  _vtCtLoaded=true;
+  var el=document.getElementById('vt-ct-body');
+  if(!el)return;
+  el.innerHTML='<div style="text-align:center;padding:30px;color:var(--dm)"><div class="sp"></div><div>Fetching ownership data…</div></div>';
+  try{
+    var [ins,inst]=await Promise.all([
+      fetch('https://financialmodelingprep.com/api/v4/insider-roaster-statistic?symbol='+encodeURIComponent(tk)+'&apikey='+AK).then(function(r){return r.ok?r.json():null;}),
+      fetch('https://financialmodelingprep.com/api/v3/institutional-holder/'+encodeURIComponent(tk)+'?apikey='+AK).then(function(r){return r.ok?r.json():[];})
+    ]);
+    var h2='';
+    var insArr=Array.isArray(ins)?ins:(ins?[ins]:[]);
+    if(insArr.length){
+      var i0=insArr[0]||{};
+      h2+='<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Insider Ownership</div>';
+      h2+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">';
+      if(i0.totalBought!=null)h2+='<div style="background:var(--cd);border:1px solid var(--bd);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--dm);text-transform:uppercase;margin-bottom:4px">Bought (3M)</div><div style="font-size:15px;font-weight:700;color:var(--gn)">'+cm(Math.round(i0.totalBought/1000))+'K</div></div>';
+      if(i0.totalSold!=null)h2+='<div style="background:var(--cd);border:1px solid var(--bd);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--dm);text-transform:uppercase;margin-bottom:4px">Sold (3M)</div><div style="font-size:15px;font-weight:700;color:var(--rd)">'+cm(Math.round(i0.totalSold/1000))+'K</div></div>';
+      if(i0.netBought!=null)h2+='<div style="background:var(--cd);border:1px solid var(--bd);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--dm);text-transform:uppercase;margin-bottom:4px">Net</div><div style="font-size:15px;font-weight:700;color:'+(i0.netBought>=0?'var(--gn)':'var(--rd)')+'">'+cm(Math.round(i0.netBought/1000))+'K</div></div>';
+      h2+='</div></div>';
+    }
+    var instArr=Array.isArray(inst)?inst:[];
+    if(instArr.length){
+      h2+='<div><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Top Institutional Holders</div>';
+      h2+='<div style="display:flex;flex-direction:column;gap:4px">';
+      instArr.slice(0,10).forEach(function(ih){
+        h2+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--cd);border:1px solid var(--bd);border-radius:6px">';
+        h2+='<div style="font-size:12px;color:var(--br)">'+escH(ih.holder||ih.name||'')+'</div>';
+        h2+='<div style="font-size:11px;color:var(--lb);font-family:var(--m)">'+cm(ih.shares||0)+(ih.dateReported?' <span style="color:var(--dm);font-size:10px">'+ih.dateReported+'</span>':'')+'</div>';
+        h2+='</div>';
+      });
+      h2+='</div></div>';
+    }
+    if(!insArr.length&&!instArr.length)h2='<div style="text-align:center;padding:20px;color:var(--dm)">Ownership data not available for '+tk+' (may require FMP paid plan)</div>';
+    el.innerHTML=h2;
+  }catch(e){el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
+}
+
+function escH(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 document.getElementById('qi').addEventListener('keydown',function(e){if(e.key==='Enter'){document.getElementById('sr').style.display='none';go();}});
 var _acTimer=null;
@@ -2020,6 +2190,7 @@ function showSearchResults(results){
 }
 
 async function go(forceSymbol){
+  _vtNewsLoaded=false;_vtCalLoaded=false;_vtCtLoaded=false;
   var raw=forceSymbol||document.getElementById('qi').value.trim();if(!raw)return;
   try{localStorage.setItem('active_ticker',raw.toUpperCase());}catch(e){}
   var t=raw.toUpperCase();
