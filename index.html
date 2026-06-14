@@ -2015,127 +2015,168 @@ function wlToggle(t,n,sec){
 }
 
 // ── TAB SWITCHING ─────────────────────────────────────────
+// Always load on switch — render() can reset tab content so we can't rely on flags
 function vtSwitch(id,btn){
   ['overview','news','calendar','transcripts','captable'].forEach(function(k){
     var el=document.getElementById('vt-'+k);if(el)el.style.display=k===id?'block':'none';
   });
   document.querySelectorAll('.vtab').forEach(function(b){b.classList.remove('vtab-active');});
   if(btn)btn.classList.add('vtab-active');
-  if(id==='news'&&!_vtNewsLoaded)loadVtNews();
-  if(id==='calendar'&&!_vtCalLoaded)loadVtCal();
-  if(id==='captable'&&!_vtCtLoaded)loadVtCapTable();
+  if(id==='news')loadVtNews();
+  if(id==='calendar')loadVtCal();
+  if(id==='captable')loadVtCapTable();
 }
 
 var _vtNewsLoaded=false,_vtCalLoaded=false,_vtCtLoaded=false;
 
 // ── NEWS TAB ──────────────────────────────────────────────
 async function loadVtNews(){
-  var tk=ST.d&&ST.d.t;if(!tk)return;
-  _vtNewsLoaded=true;
-  var el=document.getElementById('vt-news-body');
-  if(!el)return;
-  el.innerHTML='<div style="text-align:center;padding:30px;color:var(--dm)"><div class="sp"></div><div>Fetching news…</div></div>';
+  var tk=ST.d&&ST.d.t;var nm=ST.d&&ST.d.n;if(!tk)return;
+  var el=document.getElementById('vt-news-body');if(!el)return;
+  el.innerHTML='<div style="text-align:center;padding:30px;color:var(--dm)"><div class="sp"></div><div>Fetching news for '+escH(tk)+'…</div></div>';
   try{
     var urls=[
       BASE+'news?symbols='+encodeURIComponent(tk)+'&limit=30&apikey='+AK,
-      'https://financialmodelingprep.com/api/v3/stock_news?tickers='+encodeURIComponent(tk)+'&limit=30&apikey='+AK
+      'https://financialmodelingprep.com/api/v3/stock_news?tickers='+encodeURIComponent(tk)+'&limit=30&apikey='+AK,
+      BASE+'news?symbols='+encodeURIComponent(tk.split('.')[0])+'&limit=30&apikey='+AK,
     ];
-    var data=null;
+    var data=null,status403=false;
     for(var i=0;i<urls.length;i++){
       var r=await fetch(urls[i]);
+      if(r.status===403||r.status===401){status403=true;continue;}
       if(r.ok){var j=await r.json();if(Array.isArray(j)&&j.length){data=j;break;}}
     }
-    if(!data||!data.length){el.innerHTML='<div style="text-align:center;padding:30px;color:var(--dm)">No recent news found for '+tk+'</div>';return;}
+    if(status403&&!data){
+      el.innerHTML='<div style="padding:20px;background:var(--cd);border:1px solid var(--bd);border-radius:8px"><div style="font-size:13px;font-weight:600;color:var(--br);margin-bottom:6px">News requires an FMP paid plan for this ticker</div><div style="font-size:12px;color:var(--lb)">Search for <b>'+escH(nm||tk)+'</b> news on:<br><br>• <a href="https://finance.yahoo.com/quote/'+encodeURIComponent(tk)+'/news/" target="_blank" style="color:var(--bl)">Yahoo Finance</a><br>• <a href="https://seekingalpha.com/symbol/'+encodeURIComponent(tk.split('.')[0])+'" target="_blank" style="color:var(--bl)">Seeking Alpha</a><br>• <a href="https://www.google.com/search?q='+encodeURIComponent((nm||tk)+' stock news')+'&tbm=nws" target="_blank" style="color:var(--bl)">Google News</a></div></div>';
+      return;
+    }
+    if(!data||!data.length){
+      el.innerHTML='<div style="padding:20px;background:var(--cd);border:1px solid var(--bd);border-radius:8px"><div style="font-size:13px;color:var(--lb);margin-bottom:10px">No recent news found for <b style="color:var(--br)">'+escH(tk)+'</b> in FMP database.</div><div style="font-size:12px;color:var(--lb)">Try:<br>• <a href="https://finance.yahoo.com/quote/'+encodeURIComponent(tk)+'/news/" target="_blank" style="color:var(--bl)">Yahoo Finance</a><br>• <a href="https://seekingalpha.com/symbol/'+encodeURIComponent(tk.split('.')[0])+'" target="_blank" style="color:var(--bl)">Seeking Alpha</a><br>• <a href="https://www.google.com/search?q='+encodeURIComponent((nm||tk)+' stock news')+'&tbm=nws" target="_blank" style="color:var(--bl)">Google News</a></div></div>';
+      return;
+    }
     var h2='<div style="display:flex;flex-direction:column;gap:8px">';
     data.forEach(function(a){
       var d2=new Date(a.publishedDate||'');
-      var ago='';var diff=Date.now()-d2;var hrs=Math.floor(diff/3600000);
-      if(hrs<1)ago='just now';else if(hrs<24)ago=hrs+'h ago';else ago=Math.floor(hrs/24)+'d ago';
+      var hrs=Math.floor((Date.now()-d2)/3600000);
+      var ago=hrs<1?'just now':hrs<24?hrs+'h ago':Math.floor(hrs/24)+'d ago';
       h2+='<div style="background:var(--cd);border:1px solid var(--bd);border-radius:8px;padding:12px 14px;cursor:pointer" onclick="window.open(\''+a.url+'\',\'_blank\')">';
       h2+='<div style="font-size:13px;font-weight:600;color:var(--br);line-height:1.4;margin-bottom:4px">'+escH(a.title||'')+'</div>';
       if(a.text)h2+='<div style="font-size:12px;color:var(--lb);line-height:1.5;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+escH(a.text)+'</div>';
-      h2+='<div style="font-size:11px;color:var(--dm)">'+escH(a.site||'')+'&nbsp;·&nbsp;'+ago+'</div>';
+      h2+='<div style="font-size:11px;color:var(--dm)">'+escH(a.site||a.publisher||'')+'&nbsp;·&nbsp;'+ago+'</div>';
       h2+='</div>';
     });
     h2+='</div>';
     el.innerHTML=h2;
-  }catch(e){el.innerHTML='<div style="padding:20px;color:var(--rd)">Error loading news: '+escH(e.message)+'</div>';}
+  }catch(e){el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
 }
 
 // ── CALENDAR TAB ──────────────────────────────────────────
 async function loadVtCal(){
   var tk=ST.d&&ST.d.t;if(!tk)return;
-  _vtCalLoaded=true;
-  var el=document.getElementById('vt-cal-body');
-  if(!el)return;
-  el.innerHTML='<div style="text-align:center;padding:30px;color:var(--dm)"><div class="sp"></div><div>Fetching calendar…</div></div>';
+  var el=document.getElementById('vt-cal-body');if(!el)return;
+  el.innerHTML='<div style="text-align:center;padding:30px;color:var(--dm)"><div class="sp"></div><div>Fetching calendar for '+escH(tk)+'…</div></div>';
+  var now=new Date();
+  var safeFetch=function(url){return fetch(url).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});};
   try{
-    var now=new Date();
-    var [earns,divs]=await Promise.all([
-      fetch('https://financialmodelingprep.com/api/v3/historical/earning_calendar/'+encodeURIComponent(tk)+'?limit=8&apikey='+AK).then(function(r){return r.ok?r.json():[];}),
-      fetch('https://financialmodelingprep.com/api/v3/stock_dividend/'+encodeURIComponent(tk)+'?limit=8&apikey='+AK).then(function(r){return r.ok?r.json():{historical:[]};})
-    ]);
+    // Try multiple earnings endpoints — stable earnings-surprises works on free tier
+    var earnUrls=[
+      BASE+'earnings-surprises?symbol='+encodeURIComponent(tk),
+      'https://financialmodelingprep.com/api/v3/earnings-surprises/'+encodeURIComponent(tk),
+      'https://financialmodelingprep.com/api/v3/historical/earning_calendar/'+encodeURIComponent(tk)+'?limit=8',
+    ];
+    var divUrls=[
+      BASE+'dividends?symbol='+encodeURIComponent(tk),
+      'https://financialmodelingprep.com/api/v3/stock_dividend/'+encodeURIComponent(tk)+'?limit=8',
+    ];
+    // Append apikey
+    var addKey=function(u){return u+(u.includes('?')?'&':'?')+'apikey='+AK;};
+    earnUrls=earnUrls.map(addKey);divUrls=divUrls.map(addKey);
+
+    var earns=null,divs=null;
+    for(var i=0;i<earnUrls.length&&!earns;i++){var j=await safeFetch(earnUrls[i]);if(j&&(Array.isArray(j)?j.length:(j.historical&&j.historical.length)))earns=j;}
+    for(var i=0;i<divUrls.length&&!divs;i++){var j=await safeFetch(divUrls[i]);if(j&&(Array.isArray(j)?j.length:(j.historical&&j.historical.length)))divs=j;}
+
     var h2='';
+    // Earnings
     var eArr=Array.isArray(earns)?earns:(earns&&earns.historical?earns.historical:[]);
     if(eArr.length){
-      h2+='<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Earnings Dates</div>';
+      h2+='<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Earnings History</div>';
       h2+='<div style="display:flex;flex-direction:column;gap:4px">';
       eArr.slice(0,8).forEach(function(e2){
-        var isFuture=e2.date&&new Date(e2.date)>now;
+        var dt=e2.date||e2.period||'';
+        var isFuture=dt&&new Date(dt)>now;
+        var eps=e2.actualEarningResult!=null?e2.actualEarningResult:e2.eps;
+        var est=e2.estimatedEarning!=null?e2.estimatedEarning:e2.epsEstimated;
+        var beat=eps!=null&&est!=null?eps>=est:null;
         h2+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--cd);border:1px solid var(--bd);border-radius:6px">';
-        h2+='<div><span style="font-family:var(--m);font-size:12px;color:var(--br)">'+e2.date+'</span>';
+        h2+='<div><span style="font-family:var(--m);font-size:12px;color:var(--br)">'+dt+'</span>';
         if(e2.time)h2+=' <span style="font-size:10px;color:var(--dm)">'+(e2.time==='bmo'?'Before Open':e2.time==='amc'?'After Close':e2.time)+'</span>';
-        h2+='</div>';
-        h2+='<div style="text-align:right;font-size:11px">';
-        if(isFuture){
-          if(e2.epsEstimated!=null)h2+='<span style="color:var(--lb)">Est. EPS: <b style="color:var(--br)">'+e2.epsEstimated+'</b></span>';
-        }else{
-          if(e2.eps!=null)h2+='<span style="color:'+(e2.eps>=(e2.epsEstimated||e2.eps)?'var(--gn)':'var(--rd)')+'">EPS: '+e2.eps+'</span>';
-          if(e2.epsEstimated!=null)h2+=' <span style="color:var(--dm)">Est:'+e2.epsEstimated+'</span>';
-        }
+        h2+='</div><div style="text-align:right;font-size:11px">';
+        if(eps!=null)h2+='<span style="color:'+(beat===true?'var(--gn)':beat===false?'var(--rd)':'var(--lb)')+'">EPS: <b>'+eps+'</b></span>';
+        if(est!=null)h2+=' <span style="color:var(--dm)">Est: '+est+'</span>';
+        if(beat===true)h2+=' <span style="color:var(--gn);font-size:10px">✓ Beat</span>';
+        else if(beat===false)h2+=' <span style="color:var(--rd);font-size:10px">✗ Miss</span>';
         h2+='<span style="margin-left:8px;font-size:10px;padding:2px 6px;border-radius:4px;background:'+(isFuture?'rgba(56,189,248,0.15)':'rgba(255,255,255,0.05)')+';color:'+(isFuture?'var(--bl)':'var(--dm)')+'">'+( isFuture?'Upcoming':'Reported')+'</span>';
         h2+='</div></div>';
       });
       h2+='</div></div>';
     }
+    // Dividends
     var dArr=Array.isArray(divs)?divs:(divs&&divs.historical?divs.historical:[]);
     if(dArr.length){
       h2+='<div><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Dividend History</div>';
       h2+='<div style="display:flex;flex-direction:column;gap:4px">';
       dArr.slice(0,8).forEach(function(dv){
         h2+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--cd);border:1px solid var(--bd);border-radius:6px">';
-        h2+='<div><span style="font-family:var(--m);font-size:12px;color:var(--br)">'+dv.date+'</span> <span style="font-size:10px;color:var(--dm)">ex-date</span></div>';
-        h2+='<div style="font-size:12px;font-weight:700;color:var(--gn)">$'+(dv.dividend||dv.adjDividend||'—')+'</div>';
+        h2+='<div><span style="font-family:var(--m);font-size:12px;color:var(--br)">'+(dv.date||dv.recordDate||'')+'</span> <span style="font-size:10px;color:var(--dm)">ex-date</span></div>';
+        h2+='<div style="font-size:12px;font-weight:700;color:var(--gn)">$'+(dv.dividend||dv.adjDividend||dv.amount||'—')+'</div>';
         h2+='</div>';
       });
       h2+='</div></div>';
     }
-    if(!eArr.length&&!dArr.length)h2='<div style="text-align:center;padding:30px;color:var(--dm)">No earnings or dividend data found for '+tk+'</div>';
+    if(!eArr.length&&!dArr.length){
+      h2='<div style="padding:16px;background:var(--cd);border:1px solid var(--bd);border-radius:8px;color:var(--lb);font-size:13px">No earnings or dividend data found for <b style="color:var(--br)">'+escH(tk)+'</b> on the free FMP plan.<br><br><a href="https://finance.yahoo.com/quote/'+encodeURIComponent(tk)+'/financials/" target="_blank" style="color:var(--bl)">Check Yahoo Finance →</a></div>';
+    }
     el.innerHTML=h2;
   }catch(e){el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
 }
 
 // ── CAP TABLE TAB ─────────────────────────────────────────
 async function loadVtCapTable(){
-  var tk=ST.d&&ST.d.t;if(!tk)return;
-  _vtCtLoaded=true;
-  var el=document.getElementById('vt-ct-body');
-  if(!el)return;
+  var tk=ST.d&&ST.d.t;var nm=ST.d&&ST.d.n;if(!tk)return;
+  var el=document.getElementById('vt-ct-body');if(!el)return;
   el.innerHTML='<div style="text-align:center;padding:30px;color:var(--dm)"><div class="sp"></div><div>Fetching ownership data…</div></div>';
+  var sf=function(url){return fetch(url+(url.includes('?')?'&':'?')+'apikey='+AK).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});};
+  var tkBase=tk.split('.')[0];
   try{
-    var [ins,inst]=await Promise.all([
-      fetch('https://financialmodelingprep.com/api/v4/insider-roaster-statistic?symbol='+encodeURIComponent(tk)+'&apikey='+AK).then(function(r){return r.ok?r.json():null;}),
-      fetch('https://financialmodelingprep.com/api/v3/institutional-holder/'+encodeURIComponent(tk)+'?apikey='+AK).then(function(r){return r.ok?r.json():[];})
+    var [insiders,inst,insStats]=await Promise.all([
+      sf('https://financialmodelingprep.com/api/v4/insider-trading?symbol='+encodeURIComponent(tkBase)+'&limit=20'),
+      sf('https://financialmodelingprep.com/api/v3/institutional-holder/'+encodeURIComponent(tkBase)),
+      sf('https://financialmodelingprep.com/api/v4/insider-roaster-statistic?symbol='+encodeURIComponent(tkBase)),
     ]);
     var h2='';
-    var insArr=Array.isArray(ins)?ins:(ins?[ins]:[]);
+    var insArr=Array.isArray(insiders)?insiders:[];
     if(insArr.length){
-      var i0=insArr[0]||{};
-      h2+='<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Insider Ownership</div>';
-      h2+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">';
-      if(i0.totalBought!=null)h2+='<div style="background:var(--cd);border:1px solid var(--bd);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--dm);text-transform:uppercase;margin-bottom:4px">Bought (3M)</div><div style="font-size:15px;font-weight:700;color:var(--gn)">'+cm(Math.round(i0.totalBought/1000))+'K</div></div>';
-      if(i0.totalSold!=null)h2+='<div style="background:var(--cd);border:1px solid var(--bd);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--dm);text-transform:uppercase;margin-bottom:4px">Sold (3M)</div><div style="font-size:15px;font-weight:700;color:var(--rd)">'+cm(Math.round(i0.totalSold/1000))+'K</div></div>';
-      if(i0.netBought!=null)h2+='<div style="background:var(--cd);border:1px solid var(--bd);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--dm);text-transform:uppercase;margin-bottom:4px">Net</div><div style="font-size:15px;font-weight:700;color:'+(i0.netBought>=0?'var(--gn)':'var(--rd)')+'">'+cm(Math.round(i0.netBought/1000))+'K</div></div>';
+      var statArr=Array.isArray(insStats)?insStats:(insStats?[insStats]:[]);
+      h2+='<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Recent Insider Transactions</div>';
+      if(statArr.length){
+        var s=statArr[0];
+        h2+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">';
+        if(s.totalBought!=null)h2+='<div style="background:var(--cd);border:1px solid var(--bd);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--dm);text-transform:uppercase;margin-bottom:4px">Bought (3M)</div><div style="font-size:15px;font-weight:700;color:var(--gn)">'+cm(Math.round((s.totalBought||0)/1000))+'K</div></div>';
+        if(s.totalSold!=null)h2+='<div style="background:var(--cd);border:1px solid var(--bd);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--dm);text-transform:uppercase;margin-bottom:4px">Sold (3M)</div><div style="font-size:15px;font-weight:700;color:var(--rd)">'+cm(Math.round((s.totalSold||0)/1000))+'K</div></div>';
+        if(s.netBought!=null)h2+='<div style="background:var(--cd);border:1px solid var(--bd);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--dm);text-transform:uppercase;margin-bottom:4px">Net</div><div style="font-size:15px;font-weight:700;color:'+(s.netBought>=0?'var(--gn)':'var(--rd)')+'">'+cm(Math.round((s.netBought||0)/1000))+'K</div></div>';
+        h2+='</div>';
+      }
+      h2+='<div style="display:flex;flex-direction:column;gap:4px">';
+      insArr.slice(0,10).forEach(function(tx){
+        var isBuy=tx.transactionType&&(tx.transactionType.toLowerCase().includes('purchase')||tx.transactionType==='P-Purchase');
+        h2+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--cd);border:1px solid var(--bd);border-radius:6px">';
+        h2+='<div><div style="font-size:12px;color:var(--br)">'+escH(tx.reportingName||tx.insiderName||'')+'</div>';
+        h2+='<div style="font-size:10px;color:var(--dm)">'+escH(tx.typeOfOwner||'')+'&nbsp;·&nbsp;'+(tx.transactionDate||tx.filingDate||'')+'</div></div>';
+        h2+='<div style="text-align:right"><div style="font-size:12px;font-weight:700;color:'+(isBuy?'var(--gn)':'var(--rd)')+'">'+( isBuy?'▲ Buy':'▼ Sell')+'</div>';
+        if(tx.securitiesTransacted)h2+='<div style="font-size:11px;color:var(--lb)">'+cm(Math.abs(tx.securitiesTransacted))+' shares'+(tx.price?' @ $'+tx.price:'')+'</div>';
+        h2+='</div></div>';
+      });
       h2+='</div></div>';
     }
     var instArr=Array.isArray(inst)?inst:[];
@@ -2150,7 +2191,10 @@ async function loadVtCapTable(){
       });
       h2+='</div></div>';
     }
-    if(!insArr.length&&!instArr.length)h2='<div style="text-align:center;padding:20px;color:var(--dm)">Ownership data not available for '+tk+' (may require FMP paid plan)</div>';
+    if(!insArr.length&&!instArr.length){
+      h2='<div style="padding:16px;background:var(--cd);border:1px solid var(--bd);border-radius:8px"><div style="font-size:13px;color:var(--lb);margin-bottom:10px">Insider & institutional data not available for <b style="color:var(--br)">'+escH(tk)+'</b> on the free FMP plan.</div>';
+      h2+='<div style="font-size:12px;color:var(--lb)">Check ownership on:<br>• <a href="https://finance.yahoo.com/quote/'+encodeURIComponent(tkBase)+'/holders/" target="_blank" style="color:var(--bl)">Yahoo Finance Holders</a><br>• <a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company='+encodeURIComponent(nm||tk)+'&type=SC+13&dateb=&owner=include&count=10" target="_blank" style="color:var(--bl)">SEC EDGAR (13F/13G filings)</a></div></div>';
+    }
     el.innerHTML=h2;
   }catch(e){el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
 }
