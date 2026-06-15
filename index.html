@@ -76,9 +76,7 @@ b.s{color:var(--lb)}
   <div id="es" style="text-align:center;padding:60px 20px;color:#1e2a3a"><div style="font-size:36px;margin-bottom:10px">⬡</div><div style="font-size:13px;color:var(--dm)">Enter a ticker to auto-populate</div></div>
 </div>
 <script>
-// Read paid FMP key from Portfolio Monitor settings (pm_settings.fmp), fall back to free key
-var _pmS={}; try{_pmS=JSON.parse(localStorage.getItem('pm_settings')||'{}');}catch(e){}
-var AK=(_pmS.fmp&&_pmS.fmp.trim())||'zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J', BASE='https://financialmodelingprep.com/stable/';
+var AK='zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J', BASE='https://financialmodelingprep.com/stable/';
 async function fmpFlex(ep){
   // Try stable API first
   try{
@@ -2061,14 +2059,14 @@ async function loadVtNews(){
   el.innerHTML='<div style="text-align:center;padding:30px;color:var(--dm)"><div class="sp"></div><div>Fetching news for '+escH(tk)+'…</div></div>';
   var sf=function(u){return fetch(u+(u.includes('?')?'&':'?')+'apikey='+AK).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});};
   try{
-    // Try stable/news, v3/stock_news (paid tier), then press releases in parallel
-    var [news1, news2, v3news, press] = await Promise.all([
+    // Fetch from all news sources in parallel; v3/stock_news is the primary paid-tier endpoint
+    var [v3news, stableNews, stableBase, press] = await Promise.all([
+      sf('https://financialmodelingprep.com/api/v3/stock_news?tickers='+encodeURIComponent(tkBase)+'&limit=50'),
       sf(BASE+'news?symbols='+encodeURIComponent(tk)+'&limit=50'),
       tkBase!==tk ? sf(BASE+'news?symbols='+encodeURIComponent(tkBase)+'&limit=50') : Promise.resolve(null),
-      sf('https://financialmodelingprep.com/api/v3/stock_news?tickers='+encodeURIComponent(tkBase)+'&limit=50'),
       sf('https://financialmodelingprep.com/api/v3/press-releases/'+encodeURIComponent(tkBase)+'?limit=20'),
     ]);
-    var newsArr = (Array.isArray(news1)&&news1.length ? news1 : Array.isArray(v3news)&&v3news.length ? v3news : Array.isArray(news2)&&news2.length ? news2 : []);
+    var newsArr = (Array.isArray(v3news)&&v3news.length ? v3news : Array.isArray(stableNews)&&stableNews.length ? stableNews : Array.isArray(stableBase)&&stableBase.length ? stableBase : []);
     var pressArr = Array.isArray(press)?press:[];
     if(!newsArr.length&&!pressArr.length){
       el.innerHTML='<div style="padding:16px;background:var(--cd);border:1px solid var(--bd);border-radius:8px;color:var(--lb)">No news found for <b style="color:var(--br)">'+escH(tk)+'</b> in FMP.<br><br>External: <a href="https://finance.yahoo.com/quote/'+encodeURIComponent(tkBase)+'/news/" target="_blank" style="color:var(--bl)">Yahoo Finance</a> · <a href="https://seekingalpha.com/symbol/'+encodeURIComponent(tkBase)+'" target="_blank" style="color:var(--bl)">Seeking Alpha</a></div>';
