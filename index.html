@@ -2115,8 +2115,8 @@ async function loadVtNews(){
       pressArr.forEach(function(a){h2+=renderArticle(a,true);});
     }
     h2+='</div>';
-    el.innerHTML=h2;
-  }catch(e){el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
+    el=document.getElementById('vt-news-body');if(el)el.innerHTML=h2;
+  }catch(e){var _el=document.getElementById('vt-news-body');if(_el)_el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
 }
 
 // ── CALENDAR TAB ──────────────────────────────────────────
@@ -2198,8 +2198,8 @@ async function loadVtCal(){
     if(!merged.length&&!divArr.length){
       h2='<div style="padding:16px;background:var(--cd);border:1px solid var(--bd);border-radius:8px;color:var(--lb);font-size:13px">No earnings or dividend data found for <b style="color:var(--br)">'+escH(tk)+'</b>.<br><br><a href="https://finance.yahoo.com/quote/'+encodeURIComponent(tkBase)+'/financials/" target="_blank" style="color:var(--bl)">Check Yahoo Finance →</a></div>';
     }
-    el.innerHTML=h2;
-  }catch(e){el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
+    el=document.getElementById('vt-cal-body');if(el)el.innerHTML=h2;
+  }catch(e){var _el=document.getElementById('vt-cal-body');if(_el)_el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
 }
 
 // ── CAP TABLE TAB ─────────────────────────────────────────
@@ -2255,8 +2255,8 @@ async function loadVtCapTable(){
     if(!insArr.length&&!instArr.length){
       h2='<div style="padding:16px;background:var(--cd);border:1px solid var(--bd);border-radius:8px;color:var(--lb);font-size:13px">No insider or institutional holder data found for <b style="color:var(--br)">'+escH(tk)+'</b>.</div>';
     }
-    el.innerHTML=h2;
-  }catch(e){el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
+    el=document.getElementById('vt-ct-body');if(el)el.innerHTML=h2;
+  }catch(e){var _el=document.getElementById('vt-ct-body');if(_el)_el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
 }
 
 // ── TRANSCRIPTS TAB ───────────────────────────────────────
@@ -2291,8 +2291,8 @@ async function loadVtTranscripts(){
       h2+='</div>';
     });
     h2+='</div>';
-    el.innerHTML=h2;
-  }catch(e){el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
+    el=document.getElementById('vt-tr-body');if(el)el.innerHTML=h2;
+  }catch(e){var _el=document.getElementById('vt-tr-body');if(_el)_el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
 }
 
 function escH(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
