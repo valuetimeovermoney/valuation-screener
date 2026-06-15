@@ -2012,7 +2012,7 @@ function render(){
   h+='</div><!-- /vt-overview -->';
   h+='<div id="vt-news" style="display:none"><div id="vt-news-body"><div style="text-align:center;padding:40px;color:var(--dm)">Click to load news<br><br><button onclick="loadVtNews()" class="vtab vtab-active" style="padding:8px 20px">Load News for '+d.t+'</button></div></div></div>';
   h+='<div id="vt-calendar" style="display:none"><div id="vt-cal-body"><div style="text-align:center;padding:40px;color:var(--dm)">Click to load earnings &amp; dividend calendar<br><br><button onclick="loadVtCal()" class="vtab vtab-active" style="padding:8px 20px">Load Calendar</button></div></div></div>';
-  h+='<div id="vt-transcripts" style="display:none"><div style="padding:24px;background:var(--cd);border:1px solid var(--bd);border-radius:8px"><div style="font-size:14px;font-weight:700;color:var(--br);margin-bottom:8px">Earnings Call Transcripts</div><div style="font-size:13px;color:var(--lb)">Transcripts require an FMP paid plan. You can access them at:<br><br><a href="https://financialmodelingprep.com/" target="_blank" style="color:var(--bl)">financialmodelingprep.com</a> (paid) — or search <a href="https://seekingalpha.com/" target="_blank" style="color:var(--bl)">seekingalpha.com</a> for free transcripts.</div></div></div>';
+  h+='<div id="vt-transcripts" style="display:none"><div id="vt-tr-body"><div style="text-align:center;padding:40px;color:var(--dm)">Click to load earnings call transcripts<br><br><button onclick="loadVtTranscripts()" class="vtab vtab-active" style="padding:8px 20px">Load Transcripts for '+d.t+'</button></div></div></div>';
   h+='<div id="vt-captable" style="display:none"><div style="padding:24px;background:var(--cd);border:1px solid var(--bd);border-radius:8px"><div style="font-size:14px;font-weight:700;color:var(--br);margin-bottom:8px">Cap Table — Insider &amp; Institutional Ownership</div><div id="vt-ct-body"><div style="text-align:center;padding:20px;color:var(--dm)"><button onclick="loadVtCapTable()" class="vtab vtab-active" style="padding:8px 20px">Load Ownership Data</button></div></div></div></div>';
   document.getElementById('out').innerHTML=h;
   var _vl=document.getElementById('vallink');if(_vl){var _tk=document.getElementById('qi').value.trim().toUpperCase();if(_tk)_vl.href='/valuation-screener/valuation/?t='+encodeURIComponent(_tk);}
@@ -2047,6 +2047,7 @@ function vtSwitch(id,btn){
   if(btn)btn.classList.add('vtab-active');
   if(id==='news')loadVtNews();
   if(id==='calendar')loadVtCal();
+  if(id==='transcripts')loadVtTranscripts();
   if(id==='captable')loadVtCapTable();
 }
 
@@ -2060,13 +2061,14 @@ async function loadVtNews(){
   el.innerHTML='<div style="text-align:center;padding:30px;color:var(--dm)"><div class="sp"></div><div>Fetching news for '+escH(tk)+'…</div></div>';
   var sf=function(u){return fetch(u+(u.includes('?')?'&':'?')+'apikey='+AK).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});};
   try{
-    // Try symbol-specific news, then base ticker, then press releases in parallel
-    var [news1, news2, press] = await Promise.all([
+    // Try stable/news, v3/stock_news (paid tier), then press releases in parallel
+    var [news1, news2, v3news, press] = await Promise.all([
       sf(BASE+'news?symbols='+encodeURIComponent(tk)+'&limit=50'),
       tkBase!==tk ? sf(BASE+'news?symbols='+encodeURIComponent(tkBase)+'&limit=50') : Promise.resolve(null),
+      sf('https://financialmodelingprep.com/api/v3/stock_news?tickers='+encodeURIComponent(tkBase)+'&limit=50'),
       sf('https://financialmodelingprep.com/api/v3/press-releases/'+encodeURIComponent(tkBase)+'?limit=20'),
     ]);
-    var newsArr = (Array.isArray(news1)&&news1.length ? news1 : Array.isArray(news2)&&news2.length ? news2 : []);
+    var newsArr = (Array.isArray(news1)&&news1.length ? news1 : Array.isArray(v3news)&&v3news.length ? v3news : Array.isArray(news2)&&news2.length ? news2 : []);
     var pressArr = Array.isArray(press)?press:[];
     if(!newsArr.length&&!pressArr.length){
       el.innerHTML='<div style="padding:16px;background:var(--cd);border:1px solid var(--bd);border-radius:8px;color:var(--lb)">No news found for <b style="color:var(--br)">'+escH(tk)+'</b> in FMP.<br><br>External: <a href="https://finance.yahoo.com/quote/'+encodeURIComponent(tkBase)+'/news/" target="_blank" style="color:var(--bl)">Yahoo Finance</a> · <a href="https://seekingalpha.com/symbol/'+encodeURIComponent(tkBase)+'" target="_blank" style="color:var(--bl)">Seeking Alpha</a></div>';
@@ -2231,9 +2233,44 @@ async function loadVtCapTable(){
       h2+='</div></div>';
     }
     if(!insArr.length&&!instArr.length){
-      h2='<div style="padding:16px;background:var(--cd);border:1px solid var(--bd);border-radius:8px"><div style="font-size:13px;color:var(--lb);margin-bottom:10px">Insider & institutional data not available for <b style="color:var(--br)">'+escH(tk)+'</b> on the free FMP plan.</div>';
-      h2+='<div style="font-size:12px;color:var(--lb)">Check ownership on:<br>• <a href="https://finance.yahoo.com/quote/'+encodeURIComponent(tkBase)+'/holders/" target="_blank" style="color:var(--bl)">Yahoo Finance Holders</a><br>• <a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company='+encodeURIComponent(nm||tk)+'&type=SC+13&dateb=&owner=include&count=10" target="_blank" style="color:var(--bl)">SEC EDGAR (13F/13G filings)</a></div></div>';
+      h2='<div style="padding:16px;background:var(--cd);border:1px solid var(--bd);border-radius:8px;color:var(--lb);font-size:13px">No insider or institutional holder data found for <b style="color:var(--br)">'+escH(tk)+'</b>.</div>';
     }
+    el.innerHTML=h2;
+  }catch(e){el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
+}
+
+// ── TRANSCRIPTS TAB ───────────────────────────────────────
+async function loadVtTranscripts(){
+  var tk=ST.d&&ST.d.t;if(!tk)return;
+  var tkBase=tk.split('.')[0];
+  var el=document.getElementById('vt-tr-body');if(!el)return;
+  el.innerHTML='<div style="text-align:center;padding:30px;color:var(--dm)"><div class="sp"></div><div>Fetching transcripts for '+escH(tk)+'…</div></div>';
+  var sf=function(u){return fetch(u+(u.includes('?')?'&':'?')+'apikey='+AK).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});};
+  try{
+    var yr=new Date().getFullYear();
+    var [t1,t2]=await Promise.all([
+      sf('https://financialmodelingprep.com/api/v4/batch_earning_call_transcript/'+encodeURIComponent(tkBase)+'?year='+yr),
+      sf('https://financialmodelingprep.com/api/v4/batch_earning_call_transcript/'+encodeURIComponent(tkBase)+'?year='+(yr-1)),
+    ]);
+    var all=[...(Array.isArray(t1)?t1:[]),...(Array.isArray(t2)?t2:[])];
+    all.sort(function(a,b){var da=a.date||'',db=b.date||'';return da>db?-1:1;});
+    if(!all.length){
+      el.innerHTML='<div style="padding:16px;background:var(--cd);border:1px solid var(--bd);border-radius:8px;color:var(--lb);font-size:13px">No earnings call transcripts found for <b style="color:var(--br)">'+escH(tk)+'</b>.</div>';
+      return;
+    }
+    var h2='<div style="display:flex;flex-direction:column;gap:8px">';
+    all.forEach(function(tr,i){
+      var id='vt-tr-'+i;
+      var qLabel='Q'+(tr.quarter||'?')+' '+(tr.year||'');
+      h2+='<div style="background:var(--cd);border:1px solid var(--bd);border-radius:8px;overflow:hidden">';
+      h2+='<div onclick="var c=document.getElementById(\''+id+'\');c.style.display=c.style.display===\'none\'?\'block\':\'none\'" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;cursor:pointer">';
+      h2+='<div><span style="font-size:12px;font-weight:700;color:var(--bl);font-family:var(--m)">'+escH(qLabel)+'</span>';
+      if(tr.date)h2+=' <span style="font-size:11px;color:var(--dm)">'+tr.date.slice(0,10)+'</span>';
+      h2+='</div><span style="font-size:11px;color:var(--dm)">▼</span></div>';
+      h2+='<div id="'+id+'" style="display:none;padding:12px 14px;border-top:1px solid var(--bd);font-size:12px;color:var(--lb);line-height:1.6;white-space:pre-wrap;max-height:400px;overflow-y:auto">'+escH(tr.content||'(no content)')+'</div>';
+      h2+='</div>';
+    });
+    h2+='</div>';
     el.innerHTML=h2;
   }catch(e){el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
 }
