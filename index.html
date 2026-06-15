@@ -2016,6 +2016,7 @@ function render(){
   var _vl=document.getElementById('vallink');if(_vl){var _tk=document.getElementById('qi').value.trim().toUpperCase();if(_tk)_vl.href='/valuation-screener/valuation/?t='+encodeURIComponent(_tk);}
   var _wlb=document.getElementById('wl-btn');
   if(_wlb){_wlb.onclick=function(){wlToggle(ST.d.t,ST.d.n,ST.d.sec);};}
+  _vtRestoreTab();
   window.scrollTo(0,_scrollY);
   // Restore focus to prevent scroll jump
   if(_focId){var _el=document.getElementById(_focId);if(_el){_el.focus({preventScroll:true});if(_focVal!=null)_el.value=_focVal;if(_focPos!=null)try{_el.setSelectionRange(_focPos,_focPos);}catch(e){}}}
@@ -2036,17 +2037,38 @@ function wlToggle(t,n,sec){
 }
 
 // ── TAB SWITCHING ─────────────────────────────────────────
-// Always load on switch — render() can reset tab content so we can't rely on flags
+var _vtCurrent='overview';
 function vtSwitch(id,btn){
-  ['overview','news','calendar','transcripts','captable'].forEach(function(k){
-    var el=document.getElementById('vt-'+k);if(el)el.style.display=k===id?'block':'none';
-  });
-  document.querySelectorAll('.vtab').forEach(function(b){b.classList.remove('vtab-active');});
-  if(btn)btn.classList.add('vtab-active');
+  _vtCurrent=id;
+  _vtShowTab(id);
+  if(!btn){
+    // Find and activate the matching tab button
+    document.querySelectorAll('.vtab').forEach(function(b){
+      var oc=b.getAttribute('onclick')||'';
+      if(oc.indexOf("'"+id+"'")>=0)b.classList.add('vtab-active');
+    });
+  } else {
+    document.querySelectorAll('.vtab').forEach(function(b){b.classList.remove('vtab-active');});
+    btn.classList.add('vtab-active');
+  }
   if(id==='news')loadVtNews();
   if(id==='calendar')loadVtCal();
   if(id==='transcripts')loadVtTranscripts();
   if(id==='captable')loadVtCapTable();
+}
+function _vtShowTab(id){
+  ['overview','news','calendar','transcripts','captable'].forEach(function(k){
+    var el=document.getElementById('vt-'+k);if(el)el.style.display=k===id?'block':'none';
+  });
+}
+function _vtRestoreTab(){
+  if(_vtCurrent&&_vtCurrent!=='overview'){
+    _vtShowTab(_vtCurrent);
+    document.querySelectorAll('.vtab').forEach(function(b){
+      var oc=b.getAttribute('onclick')||'';
+      b.classList.toggle('vtab-active',oc.indexOf("'"+_vtCurrent+"'")>=0);
+    });
+  }
 }
 
 var _vtNewsLoaded=false,_vtCalLoaded=false,_vtCtLoaded=false;
@@ -2308,7 +2330,7 @@ function showSearchResults(results){
 }
 
 async function go(forceSymbol){
-  _vtNewsLoaded=false;_vtCalLoaded=false;_vtCtLoaded=false;
+  _vtNewsLoaded=false;_vtCalLoaded=false;_vtCtLoaded=false;_vtCurrent='overview';
   var raw=forceSymbol||document.getElementById('qi').value.trim();if(!raw)return;
   try{localStorage.setItem('active_ticker',raw.toUpperCase());}catch(e){}
   var t=raw.toUpperCase();
