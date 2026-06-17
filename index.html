@@ -234,7 +234,8 @@ function calcM(d){
   var tev=af/0.10,tmc=tev-nd,tp=sh>0?tmc/sh:null,pdif=tp!=null?tp-sp:null;
   var revs=d.rv||d.rev||[];var rc=null,ny=0;
   var _getR=function(x){return x?((x.r!=null?x.r:x.v)||0):0;};
-  if(revs.length>=2){ny=revs.length-1;rc=cagr(_getR(revs[revs.length-1]),_getR(revs[0]),ny);}
+  var revs5=revs.slice(0,5);// quality ratio always uses 5Y CAGR regardless of hlYrs
+  if(revs5.length>=2){ny=revs5.length-1;rc=cagr(_getR(revs5[revs5.length-1]),_getR(revs5[0]),ny);}
   var qr=(fy||0)+(rc||0),gap=0.25-qr;
   var np=null,nr=null;
   if(gap>0){var nf=0.25-(rc||0);if(nf>0)np=sh>0?(af/nf-nd)/sh:null;nr=(0.25-fy)*100;}
@@ -260,11 +261,11 @@ function calcM(d){
 async function buildCo(tk){
   var[prof,cfs,bss,incs,qIncs,qCfs,keyM,execs,insiders,instOwn,segs,divs]=await Promise.all([
     fmpFlex('profile?symbol='+tk),fmpFlex('cash-flow-statement?symbol='+tk+'&period=annual&limit=10'),
-    fmpFlex('balance-sheet-statement?symbol='+tk+'&period=annual&limit=5'),
+    fmpFlex('balance-sheet-statement?symbol='+tk+'&period=annual&limit=10'),
     fmpFlex('income-statement?symbol='+tk+'&period=annual&limit=10'),
     fmpFlex('income-statement?symbol='+tk+'&period=quarter&limit=4').catch(function(){return null;}),
     fmpFlex('cash-flow-statement?symbol='+tk+'&period=quarter&limit=4').catch(function(){return null;}),
-    fmpFlex('key-metrics?symbol='+tk+'&period=annual&limit=5').catch(function(){return null;}),
+    fmpFlex('key-metrics?symbol='+tk+'&period=annual&limit=10').catch(function(){return null;}),
     fmpFlex('key-executives?symbol='+tk).catch(function(){return null;}),
     fmpFlex('insider-trading?symbol='+tk+'&limit=10').catch(function(){return null;}),
     fmpFlex('institutional-ownership?symbol='+tk+'&limit=1').catch(function(){return null;}),
@@ -327,27 +328,27 @@ async function buildCo(tk){
   var cfA=Array.isArray(cfs)?cfs:cfs?[cfs]:[];var cf0=cfA[0]||{};
   var bsA=Array.isArray(bss)?bss:bss?[bss]:[];var bs0=bsA[0]||{};
   var incA=Array.isArray(incs)?incs:incs?[incs]:[];
-  var inc5=(incA||[]).filter(Boolean).slice(0,5);
+  var inc5=(incA||[]).filter(Boolean).slice(0,10);
   var sec=p.sector||'';var isL=sec.match(/tech|software|communication|media/i);
   var mcap=gf(p,'marketCap','mktCap');var px=gf(p,'price');
   var capex=Math.abs(gf(cf0,'capitalExpenditure'));var mpct=isL?50:70;
 
   var years=(incA||[]).map(function(y){return getYr(y);}).filter(Boolean);
-  var rev=(incA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),r:+((gf(y,'revenue'))/1e6).toFixed(1)};});
-  var ni=(incA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+((gf(y,'netIncome'))/1e6).toFixed(1)};});
-  var gm=(incA||[]).filter(Boolean).slice(0,5).map(function(y){var r=gf(y,'revenue');var gp=gf(y,'grossProfit');return{y:yrOf(y),v:r>0?gp/r:0};});
-  var cfoH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+((gf(y,'operatingCashFlow','netCashProvidedByOperatingActivities'))/1e6).toFixed(1)};});
-  var cfiH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+((gf(y,'netCashUsedForInvestingActivites')||gf(y,'netCashUsedForInvestingActivities'))/1e6).toFixed(1)};});
-  var cffH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+((gf(y,'netCashUsedProvidedByFinancingActivities')||gf(y,'netCashProvidedByFinancingActivities'))/1e6).toFixed(1)};});
-  var ncH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+((gf(y,'netChangeInCash'))/1e6).toFixed(1)};});
-  var fcfH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){var c2=gf(y,'operatingCashFlow','netCashProvidedByOperatingActivities');var s2=gf(y,'stockBasedCompensation');var cx2=Math.abs(gf(y,'capitalExpenditure'));return{y:yrOf(y),v:+((c2-s2-cx2*(isL?0.5:0.7))/1e6).toFixed(1)};});
+  var rev=(incA||[]).filter(Boolean).slice(0,10).map(function(y){return{y:yrOf(y),r:+((gf(y,'revenue'))/1e6).toFixed(1)};});
+  var ni=(incA||[]).filter(Boolean).slice(0,10).map(function(y){return{y:yrOf(y),v:+((gf(y,'netIncome'))/1e6).toFixed(1)};});
+  var gm=(incA||[]).filter(Boolean).slice(0,10).map(function(y){var r=gf(y,'revenue');var gp=gf(y,'grossProfit');return{y:yrOf(y),v:r>0?gp/r:0};});
+  var cfoH=(cfA||[]).filter(Boolean).slice(0,10).map(function(y){return{y:yrOf(y),v:+((gf(y,'operatingCashFlow','netCashProvidedByOperatingActivities'))/1e6).toFixed(1)};});
+  var cfiH=(cfA||[]).filter(Boolean).slice(0,10).map(function(y){return{y:yrOf(y),v:+((gf(y,'netCashUsedForInvestingActivites')||gf(y,'netCashUsedForInvestingActivities'))/1e6).toFixed(1)};});
+  var cffH=(cfA||[]).filter(Boolean).slice(0,10).map(function(y){return{y:yrOf(y),v:+((gf(y,'netCashUsedProvidedByFinancingActivities')||gf(y,'netCashProvidedByFinancingActivities'))/1e6).toFixed(1)};});
+  var ncH=(cfA||[]).filter(Boolean).slice(0,10).map(function(y){return{y:yrOf(y),v:+((gf(y,'netChangeInCash'))/1e6).toFixed(1)};});
+  var fcfH=(cfA||[]).filter(Boolean).slice(0,10).map(function(y){var c2=gf(y,'operatingCashFlow','netCashProvidedByOperatingActivities');var s2=gf(y,'stockBasedCompensation');var cx2=Math.abs(gf(y,'capitalExpenditure'));return{y:yrOf(y),v:+((c2-s2-cx2*(isL?0.5:0.7))/1e6).toFixed(1)};});
   // Owner Earnings: NI + D&A - CapEx (full) - SBC - ΔWC
   // ΔWC = change in working capital (incl. fintech loan book growth)
   var bsArr=(bsA||[]).filter(Boolean).slice(0,6);  // one extra for delta
   // Owner Earnings: NI + D&A - Maint CapEx - SBC ± ΔWC
   // ΔWC from cash flow statement (multiple field names) OR derived from BS changes
   var bsArr2=(bsA||[]).filter(Boolean);
-  var oeH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y,i){
+  var oeH=(cfA||[]).filter(Boolean).slice(0,10).map(function(y,i){
     var ni2=gf(y,'netIncome');
     var da2=gf(y,'depreciationAndAmortization');
     var cx2=Math.abs(gf(y,'capitalExpenditure'));
@@ -374,11 +375,11 @@ async function buildCo(tk){
   var _dwcAll=oeH.slice(0,3).map(function(x){return x._dwc||0;});
   var _dwcNorm3=_dwcAll.length?_dwcAll.reduce(function(a,b){return a+b;},0)/_dwcAll.length:0;
   oeH=oeH.map(function(x){return{y:x.y,v:+(x._raw+_dwcNorm3).toFixed(1),ni:x.ni,da:x.da,cx:x.cx,sbc:x.sbc,dwc:_dwcNorm3};});
-  var sbcH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+((gf(y,'stockBasedCompensation'))/1e6).toFixed(1)};});
-  var capexH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+(Math.abs(gf(y,'capitalExpenditure'))/1e6).toFixed(1)};});
-  var divH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+(Math.abs(gf(y,'dividendsPaid'))/1e6).toFixed(1)};});
-  var buyH=(cfA||[]).filter(Boolean).slice(0,5).map(function(y){return{y:yrOf(y),v:+(Math.abs(gf(y,'commonStockRepurchased'))/1e6).toFixed(1)};});
-  var soH=(incA||[]).filter(Boolean).slice(0,5).map(function(y){var s=gf(y,'weightedAverageShsOut');if(!s)s=gf(y,'weightedAverageShsOutDil');return{y:yrOf(y),v:s>0?+(s/1e6).toFixed(1):null};});
+  var sbcH=(cfA||[]).filter(Boolean).slice(0,10).map(function(y){return{y:yrOf(y),v:+((gf(y,'stockBasedCompensation'))/1e6).toFixed(1)};});
+  var capexH=(cfA||[]).filter(Boolean).slice(0,10).map(function(y){return{y:yrOf(y),v:+(Math.abs(gf(y,'capitalExpenditure'))/1e6).toFixed(1)};});
+  var divH=(cfA||[]).filter(Boolean).slice(0,10).map(function(y){return{y:yrOf(y),v:+(Math.abs(gf(y,'dividendsPaid'))/1e6).toFixed(1)};});
+  var buyH=(cfA||[]).filter(Boolean).slice(0,10).map(function(y){return{y:yrOf(y),v:+(Math.abs(gf(y,'commonStockRepurchased'))/1e6).toFixed(1)};});
+  var soH=(incA||[]).filter(Boolean).slice(0,10).map(function(y){var s=gf(y,'weightedAverageShsOut');if(!s)s=gf(y,'weightedAverageShsOutDil');return{y:yrOf(y),v:s>0?+(s/1e6).toFixed(1):null};});
 
   var fyEnd=cf0.date?(cf0.date.substring(5)):'';
   // Executives
@@ -402,7 +403,7 @@ async function buildCo(tk){
     instData&&instData.holders?(instData.holders||[]).slice(0,5):[];
   var kmA=Array.isArray(keyM)?keyM:keyM?[keyM]:[];var km0=kmA[0]||{};
   // Key metrics history for valuation table
-  var kmH=(kmA||[]).filter(Boolean).slice(0,5).map(function(y,_ki){
+  var kmH=(kmA||[]).filter(Boolean).slice(0,10).map(function(y,_ki){
     function _km(){for(var i=0;i<arguments.length;i++){var v=y[arguments[i]];if(v!=null&&v!=0&&!isNaN(v))return+v;}return 0;}
     // Mechanical fallbacks from income/BS/CF statements
     var _inc=incA[_ki]||{},_bs=bsA[_ki]||{},_cf=(cfA||[])[_ki]||{};
@@ -451,7 +452,7 @@ async function buildCo(tk){
     curR:_km('currentRatio'),
   };});
   // Diluted vs basic shares
-  var soHDil=(incA||[]).filter(Boolean).slice(0,5).map(function(y){
+  var soHDil=(incA||[]).filter(Boolean).slice(0,10).map(function(y){
     var s=gf(y,'weightedAverageShsOutDil');return{y:yrOf(y),v:s>0?+(s/1e6).toFixed(1):null};
   });
 
@@ -472,7 +473,7 @@ async function buildCo(tk){
     cx:+(capex/1e6).toFixed(1),mp:mpct,
     fy:'FY'+(yrOf(cf0)||''),fyEnd:fyEnd,bsDate:(bs0.date||'').slice(0,10),filingLink:cf0.finalLink||cf0.link||'',
     rv:rev,ni:ni,gm:gm,oeH:oeH,cfoH:cfoH,
-    dwcH:(cfA||[]).filter(Boolean).slice(0,5).map(function(y,i){
+    dwcH:(cfA||[]).filter(Boolean).slice(0,10).map(function(y,i){
       var v=gf(y,'changeInWorkingCapital')||gf(y,'changesInWorkingCapital')||0;
       if(v===0&&bsArr2[i]&&bsArr2[i+1]){
         var wcC=gf(bsArr2[i],'totalCurrentAssets')-gf(bsArr2[i],'totalCurrentLiabilities');
@@ -501,7 +502,7 @@ async function buildCo(tk){
     qCf:Array.isArray(qCfs)?(qCfs||[]).filter(Boolean).slice(0,4):[],
     cur:p.currency||'USD',
     // 5yr arrays for BS health table
-    bsH:(bsA||[]).filter(Boolean).slice(0,5),
+    bsH:(bsA||[]).filter(Boolean).slice(0,10),
     kmH:kmH,soHDil:soHDil,execList:execList,insiderList:insiderList,topHolders:topHolders,
     incH:(inc5||[]).map(function(y){
       // FMP field names vary: interestExpense, interestExpenseNet, nonOperatingInterestIncomeExpense
@@ -713,7 +714,7 @@ function renderStockChart(ticker, pts, spPts, ipoYear) {
 
 
 
-var ST={d:null,co:[],priceHist:[],spHist:[],indMult:15,reYrs:5,reMult:null,cagrMethod:null,cagrCustom:null,mpOver:null,fcfMethod:'adj',showPath:true,showFS:true,showBS:true,showSeg:true,
+var ST={d:null,co:[],priceHist:[],spHist:[],indMult:15,reYrs:5,reMult:null,cagrMethod:null,cagrCustom:null,mpOver:null,fcfMethod:'adj',hlYrs:5,showPath:true,showFS:true,showBS:true,showSeg:true,
   dcf:{
     // Per-year revenue growth %
     r1:12,r2:10,r3:9,r4:8,r5:7,
@@ -1115,9 +1116,10 @@ function render(){
   // ── VALUATION MULTIPLES ──────────────────────────────────
   h+='<div class="card"><div class="ci"><div class="cm"><div class="ct" style="color:var(--br)">Valuation Multiples</div>';
   {
-    var kmH2=(d.kmH||[]).slice(0,5).reverse();
-    var _rvV=(d.rv||[]).slice(0,5).reverse();
-    var fsNiV=(d.ni||[]).slice(0,5).reverse();
+    var _hl2=ST.hlYrs||5;
+    var kmH2=(d.kmH||[]).slice(0,_hl2).reverse();
+    var _rvV=(d.rv||[]).slice(0,_hl2).reverse();
+    var fsNiV=(d.ni||[]).slice(0,_hl2).reverse();
     // Current quick multiples from profile
     var _pe=d._pe||0;var _ps=d._ps||0;var _pb=d._pb||0;var _evEb=d._evEb||0;
     // Show quick current multiples
@@ -1211,8 +1213,8 @@ function render(){
     }
 
   // Dilution check
-    var _soBasic=(d.soH||[]).slice(0,5).reverse();
-    var _soDil=(d.soHDil||[]).slice(0,5).reverse();
+    var _soBasic=(d.soH||[]).slice(0,_hl2).reverse();
+    var _soDil=(d.soHDil||[]).slice(0,_hl2).reverse();
     var _dilArr=_soBasic.map(function(x,i){var d2=_soDil[i];return x&&x.v&&d2&&d2.v?d2.v-x.v:null;});
     var _dilPct=_dilArr.map(function(v,i){var b=_soBasic[i];return v!=null&&b&&b.v>0?v/b.v:null;});
     var _avgDil=av(_dilPct.filter(function(v){return v!=null;}));
@@ -1225,22 +1227,23 @@ function render(){
   }
   h+='</div><div class="cs"><b class="s">Valuation context:</b><br><br><b>P/E:</b> 🟢 &lt;15x cheap<br><b>EV/EBITDA:</b> 🟢 &lt;10x<br><b>EV/FCF:</b> 🟢 &lt;20x<br><b>P/S:</b> 🟢 &lt;2x<br><br><b>Dilution:</b><br>🟢 &lt;2%/yr minimal<br>🟡 2-5%/yr watch<br>🔴 &gt;5%/yr concern<br><br><b class="s" style="color:var(--yw)">ROIC vs ROCE:</b><br><br><b>ROIC</b> = NOPAT \u00f7 Invested Capital<br>\u2022 NOPAT = EBIT\u00d7(1\u2212tax), <i>after-tax</i><br>\u2022 Invested Capital = Equity + Debt \u2212 Cash<br>\u2022 After-tax return to all capital providers. Best vs WACC.<br><br><b>ROCE</b> = EBIT \u00f7 Capital Employed<br>\u2022 EBIT = operating income, <i>pre-tax</i><br>\u2022 Capital Employed = Net Working Capital + Net Fixed Assets, <i>excl. excess cash</i> (Pulak Prasad, \'Investing from Darwin\')<br>\u2022 Pre-tax; strips excess cash to isolate operating-capital return.<br><br><b>Use:</b> ROCE to <i>find</i> quality (durable high ROCE = moat), ROIC to <i>value</i> it vs cost of capital.<br><br><b>Both:</b> 🟢 &gt;20% \u00b7 🟡 15-20% \u00b7 🔴 &lt;15%<br><span style="color:var(--dm)">Not meaningful for banks/insurers.</span></div></div></div>';
 
-  h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div class="ct" style="color:var(--tl);margin-bottom:0">Financial Highlights (5 Years)'+curNote()+'</div><span style="font-size:9px;color:var(--dm);cursor:pointer" onclick="ST.hlScroll=!ST.hlScroll;render();">'+( ST.hlScroll?'↕ Scroll':'📋 Scroll')+' table →</span></div>';
+  h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="display:flex;align-items:center;gap:8px"><div class="ct" style="color:var(--tl);margin-bottom:0">Financial Highlights'+curNote()+'</div><div style="display:flex;border:1px solid var(--bd);border-radius:4px;overflow:hidden;font-size:10px"><button onclick="ST.hlYrs=5;render()" style="padding:2px 8px;border:none;cursor:pointer;font-weight:700;font-family:var(--f);background:'+(ST.hlYrs===5?'var(--bl)':'var(--ib)')+';color:'+(ST.hlYrs===5?'#000':'var(--lb)')+'">5Y</button><button onclick="ST.hlYrs=10;render()" style="padding:2px 8px;border:none;cursor:pointer;font-weight:700;font-family:var(--f);background:'+(ST.hlYrs===10?'var(--bl)':'var(--ib)')+';color:'+(ST.hlYrs===10?'#000':'var(--lb)')+'">10Y</button></div></div><span style="font-size:9px;color:var(--dm);cursor:pointer" onclick="ST.hlScroll=!ST.hlScroll;render();">'+( ST.hlScroll?'↕ Scroll':'📋 Scroll')+' table →</span></div>';
   {
+    var _hl=ST.hlYrs||5;
     var fsMp=ST.mpOver!=null?ST.mpOver:(d.mp||50);
-    var fsRv=(d.rv||[]).slice(0,5).reverse();
-    var fsNi=(d.ni||[]).slice(0,5).reverse();
-    var fsEbit=(d.incH||[]).slice(0,5).reverse().map(function(x){return{v:x?x.ebit:null};});
-    var fsGm=(d.gm||[]).slice(0,5).reverse();
-    var fsCfo=(d.cfoH||[]).slice(0,5).reverse();
-    var fsSbc=(d.sbcH||[]).slice(0,5).reverse();
-    var fsCx=(d.capexH||[]).slice(0,5).reverse();
+    var fsRv=(d.rv||[]).slice(0,_hl).reverse();
+    var fsNi=(d.ni||[]).slice(0,_hl).reverse();
+    var fsEbit=(d.incH||[]).slice(0,_hl).reverse().map(function(x){return{v:x?x.ebit:null};});
+    var fsGm=(d.gm||[]).slice(0,_hl).reverse();
+    var fsCfo=(d.cfoH||[]).slice(0,_hl).reverse();
+    var fsSbc=(d.sbcH||[]).slice(0,_hl).reverse();
+    var fsCx=(d.capexH||[]).slice(0,_hl).reverse();
     var fsFcf=fsCfo.map(function(cfo,i){var sb=fsSbc[i];var cx=fsCx[i];return{v:cfo&&sb&&cx?+(cfo.v-sb.v-cx.v*(fsMp/100)).toFixed(1):null};});
-    var fsSo=(d.soH||[]).slice(0,5).reverse();
-    var fsBuy=(d.buyH||[]).slice(0,5).reverse();
-    var fsDiv=(d.divH||[]).slice(0,5).reverse();
-    var _bsHR2=(d.bsH||[]).slice(0,5).reverse();  // raw FMP objects
-    var _incHR=(d.incH||[]).slice(0,5).reverse();
+    var fsSo=(d.soH||[]).slice(0,_hl).reverse();
+    var fsBuy=(d.buyH||[]).slice(0,_hl).reverse();
+    var fsDiv=(d.divH||[]).slice(0,_hl).reverse();
+    var _bsHR2=(d.bsH||[]).slice(0,_hl).reverse();  // raw FMP objects
+    var _incHR=(d.incH||[]).slice(0,_hl).reverse();
     var _yrPrices2={};(ST.priceHist||[]).forEach(function(p){var yr=p.date.slice(0,4);_yrPrices2[yr]=p.close;});
     var fsN=fsRv.length;
 
@@ -1468,13 +1471,14 @@ function render(){
   // ── BALANCE SHEET STRENGTH ───────────────────────────────────
   h+='<div class="card"><div class="ci"><div class="cm"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="ct" style="color:var(--pu);margin-bottom:0">Balance Sheet & Cash Flow Strength</div><span class="tog'+(ST.showFS?' on':'')+'" onclick="togSection(\'FS\')">'+(ST.showFS?'▼ Hide':'▶ Expand')+'</span></div>';
   if(ST.showFS){
-    var bsRaw=(d.bsH||[]).slice(0,5).reverse();
-    var incH2=(d.incH||[]).slice(0,5).reverse();
-    var fsF2=(d.fcf||[]).slice(0,5).reverse();
-    var fsCfo4=(d.cfoH||[]).slice(0,5).reverse();
-    var fsSo4=(d.soH||[]).slice(0,5).reverse();
-    var fsSbc4=(d.sbcH||[]).slice(0,5).reverse();
-    var fsCx4=(d.capexH||[]).slice(0,5).reverse();
+    var _hl3=ST.hlYrs||5;
+    var bsRaw=(d.bsH||[]).slice(0,_hl3).reverse();
+    var incH2=(d.incH||[]).slice(0,_hl3).reverse();
+    var fsF2=(d.fcf||[]).slice(0,_hl3).reverse();
+    var fsCfo4=(d.cfoH||[]).slice(0,_hl3).reverse();
+    var fsSo4=(d.soH||[]).slice(0,_hl3).reverse();
+    var fsSbc4=(d.sbcH||[]).slice(0,_hl3).reverse();
+    var fsCx4=(d.capexH||[]).slice(0,_hl3).reverse();
     var hn3=bsRaw.length;
     var latBsR=bsRaw[hn3-1]||{};
     var latInc=incH2[incH2.length-1]||{};
@@ -1604,11 +1608,11 @@ function render(){
 
     // ── CASH FLOW STATEMENT ──────────────
     secH('Cash Flow Statement');
-    var fsCfi=(d.cfiH||[]).slice(0,5).reverse();
-    var fsCff=(d.cffH||[]).slice(0,5).reverse();
-    var fsNc=(d.ncH||[]).slice(0,5).reverse();
-    var fsRv4=(d.rv||[]).slice(0,5).reverse();
-    var fsDiv4=(d.divH||[]).slice(0,5).reverse();
+    var fsCfi=(d.cfiH||[]).slice(0,_hl3).reverse();
+    var fsCff=(d.cffH||[]).slice(0,_hl3).reverse();
+    var fsNc=(d.ncH||[]).slice(0,_hl3).reverse();
+    var fsRv4=(d.rv||[]).slice(0,_hl3).reverse();
+    var fsDiv4=(d.divH||[]).slice(0,_hl3).reverse();
 
     // CFO
     function cfRow(label,arr,col){
