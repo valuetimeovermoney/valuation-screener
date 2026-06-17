@@ -97,7 +97,7 @@ function yrOf(o){var y=o.calendarYear?''+o.calendarYear:'';if(y&&y!='0')return y
 function gv(id){var e=document.getElementById(id);return e?parseFloat(e.value)||0:0;}
 
 // ── State ──────────────────────────────────────────────────────
-var ST={d:null,showDCF:true,showTri:true,dcfYrs:5,
+var ST={d:null,showDCF:true,showTri:true,dcfHistYrs:5,
   dcf:{r1:12,r2:10,r3:9,r4:8,r5:7,r6:5,r7:4,r8:4,r9:3,r10:3,
        ni1:0,ni2:0,ni3:0,ni4:0,ni5:0,ni6:0,ni7:0,ni8:0,ni9:0,ni10:0,
        cfo1:0,cfo2:0,cfo3:0,cfo4:0,cfo5:0,cfo6:0,cfo7:0,cfo8:0,cfo9:0,cfo10:0,
@@ -139,7 +139,7 @@ function calcDCF(){
   if(!d||!d.rv||!d.rv.length)return null;
   var latRev=d.rv[0].r;
   var wacc=v.wacc/100,tg=v.tg/100,mp=v.mp/100;
-  var nYrs=ST.dcfYrs||5;
+  var nYrs=5;
   var pR=[],pNI=[],pCfo=[],pSbc=[],pCx=[],pMx=[],pFcf=[],pS=[],pV=[];
   var cR=latRev;
   var pOE=[];
@@ -844,7 +844,7 @@ function render(){
   // ── DCF SECTION ──────────────────────────────────────────────
   h+='<div class="card"><div class="ci"><div class="cm">';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
-  h+='<div style="display:flex;align-items:center;gap:8px"><div class="ct" style="margin-bottom:0">DCF Projection</div><div style="display:flex;border:1px solid var(--bd);border-radius:4px;overflow:hidden;font-size:10px"><button onclick="ST.dcfYrs=5;render()" style="padding:2px 8px;border:none;cursor:pointer;font-weight:700;font-family:var(--f);background:'+(ST.dcfYrs===5?'var(--bl)':'var(--ib)')+';color:'+(ST.dcfYrs===5?'#000':'var(--lb)')+'">5Y</button><button onclick="ST.dcfYrs=10;render()" style="padding:2px 8px;border:none;cursor:pointer;font-weight:700;font-family:var(--f);background:'+(ST.dcfYrs===10?'var(--bl)':'var(--ib)')+';color:'+(ST.dcfYrs===10?'#000':'var(--lb)')+'">10Y</button></div></div>';
+  h+='<div style="display:flex;align-items:center;gap:8px"><div class="ct" style="margin-bottom:0">DCF Projection</div><div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--dm)">Historical: <div style="display:flex;border:1px solid var(--bd);border-radius:4px;overflow:hidden;font-size:10px"><button onclick="ST.dcfHistYrs=5;render()" style="padding:2px 8px;border:none;cursor:pointer;font-weight:700;font-family:var(--f);background:'+(ST.dcfHistYrs===5?'var(--bl)':'var(--ib)')+';color:'+(ST.dcfHistYrs===5?'#000':'var(--lb)')+'">5Y</button><button onclick="ST.dcfHistYrs=10;render()" style="padding:2px 8px;border:none;cursor:pointer;font-weight:700;font-family:var(--f);background:'+(ST.dcfHistYrs===10?'var(--bl)':'var(--ib)')+';color:'+(ST.dcfHistYrs===10?'#000':'var(--lb)')+'">10Y</button></div></div></div>';
   h+='<span class="tog'+(ST.showDCF?' on':'')+'" onclick="togS(\'DCF\')">'+(ST.showDCF?'▼ Hide':'▶ Expand')+'</span></div>';
 
   if(ST.showDCF&&dcf){
@@ -854,14 +854,15 @@ function render(){
     if(isNaN(lastHistYr))lastHistYr=new Date().getFullYear();
     var projYrs=[];for(var _py=1;_py<=_nYrs;_py++)projYrs.push(lastHistYr+_py);
 
-    var histRv =(d.rv||[]).slice(0,5).reverse();
-    var histNi =(d.ni||[]).slice(0,5).reverse();
-    var histGm =(d.gm||[]).slice(0,5).reverse();
-    var histCfo=(d.cfoH||[]).slice(0,5).reverse();
-    var histSbc=(d.sbcH||[]).slice(0,5).reverse();
-    var histCx =(d.capexH||[]).slice(0,5).reverse();
-    var histFcf=(d.fcf||[]).slice(0,5).reverse();
-    var histSo =(d.soH||[]).slice(0,5).reverse();
+    var _dHYrs=ST.dcfHistYrs||5;
+    var histRv =(d.rv||[]).slice(0,_dHYrs).reverse();
+    var histNi =(d.ni||[]).slice(0,_dHYrs).reverse();
+    var histGm =(d.gm||[]).slice(0,_dHYrs).reverse();
+    var histCfo=(d.cfoH||[]).slice(0,_dHYrs).reverse();
+    var histSbc=(d.sbcH||[]).slice(0,_dHYrs).reverse();
+    var histCx =(d.capexH||[]).slice(0,_dHYrs).reverse();
+    var histFcf=(d.fcf||[]).slice(0,_dHYrs).reverse();
+    var histSo =(d.soH||[]).slice(0,_dHYrs).reverse();
     var hn=histRv.length;
 
     var hRv =histRv.map(function(r){return r.r;});
@@ -871,8 +872,8 @@ function render(){
     var hCx =histCx.map(function(x){return x?x.v:null;});
     var hFcf=histFcf.map(function(x){return x?x.v:null;});
     var hSo =histSo.map(function(x){return x?x.v:null;});
-    var hDa =(d.daH||[]).slice(0,5).reverse().map(function(x){return x?x.v:null;});
-    var hOe =(d.oeH||[]).slice(0,5).reverse().map(function(x){return x?x.v:null;});
+    var hDa =(d.daH||[]).slice(0,_dHYrs).reverse().map(function(x){return x?x.v:null;});
+    var hOe =(d.oeH||[]).slice(0,_dHYrs).reverse().map(function(x){return x?x.v:null;});
 
     function inp(key,w){return dcfInp(key,v2[key]||0,w||44);}
     function secRow(label){var tot=hn+_nYrs+2;return '<tr style="border-top:2px solid var(--bd)"><td colspan="'+tot+'" style="font-size:9px;font-weight:700;color:var(--dm);letter-spacing:1px;padding:5px 5px 3px;text-transform:uppercase">'+label+'</td></tr>';}

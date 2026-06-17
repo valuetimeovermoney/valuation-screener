@@ -67,7 +67,7 @@ b.s{color:var(--lb)}
 <nav class="vtm-nav"><a class="vtm-brand" href="/valuation-screener/">Value<span style="color:#d29922">Time</span></a><a id="vtm-l1" href="/valuation-screener/">Screener</a><a id="vtm-l2" href="/valuation-screener/valuation/">DCF &amp; Triangle</a><a id="vtm-l3" href="/valuation-screener/portfolio-monitor.html">Portfolio Monitor</a><a id="vtm-l4" href="/valuation-screener/watchlist.html">Watchlist</a></nav>
 <script>(function(){var p=location.pathname;if(p.includes('/valuation/'))document.getElementById('vtm-l2').classList.add('vtm-active');else if(p.includes('portfolio-monitor'))document.getElementById('vtm-l3').classList.add('vtm-active');else if(p.includes('watchlist'))document.getElementById('vtm-l4').classList.add('vtm-active');else document.getElementById('vtm-l1').classList.add('vtm-active');})();</script>
 <div class="w">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px"><div><div style="font-size:9px;font-weight:800;letter-spacing:3px;color:var(--bl)">VALUATION SCREENER</div><h1>Company Analysis</h1></div><div style="display:flex;gap:8px;align-items:center"><span id="ak-badge" style="font-size:10px;padding:3px 8px;border-radius:4px;cursor:pointer" onclick="promptFmpKey()" title="Click to set FMP API key"></span><button id="thbtn" onclick="toggleTheme()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--bd);background:var(--ib);color:var(--lb);font-size:11px;cursor:pointer;font-weight:600">Day Mode</button></div></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px"><div><div style="font-size:9px;font-weight:800;letter-spacing:3px;color:var(--bl)">VALUATION SCREENER</div><h1>Company Analysis</h1></div><div style="display:flex;gap:8px;align-items:center"><button id="thbtn" onclick="toggleTheme()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--bd);background:var(--ib);color:var(--lb);font-size:11px;cursor:pointer;font-weight:600">Day Mode</button></div></div>
   <div class="sb"><input id="qi" placeholder="Ticker (e.g. AAPL, MSFT, GOOG)"/><button id="gb" onclick="go()">Analyze</button></div>
   <div id="sr" style="display:none;background:var(--cd);border:1px solid var(--bd);border-radius:8px;margin-top:-14px;margin-bottom:12px;max-height:350px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4)"></div>
   <div id="ld" style="display:none;text-align:center;padding:50px 0;color:var(--dm)"><div class="sp"></div><div>Fetching…</div></div>
@@ -743,26 +743,6 @@ function toggleTheme(){
 (function(){if(localStorage.getItem('vtheme')==='light'){document.body.classList.add('light');
   var b=document.getElementById('thbtn');if(b)b.textContent='Dark Mode';}})();
 
-// ── FMP KEY MANAGEMENT ────────────────────────────────────
-function updateAkBadge(){
-  var badge=document.getElementById('ak-badge');if(!badge)return;
-  var isPaid=AK&&AK!=='zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J';
-  badge.textContent=isPaid?'🔑 Paid FMP Key':'⚠ Free FMP Key';
-  badge.style.background=isPaid?'rgba(34,197,94,0.12)':'rgba(234,179,8,0.12)';
-  badge.style.color=isPaid?'var(--gn)':'var(--yw)';
-  badge.style.border='1px solid '+(isPaid?'rgba(34,197,94,0.3)':'rgba(234,179,8,0.3)');
-}
-function promptFmpKey(){
-  var cur=AK==='zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J'?'':AK;
-  var val=prompt('Enter your FMP API key (saved to Portfolio Monitor settings):',cur);
-  if(val===null)return;
-  val=val.trim();
-  if(!val){alert('Key cleared — reverting to free key.');val='';}
-  try{var s=JSON.parse(localStorage.getItem('pm_settings')||'{}');s.fmp=val;localStorage.setItem('pm_settings',JSON.stringify(s));}catch(e){}
-  AK=val||'zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J';
-  updateAkBadge();
-}
-updateAkBadge();
 
 function updDCF(){
   ST.dcf={r1:gv('dr1'),r2:gv('dr2'),r3:gv('dr3'),r4:gv('dr4'),r5:gv('dr5'),
@@ -2075,6 +2055,11 @@ function _vtRestoreTab(){
       var oc=b.getAttribute('onclick')||'';
       b.classList.toggle('vtab-active',oc.indexOf("'"+_vtCurrent+"'")>=0);
     });
+    // Re-trigger load: render() replaces DOM so any completed load wrote to detached elements
+    if(_vtCurrent==='news')loadVtNews();
+    if(_vtCurrent==='calendar')loadVtCal();
+    if(_vtCurrent==='transcripts')loadVtTranscripts();
+    if(_vtCurrent==='captable')loadVtCapTable();
   }
 }
 
