@@ -64,8 +64,8 @@ b.s{color:var(--lb)}
 </head>
 <body>
 <style>.vtm-nav{background:#0d1117;border-bottom:1px solid #30363d;padding:0 16px;display:flex;align-items:center;gap:2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;position:sticky;top:0;z-index:999}.vtm-nav a{color:#8b949e;text-decoration:none;padding:9px 13px;font-size:12px;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s}.vtm-nav a:hover{color:#e6edf3}.vtm-nav a.vtm-active{color:#58a6ff;border-bottom-color:#58a6ff}.vtm-brand{font-weight:800!important;font-size:14px!important;color:#e6edf3!important;padding-right:16px!important;border-bottom:none!important}</style>
-<nav class="vtm-nav"><a class="vtm-brand" href="/valuation-screener/">Value<span style="color:#d29922">Time</span></a><a id="vtm-l1" href="/valuation-screener/">Screener</a><a id="vtm-l2" href="/valuation-screener/valuation/">DCF &amp; Triangle</a><a id="vtm-l3" href="/valuation-screener/portfolio-monitor.html">Portfolio Monitor</a><a id="vtm-l4" href="/valuation-screener/watchlist.html">Watchlist</a></nav>
-<script>(function(){var p=location.pathname;if(p.includes('/valuation/'))document.getElementById('vtm-l2').classList.add('vtm-active');else if(p.includes('portfolio-monitor'))document.getElementById('vtm-l3').classList.add('vtm-active');else if(p.includes('watchlist'))document.getElementById('vtm-l4').classList.add('vtm-active');else document.getElementById('vtm-l1').classList.add('vtm-active');})();</script>
+<nav class="vtm-nav"><a class="vtm-brand" href="/valuation-screener/">Value<span style="color:#d29922">Time</span></a><a id="vtm-l1" href="/valuation-screener/" class="vtm-active">Screener</a><span id="vtm-co-sep" style="display:none;color:#30363d;font-size:16px;margin:0 2px">|</span><a id="vtm-co-ticker" style="display:none;font-weight:700;color:#e6edf3!important" href="#"></a><a id="vtm-co-overview" style="display:none" href="#" onclick="vtSwitch('overview');return false;">Overview</a><a id="vtm-co-news" style="display:none" href="#" onclick="vtSwitch('news');return false;">News</a><a id="vtm-co-calendar" style="display:none" href="#" onclick="vtSwitch('calendar');return false;">Calendar</a><a id="vtm-co-transcripts" style="display:none" href="#" onclick="vtSwitch('transcripts');return false;">Transcripts</a><a id="vtm-co-captable" style="display:none" href="#" onclick="vtSwitch('captable');return false;">Cap Table</a><span style="flex:1"></span><a id="vtm-l2" href="/valuation-screener/valuation/">Valuation</a><a id="vtm-l3" href="/valuation-screener/portfolio-monitor.html">Portfolio Monitor</a><a id="vtm-l4" href="/valuation-screener/watchlist.html">Watchlist</a></nav>
+<script>(function(){var p=location.pathname;if(p.includes('/valuation/'))document.getElementById('vtm-l2').classList.add('vtm-active');else if(p.includes('portfolio-monitor'))document.getElementById('vtm-l3').classList.add('vtm-active');else if(p.includes('watchlist'))document.getElementById('vtm-l4').classList.add('vtm-active');})();</script>
 <div class="w">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px"><div><div style="font-size:9px;font-weight:800;letter-spacing:3px;color:var(--bl)">VALUATION SCREENER</div><h1>Company Analysis</h1></div><div style="display:flex;gap:8px;align-items:center"><button id="thbtn" onclick="toggleTheme()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--bd);background:var(--ib);color:var(--lb);font-size:11px;cursor:pointer;font-weight:600">Day Mode</button></div></div>
   <div class="sb"><input id="qi" placeholder="Ticker (e.g. AAPL, MSFT, GOOG)"/><button id="gb" onclick="go()">Analyze</button></div>
@@ -853,8 +853,6 @@ function render(){
   var h='';
   // Header
   h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;background:var(--cd);border-radius:8px;padding:14px 16px;border:1px solid var(--bd);margin-bottom:12px"><div><div style="font-size:18px;font-weight:800;color:var(--br)">'+d.n+'</div><div style="font-size:11px;color:var(--dm)">'+d.t+' · '+d.sec+' · '+d.industry+'</div><div style="font-size:10px;color:var(--dm);margin-top:2px">Fiscal year ends: '+d.fyEnd+' · Latest: '+d.fy+'</div></div><div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px"><div style="display:flex;align-items:center;gap:10px"><button id="wl-btn" style="background:none;border:1px solid var(--bd);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:13px;color:'+(wlHas(d.t)?'var(--yw)':'var(--lb)')+';font-family:var(--f)">'+(wlHas(d.t)?'★ Saved':'☆ Save')+'</button><div style="font-size:24px;font-weight:800;font-family:var(--m);color:var(--bl)">'+pr(d.p)+'</div></div><div style="font-size:10px;color:var(--dm)">'+d.pd+'</div></div></div>';
-  // Tab strip + open overview div
-  h+='<div style="display:flex;border-bottom:2px solid var(--bd);margin-bottom:14px"><button class="vtab vtab-active" onclick="vtSwitch(\'overview\',this)">Overview</button><button class="vtab" onclick="vtSwitch(\'news\',this)">News</button><button class="vtab" onclick="vtSwitch(\'calendar\',this)">Calendar</button><button class="vtab" onclick="vtSwitch(\'transcripts\',this)">Transcripts</button><button class="vtab" onclick="vtSwitch(\'captable\',this)">Cap Table</button></div>';
   h+='<div id="vt-overview">';
 
 
@@ -2003,6 +2001,7 @@ function render(){
   var _vl=document.getElementById('vallink');if(_vl){var _tk=document.getElementById('qi').value.trim().toUpperCase();if(_tk)_vl.href='/valuation-screener/valuation/?t='+encodeURIComponent(_tk);}
   var _wlb=document.getElementById('wl-btn');
   if(_wlb){_wlb.onclick=function(){wlToggle(ST.d.t,ST.d.n,ST.d.sec);};}
+  _vtNavShow(d.t);
   _vtRestoreTab();
   window.scrollTo(0,_scrollY);
   // Restore focus to prevent scroll jump
@@ -2023,38 +2022,42 @@ function wlToggle(t,n,sec){
   if(btn){btn.textContent=idx>=0?'☆ Save':'★ Saved';btn.style.color=idx>=0?'var(--lb)':'var(--yw)';}
 }
 
-// ── TAB SWITCHING ─────────────────────────────────────────
+// ── NAV TAB MANAGEMENT ────────────────────────────────────
 var _vtCurrent='overview';
-function vtSwitch(id,btn){
+var _vtTabs=['overview','news','calendar','transcripts','captable'];
+function _vtNavShow(tk){
+  var show=!!tk;
+  ['sep','ticker','overview','news','calendar','transcripts','captable'].forEach(function(k){
+    var el=document.getElementById('vtm-co-'+k);if(el)el.style.display=show?(k==='sep'?'inline':'inline-block'):'none';
+  });
+  if(show){var te=document.getElementById('vtm-co-ticker');if(te)te.textContent=tk;}
+  _vtNavActive(_vtCurrent);
+}
+function _vtNavActive(id){
+  _vtTabs.forEach(function(k){
+    var el=document.getElementById('vtm-co-'+k);
+    if(el)el.classList.toggle('vtm-active',k===id);
+  });
+}
+function vtSwitch(id){
   _vtCurrent=id;
   _vtShowTab(id);
-  if(!btn){
-    // Find and activate the matching tab button
-    document.querySelectorAll('.vtab').forEach(function(b){
-      var oc=b.getAttribute('onclick')||'';
-      if(oc.indexOf("'"+id+"'")>=0)b.classList.add('vtab-active');
-    });
-  } else {
-    document.querySelectorAll('.vtab').forEach(function(b){b.classList.remove('vtab-active');});
-    btn.classList.add('vtab-active');
-  }
+  _vtNavActive(id);
   if(id==='news')loadVtNews();
   if(id==='calendar')loadVtCal();
   if(id==='transcripts')loadVtTranscripts();
   if(id==='captable')loadVtCapTable();
 }
 function _vtShowTab(id){
-  ['overview','news','calendar','transcripts','captable'].forEach(function(k){
+  _vtTabs.forEach(function(k){
     var el=document.getElementById('vt-'+k);if(el)el.style.display=k===id?'block':'none';
   });
 }
 function _vtRestoreTab(){
+  _vtNavShow(ST.d&&ST.d.t);
   if(_vtCurrent&&_vtCurrent!=='overview'){
     _vtShowTab(_vtCurrent);
-    document.querySelectorAll('.vtab').forEach(function(b){
-      var oc=b.getAttribute('onclick')||'';
-      b.classList.toggle('vtab-active',oc.indexOf("'"+_vtCurrent+"'")>=0);
-    });
+    _vtNavActive(_vtCurrent);
     // Re-trigger load: render() replaces DOM so any completed load wrote to detached elements
     if(_vtCurrent==='news')loadVtNews();
     if(_vtCurrent==='calendar')loadVtCal();
@@ -2322,7 +2325,7 @@ function showSearchResults(results){
 }
 
 async function go(forceSymbol){
-  _vtNewsLoaded=false;_vtCalLoaded=false;_vtCtLoaded=false;_vtCurrent='overview';
+  _vtNewsLoaded=false;_vtCalLoaded=false;_vtCtLoaded=false;_vtCurrent='overview';_vtNavShow(null);
   var raw=forceSymbol||document.getElementById('qi').value.trim();if(!raw)return;
   try{localStorage.setItem('active_ticker',raw.toUpperCase());}catch(e){}
   var t=raw.toUpperCase();
