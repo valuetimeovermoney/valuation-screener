@@ -387,7 +387,23 @@ function render(){
     var soA=(d.soH||[]).slice(0,3);
     if(soA.length>=2){var sO= +(soA[soA.length-1].v||0),sN= +(soA[0].v||0);if(sO>0){var dl=(sN/sO-1)/(soA.length-1);if(dl>0.02)sg('Dilution '+pc(dl)+'/yr',false,1);else if(dl<-0.02)sg('Buybacks '+pc(Math.abs(dl))+'/yr',true,1);}}
 
+    // ── ASSUMPTION-DRIVEN SIGNALS (update live as you change DCF inputs) ──
+    var _evNow=(d.p*(d.sh||0))+(+(d.de||0))-(+(d.ca||0));
+    var _projFcf3=dcfV.pFcf&&dcfV.pFcf[2]?dcfV.pFcf[2]:0;
+    var _projFcfY=_evNow>0?_projFcf3/_evNow:0;
+    if(_projFcfY>0.10)sg('Your assumptions → Yr3 FCF yield '+pc(_projFcfY)+' (very compelling)',true,2);
+    else if(_projFcfY>0.06)sg('Your assumptions → Yr3 FCF yield '+pc(_projFcfY)+' (decent)',true,1);
+    else if(_projFcfY>0&&_projFcfY<0.03)sg('Your assumptions → Yr3 FCF yield only '+pc(_projFcfY)+' (needs re-rating to work)',false,1);
+
+    var _v2=ST.dcf;
+    var _projCagr=Math.pow((1+(_v2.r1||0)/100)*(1+(_v2.r2||0)/100)*(1+(_v2.r3||0)/100)*(1+(_v2.r4||0)/100)*(1+(_v2.r5||0)/100),0.2)-1;
+    if(_projCagr>0.20)sg('Your growth assumptions: '+pc(_projCagr)+' rev CAGR (high growth)',true,2);
+    else if(_projCagr>0.12)sg('Your growth assumptions: '+pc(_projCagr)+' rev CAGR (solid)',true,1);
+    else if(_projCagr<0.05)sg('Your growth assumptions: '+pc(_projCagr)+' rev CAGR (slow — MoS must come from yield)',false,1);
+
     var score=bull-bear;
+    var _screenerQR=_fcfYield+_revGrowth;
+    var _screenerLabel=_screenerQR>=0.25?'Strong Buy (≥25%)':_screenerQR>=0.20?'Watchlist (20-25%)':_screenerQR>=0.10?'Needs Work (10-20%)':'Avoid (<10%)';
     var action,acCol,sizing,next;
     if(score>=6){action='STRONG BUY';acCol='var(--gn)';sizing='5-8% of portfolio (high conviction)';next='Build full position. Consider adding on any 10%+ pullback.';}
     else if(score>=3){action='BUY';acCol='var(--gn)';sizing='3-5% of portfolio';next='Initiate position. Scale in over 2-3 tranches.';}
@@ -402,7 +418,9 @@ function render(){
     h+='<div style="background:'+acCol+';color:#000;font-size:20px;font-weight:800;padding:8px 20px;border-radius:8px;font-family:var(--m);letter-spacing:1px">'+action+'</div>';
     h+='<div><div style="font-size:11px;color:var(--dm)">Position Sizing</div><div style="font-size:13px;font-weight:600;color:var(--lb)">'+sizing+'</div></div>';
     h+='<div><div style="font-size:11px;color:var(--dm)">Score</div><div style="font-size:13px;font-weight:600;color:var(--lb)">'+bull+' bull / '+bear+' bear (net '+(score>0?'+':'')+score+')</div></div>';
+    h+='<div style="font-size:10px;color:var(--dm);font-style:italic">↑ Updates live as you edit assumptions</div>';
     h+='</div>';
+    h+='<div style="font-size:11px;color:var(--dm);margin-bottom:10px;padding:6px 10px;background:var(--ib);border-radius:5px;border:1px solid var(--bd)">Screener Quality Ratio: <b style="color:'+(_screenerQR>=0.25?'var(--gn)':_screenerQR>=0.20?'var(--yw)':'var(--rd)')+'">'+pc(_screenerQR)+'</b> → <span style="color:var(--lb)">'+_screenerLabel+'</span> &nbsp;|&nbsp; Projected CAGR (your inputs): <b style="color:var(--bl)">'+pc(_projCagr)+'</b> &nbsp;|&nbsp; Yr3 FCF/EV: <b style="color:var(--bl)">'+pc(_projFcfY)+'</b></div>';
 
     h+='<div style="padding:8px 12px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd);margin-bottom:12px">';
     h+='<div style="font-size:10px;color:var(--yw);font-weight:700;margin-bottom:4px">NEXT STEPS</div>';
@@ -486,13 +504,29 @@ function render(){
       });
     }
 
-    // 6. No conflicts — signals aligned
+    // 6. Screener vs DCF consistency check
+    var _screenerBull=_screenerQR>=0.20,_screenerBear=_screenerQR<0.15;
+    if(_screenerBear&&score>=3){
+      conflicts.push({
+        title:'Screener says Avoid, DCF says '+action+' — classic growth premium gap',
+        type:'warn',
+        detail:'The screener Quality Ratio (FCF/EV '+pc(_fcfYield)+' + rev CAGR '+pc(_revGrowth)+' = '+pc(_screenerQR)+') rates this "'+_screenerLabel+'". But the DCF tool scores '+action+' based on your growth assumptions. This is a common tension for high-multiple compounders: the screener measures what the business earns TODAY relative to price — and says you are overpaying. The DCF says the future justifies the price — but that future is your assumption, not a fact. Ask yourself: if growth disappoints by 30-40%, does the thesis still hold?'
+      });
+    } else if(_screenerQR>=0.25&&score<=-1){
+      conflicts.push({
+        title:'Screener says '+_screenerLabel+', DCF says '+action+' — quality signals are weak',
+        type:'warn',
+        detail:'The screener Quality Ratio (FCF/EV '+pc(_fcfYield)+' + rev CAGR '+pc(_revGrowth)+' = '+pc(_screenerQR)+') looks good. But DCF quality signals ('+bear+' bear vs '+bull+' bull) are net negative. Typically this means the business generates yield and growth, but quality metrics (ROIC, FCF conversion, leverage) are deteriorating — a classic "quantity over quality" situation. Check whether FCF yield is sustainable and whether growth is creating or destroying value (ROIC vs WACC).'
+      });
+    }
+
+    // 7. No conflicts — signals aligned
     if(conflicts.length===0){
       if(Math.abs(score)>=2){
         conflicts.push({
-          title:'Signals Are Aligned',
+          title:'Signals Are Aligned (Screener QR '+pc(_screenerQR)+' · DCF: '+action+')',
           type:'ok',
-          detail:'Both the Path to 25% ('+pc(_totalAnn)+') and the weighted signals ('+bull+' bull / '+bear+' bear, net '+(score>0?'+':'')+score+') point in the same direction. This is higher-conviction than when signals diverge. The main risk is not conflicting signals — it is shared assumptions. All signals rely on current FCF and growth continuing; a business model disruption would invalidate all of them simultaneously. Confirm your variant view on the key driver.'
+          detail:'The screener (Quality Ratio '+pc(_screenerQR)+' → '+_screenerLabel+') and the DCF tool ('+bull+' bull / '+bear+' bear, net '+(score>0?'+':'')+score+' → '+action+') point in the same direction. Higher-conviction than when they diverge. The main risk is shared assumptions — FCF and growth continuing. Confirm your variant view on the key driver.'
         });
       }
     }
