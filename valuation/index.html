@@ -97,15 +97,16 @@ function yrOf(o){var y=o.calendarYear?''+o.calendarYear:'';if(y&&y!='0')return y
 function gv(id){var e=document.getElementById(id);return e?parseFloat(e.value)||0:0;}
 
 // ── State ──────────────────────────────────────────────────────
-var ST={d:null,showDCF:true,showTri:true,
-  dcf:{r1:12,r2:10,r3:9,r4:8,r5:7,
-       ni1:0,ni2:0,ni3:0,ni4:0,ni5:0,
-       cfo1:0,cfo2:0,cfo3:0,cfo4:0,cfo5:0,
-       sbc1:0,sbc2:0,sbc3:0,sbc4:0,sbc5:0,
-       cx1:0,cx2:0,cx3:0,cx4:0,cx5:0,
+var ST={d:null,showDCF:true,showTri:true,dcfYrs:5,
+  dcf:{r1:12,r2:10,r3:9,r4:8,r5:7,r6:5,r7:4,r8:4,r9:3,r10:3,
+       ni1:0,ni2:0,ni3:0,ni4:0,ni5:0,ni6:0,ni7:0,ni8:0,ni9:0,ni10:0,
+       cfo1:0,cfo2:0,cfo3:0,cfo4:0,cfo5:0,cfo6:0,cfo7:0,cfo8:0,cfo9:0,cfo10:0,
+       sbc1:0,sbc2:0,sbc3:0,sbc4:0,sbc5:0,sbc6:0,sbc7:0,sbc8:0,sbc9:0,sbc10:0,
+       cx1:0,cx2:0,cx3:0,cx4:0,cx5:0,cx6:0,cx7:0,cx8:0,cx9:0,cx10:0,
        mp:50,
-       sh1:0,sh2:0,sh3:0,sh4:0,sh5:0,
-       wacc:10,tg:3,da1:0,da2:0,da3:0,da4:0,da5:0,ar_hc:5,inv_hc:15,ppe_adj:0,brand_yrs:3,rd_yrs:4,_manual:{},_seeded:false}};
+       sh1:0,sh2:0,sh3:0,sh4:0,sh5:0,sh6:0,sh7:0,sh8:0,sh9:0,sh10:0,
+       wacc:10,tg:3,da1:0,da2:0,da3:0,da4:0,da5:0,da6:0,da7:0,da8:0,da9:0,da10:0,
+       ar_hc:5,inv_hc:15,ppe_adj:0,brand_yrs:3,rd_yrs:4,_manual:{},_seeded:false}};
 
 function togS(k){ST['show'+k]=!ST['show'+k];render();}
 
@@ -118,7 +119,7 @@ function updDCF(changedKey){
   var v=ST.dcf;
   if(!v._manual)v._manual={};
   ['r','ni','cfo','sbc','cx','sh','da'].forEach(function(k){
-    for(var i=1;i<=5;i++){var e=document.getElementById('d_'+k+i);if(e)v[k+i]=parseFloat(e.value)||0;}
+    for(var i=1;i<=10;i++){var e=document.getElementById('d_'+k+i);if(e)v[k+i]=parseFloat(e.value)||0;}
   });
   var mp=document.getElementById('d__mp');if(mp)v.mp=parseFloat(mp.value)||50;
   var wc=document.getElementById('d__wacc');if(wc)v.wacc=parseFloat(wc.value)||10;
@@ -128,7 +129,7 @@ function updDCF(changedKey){
     var mYr=changedKey.match(/^(r|ni|cfo|sbc|cx|sh|da)([2-5])$/);
     if(mYr)v._manual[changedKey]=true;
     var mY1=changedKey.match(/^(r|ni|cfo|sbc|cx|sh|da)1$/);
-    if(mY1){var base=mY1[1],nv=v[base+'1'];for(var pi=2;pi<=5;pi++){if(!v._manual[base+pi]){v[base+pi]=nv;var el=document.getElementById('d_'+base+pi);if(el)el.value=Math.round(nv*10)/10;}}}
+    if(mY1){var base=mY1[1],nv=v[base+'1'];for(var pi=2;pi<=10;pi++){if(!v._manual[base+pi]){v[base+pi]=nv;var el=document.getElementById('d_'+base+pi);if(el)el.value=Math.round(nv*10)/10;}}}
   }
   render();
 }
@@ -138,34 +139,34 @@ function calcDCF(){
   if(!d||!d.rv||!d.rv.length)return null;
   var latRev=d.rv[0].r;
   var wacc=v.wacc/100,tg=v.tg/100,mp=v.mp/100;
+  var nYrs=ST.dcfYrs||5;
   var pR=[],pNI=[],pCfo=[],pSbc=[],pCx=[],pMx=[],pFcf=[],pS=[],pV=[];
   var cR=latRev;
-  var pOE=[]; // Owner's Earnings
-  // Normalized ΔWC for projections: 3Y avg from history
+  var pOE=[];
   var _pDwcArr=(d.oeH||[]).slice(0,3).map(function(x){return x&&x.dwc!=null?x.dwc:0;});
   var _pDwcNorm=_pDwcArr.length?_pDwcArr.reduce(function(a,b){return a+b;},0)/_pDwcArr.length:0;
-  for(var i=1;i<=5;i++){
+  for(var i=1;i<=nYrs;i++){
     cR=cR*(1+(v['r'+i]||0)/100);
     pR.push(cR);
     var ni=cR*(v['ni'+i]||0)/100; pNI.push(ni);
-    var da=cR*(v['da'+i]||0)/100; // D&A
+    var da=cR*(v['da'+i]||0)/100;
     var cfo=cR*(v['cfo'+i]||0)/100; pCfo.push(cfo);
     var sbc=cR*(v['sbc'+i]||0)/100; pSbc.push(sbc);
     var cx=cR*(v['cx'+i]||0)/100;   pCx.push(cx);
     var mx=cx*mp;                     pMx.push(mx);
     var fcf=cfo-sbc-mx;              pFcf.push(fcf);
-    var oe=ni+da-mx-sbc+_pDwcNorm;   pOE.push(oe); // Buffett OE = NI+D&A-MaintCapEx-SBC+norm.ΔWC
+    var oe=ni+da-mx-sbc+_pDwcNorm;   pOE.push(oe);
     pS.push(v['sh'+i]||0);
     pV.push(fcf/Math.pow(1+wacc,i));
   }
-  var tvFcf=pFcf[4]*(1+tg),tv=(wacc-tg)>0?tvFcf/(wacc-tg):0;
-  var tvPv=tv/Math.pow(1+wacc,5);
+  var tvFcf=pFcf[nYrs-1]*(1+tg),tv=(wacc-tg)>0?tvFcf/(wacc-tg):0;
+  var tvPv=tv/Math.pow(1+wacc,nYrs);
   var totPv=pV.reduce(function(a,b){return a+b;},0)+tvPv;
   var nd=(d.de||0)-(d.ca||0);
   var eq=totPv-nd;if(eq<0)eq=0;
-  var iv=pS[4]>0?eq/pS[4]:0,mos=d.p>0?(iv-d.p)/d.p:0;
+  var iv=pS[nYrs-1]>0?eq/pS[nYrs-1]:0,mos=d.p>0?(iv-d.p)/d.p:0;
   return{pR:pR,pNI:pNI,pCfo:pCfo,pSbc:pSbc,pCx:pCx,pMx:pMx,pFcf:pFcf,pOE:pOE,pS:pS,pV:pV,
-    tv:tv,tvPv:tvPv,tvFcf:tvFcf,wacc:wacc,tg:tg,totPv:totPv,nd:nd,eq:eq,iv:iv,mos:mos};
+    tv:tv,tvPv:tvPv,tvFcf:tvFcf,wacc:wacc,tg:tg,totPv:totPv,nd:nd,eq:eq,iv:iv,mos:mos,nYrs:nYrs};
 }
 
 // ── Build company data ────────────────────────────────────────
@@ -280,24 +281,23 @@ function avg3r(arr){
 function seedDCF(d){
   if(ST.dcf._seeded)return;
   var v=ST.dcf;
-  // Revenue: 3Y avg growth for all years
+  // Revenue: 3Y avg growth for years 1-5, tapering for 6-10
   var hrc=d.rc?Math.round(d.rc*100):10;
   for(var i=1;i<=5;i++)v['r'+i]=Math.max(1,hrc);
+  for(var i=6;i<=10;i++)v['r'+i]=Math.max(1,Math.round(hrc*Math.pow(0.85,i-5)));
   // Margins: 3Y avg as % of revenue, same for all years
   var lr3=avg3r(d.rv)||1;
   var nim3=avg3(d.ni);var nimPct=nim3!=null?Math.round(nim3/lr3*1000)/10:0;
-  for(var i=1;i<=5;i++)v['ni'+i]=nimPct;
+  for(var i=1;i<=10;i++)v['ni'+i]=nimPct;
   var cfom3=avg3(d.cfoH);var cfomPct=cfom3!=null?Math.round(cfom3/lr3*1000)/10:0;
-  for(var i=1;i<=5;i++)v['cfo'+i]=cfomPct;
+  for(var i=1;i<=10;i++)v['cfo'+i]=cfomPct;
   var sbcm3=avg3(d.sbcH);var sbcmPct=sbcm3!=null?Math.round(sbcm3/lr3*1000)/10:0;
-  for(var i=1;i<=5;i++)v['sbc'+i]=sbcmPct;
+  for(var i=1;i<=10;i++)v['sbc'+i]=sbcmPct;
   var cxm3=avg3(d.capexH);var cxmPct=cxm3!=null?Math.round(cxm3/lr3*1000)/10:0;
-  for(var i=1;i<=5;i++)v['cx'+i]=cxmPct;
+  for(var i=1;i<=10;i++)v['cx'+i]=cxmPct;
   v.mp=d.mp||50;
-  // Shares: 3Y CAGR projected
   var lsh=d.soH&&d.soH[0]?d.soH[0].v:d.sh;
-  // Default: stable share count (conservative) — user can override per year
-  for(var i=1;i<=5;i++)v['sh'+i]=Math.round(lsh*10)/10;
+  for(var i=1;i<=10;i++)v['sh'+i]=Math.round(lsh*10)/10;
   v._seeded=true;
   v._manual={};
 }
@@ -844,14 +844,15 @@ function render(){
   // ── DCF SECTION ──────────────────────────────────────────────
   h+='<div class="card"><div class="ci"><div class="cm">';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
-  h+='<div class="ct" style="margin-bottom:0">5-Year DCF Projection</div>';
+  h+='<div style="display:flex;align-items:center;gap:8px"><div class="ct" style="margin-bottom:0">DCF Projection</div><div style="display:flex;border:1px solid var(--bd);border-radius:4px;overflow:hidden;font-size:10px"><button onclick="ST.dcfYrs=5;render()" style="padding:2px 8px;border:none;cursor:pointer;font-weight:700;font-family:var(--f);background:'+(ST.dcfYrs===5?'var(--bl)':'var(--ib)')+';color:'+(ST.dcfYrs===5?'#000':'var(--lb)')+'">5Y</button><button onclick="ST.dcfYrs=10;render()" style="padding:2px 8px;border:none;cursor:pointer;font-weight:700;font-family:var(--f);background:'+(ST.dcfYrs===10?'var(--bl)':'var(--ib)')+';color:'+(ST.dcfYrs===10?'#000':'var(--lb)')+'">10Y</button></div></div>';
   h+='<span class="tog'+(ST.showDCF?' on':'')+'" onclick="togS(\'DCF\')">'+(ST.showDCF?'▼ Hide':'▶ Expand')+'</span></div>';
 
   if(ST.showDCF&&dcf){
     var v2=ST.dcf;
+    var _nYrs=dcf.nYrs||5;
     var lastHistYr=d.rv&&d.rv.length&&d.rv[0].y?parseInt(d.rv[0].y):new Date().getFullYear();
     if(isNaN(lastHistYr))lastHistYr=new Date().getFullYear();
-    var projYrs=[lastHistYr+1,lastHistYr+2,lastHistYr+3,lastHistYr+4,lastHistYr+5];
+    var projYrs=[];for(var _py=1;_py<=_nYrs;_py++)projYrs.push(lastHistYr+_py);
 
     var histRv =(d.rv||[]).slice(0,5).reverse();
     var histNi =(d.ni||[]).slice(0,5).reverse();
@@ -874,14 +875,14 @@ function render(){
     var hOe =(d.oeH||[]).slice(0,5).reverse().map(function(x){return x?x.v:null;});
 
     function inp(key,w){return dcfInp(key,v2[key]||0,w||44);}
-    function secRow(label){var tot=hn+5+2;return '<tr style="border-top:2px solid var(--bd)"><td colspan="'+tot+'" style="font-size:9px;font-weight:700;color:var(--dm);letter-spacing:1px;padding:5px 5px 3px;text-transform:uppercase">'+label+'</td></tr>';}
+    function secRow(label){var tot=hn+_nYrs+2;return '<tr style="border-top:2px solid var(--bd)"><td colspan="'+tot+'" style="font-size:9px;font-weight:700;color:var(--dm);letter-spacing:1px;padding:5px 5px 3px;text-transform:uppercase">'+label+'</td></tr>';}
     function assumRow(label,histPcts,keyPfx){
       var r='<tr style="background:#0d1520"><td style="font-size:9px;color:var(--yw);padding-left:8px">'+label+'</td>';
       var a3vals=histPcts.slice(Math.max(0,histPcts.length-3));
       var a3pct=av(a3vals.filter(function(x){return x!=null;}));
       histPcts.forEach(function(v){r+='<td style="font-size:9px;color:var(--dm);text-align:right">'+(v!=null?(Math.round(v*1000)/10).toFixed(1)+'%':'')+'</td>';});
       r+='<td style="font-size:9px;color:var(--yw);text-align:right;background:#0d1520;border-left:1px solid var(--bd)">'+(a3pct!=null?(Math.round(a3pct*1000)/10).toFixed(1)+'%':'')+'</td>';
-      for(var pi=1;pi<=5;pi++){r+='<td style="'+(pi===1?'border-left:2px solid var(--bd)':'')+';padding:2px 3px">'+dcfInp(keyPfx+pi,v2[keyPfx+pi]||0,44)+'%</td>';}
+      for(var pi=1;pi<=_nYrs;pi++){r+='<td style="'+(pi===1?'border-left:2px solid var(--bd)':'')+';padding:2px 3px">'+dcfInp(keyPfx+pi,v2[keyPfx+pi]||0,44)+'%</td>';}
       return r+'</tr>';
     }
 
@@ -916,7 +917,7 @@ function render(){
     h+='<tr style="background:#0d1520"><td style="font-size:9px;color:var(--yw);padding-left:8px">YoY Growth</td>';
     yoyArr.forEach(function(yoy){h+='<td style="font-size:9px;text-align:right">'+(yoy!=null?colG(yoy):'')+'</td>';});
     h+='<td style="font-size:9px;color:var(--yw);text-align:right;background:#0d1520;border-left:1px solid var(--bd)">'+(a3yoy!=null?colG(a3yoy):'')+'</td>';
-    for(var pi=1;pi<=5;pi++){h+='<td style="'+(pi===1?'border-left:2px solid var(--bd)':'')+';padding:2px 3px">'+dcfInp('r'+pi,v2['r'+pi]||0,44)+'%</td>';}
+    for(var pi=1;pi<=_nYrs;pi++){h+='<td style="'+(pi===1?'border-left:2px solid var(--bd)':'')+';padding:2px 3px">'+dcfInp('r'+pi,v2['r'+pi]||0,44)+'%</td>';}
     h+='</tr>';
 
     // Gross Margin
@@ -976,7 +977,7 @@ function render(){
     h+='<tr style="background:#0d1520"><td style="font-size:9px;color:var(--yw);padding-left:8px">↳ Maint % of Total CapEx</td>';
     histCx.forEach(function(x){h+='<td style="font-size:9px;color:var(--dm);text-align:right">'+(x&&x.v>0?(v2.mp).toFixed(0)+'%':'')+'</td>';});
     h+='<td style="background:#0d1520;border-left:1px solid var(--bd)"></td>';
-    h+='<td colspan="5" style="border-left:2px solid var(--bd);padding:2px 3px">'+dcfInp('_mp',v2.mp,44)+'% of total capex (all years)</td></tr>';
+    h+='<td colspan="'+_nYrs+'"" style="border-left:2px solid var(--bd);padding:2px 3px">'+dcfInp('_mp',v2.mp,44)+'% of total capex (all years)</td></tr>';
 
     // Adj FCF
     h+='<tr style="border-top:1px solid var(--bd)"><td style="font-weight:600;color:var(--tl)">Adj FCF</td>';
@@ -1035,7 +1036,7 @@ function render(){
     var _ncibCap10=d.sh>0?Math.round(d.sh*0.10*10)/10:null; // 10% float rule (Canada NCIB standard)
     var _ncibVal=d.p>0&&_ncibCap10?(_ncibCap10*d.p).toFixed(0):null; // $ value to retire 10% float at current price
 
-    for(var pi=1;pi<=5;pi++){h+='<td style="'+(pi===1?'border-left:2px solid var(--bd)':'')+';padding:2px 3px">'+dcfInp('sh'+pi,v2['sh'+pi]||0,48)+'</td>';}
+    for(var pi=1;pi<=_nYrs;pi++){h+='<td style="'+(pi===1?'border-left:2px solid var(--bd)':'')+';padding:2px 3px">'+dcfInp('sh'+pi,v2['sh'+pi]||0,48)+'</td>';}
     h+='</tr>';
 
     // ── DCF OUTPUTS ──────────────────────────────────────────
@@ -1052,37 +1053,37 @@ function render(){
     var mosC=dcf.mos>=1?'var(--gn)':dcf.mos>=0.5?'var(--yw)':'var(--rd)';
     var mosL=dcf.mos>=1?'Ready to Invest ✓':dcf.mos>=0.5?'Watchlist ◐':'Below Threshold ✗';
     h+=secRow('Terminal Value Breakdown');
-    h+='<tr><td style="font-size:11px">Year 5 Adj FCF</td>';
+    h+='<tr><td style="font-size:11px">Year '+_nYrs+' Adj FCF</td>';
     for(var hi=0;hi<hn;hi++)h+='<td></td>';h+='<td></td>';
-    h+='<td colspan="5" style="border-left:2px solid var(--bd)">'+D(dcf.pFcf[4])+'</td></tr>';
-    h+='<tr><td style="font-size:11px">Terminal FCF = Y5 FCF x (1 + g)</td>';
+    h+='<td colspan="'+_nYrs+'" style="border-left:2px solid var(--bd)">'+D(dcf.pFcf[_nYrs-1])+'</td></tr>';
+    h+='<tr><td style="font-size:11px">Terminal FCF = Y'+_nYrs+' FCF x (1 + g)</td>';
     for(var hi=0;hi<hn;hi++)h+='<td></td>';h+='<td></td>';
-    h+='<td colspan="5" style="border-left:2px solid var(--bd)">'+D(dcf.tvFcf)+' <span style="font-size:9px;color:var(--dm)">= '+D(dcf.pFcf[4])+' x (1 + '+pc(dcf.tg)+')</span></td></tr>';
+    h+='<td colspan="'+_nYrs+'" style="border-left:2px solid var(--bd)">'+D(dcf.tvFcf)+' <span style="font-size:9px;color:var(--dm)">= '+D(dcf.pFcf[_nYrs-1])+' x (1 + '+pc(dcf.tg)+')</span></td></tr>';
     h+='<tr><td style="font-size:11px">Terminal Value (undiscounted)</td>';
     for(var hi=0;hi<hn;hi++)h+='<td></td>';h+='<td></td>';
-    h+='<td colspan="5" style="border-left:2px solid var(--bd)">'+D(dcf.tv)+' <span style="font-size:9px;color:var(--dm)">= '+D(dcf.tvFcf)+' / ('+pc(dcf.wacc)+' - '+pc(dcf.tg)+')</span></td></tr>';
+    h+='<td colspan="'+_nYrs+'" style="border-left:2px solid var(--bd)">'+D(dcf.tv)+' <span style="font-size:9px;color:var(--dm)">= '+D(dcf.tvFcf)+' / ('+pc(dcf.wacc)+' - '+pc(dcf.tg)+')</span></td></tr>';
     h+='<tr><td style="font-size:11px;font-weight:600">Terminal Value (PV)</td>';
     for(var hi=0;hi<hn;hi++)h+='<td></td>';h+='<td></td>';
-    h+='<td colspan="5" style="border-left:2px solid var(--bd);font-weight:600">'+D(dcf.tvPv)+' <span style="font-size:9px;color:var(--dm)">= '+D(dcf.tv)+' / (1+'+pc(dcf.wacc)+')^5</span></td></tr>';
+    h+='<td colspan="'+_nYrs+'" style="border-left:2px solid var(--bd);font-weight:600">'+D(dcf.tvPv)+' <span style="font-size:9px;color:var(--dm)">= '+D(dcf.tv)+' / (1+'+pc(dcf.wacc)+')^'+_nYrs+'</span></td></tr>';
     var tvPct=dcf.totPv>0?dcf.tvPv/dcf.totPv:0;
     h+='<tr><td style="font-size:10px;color:var(--dm)">TV as % of Total Value</td>';
     for(var hi=0;hi<hn;hi++)h+='<td></td>';h+='<td></td>';
-    h+='<td colspan="5" style="border-left:2px solid var(--bd);color:'+(tvPct>0.8?'var(--rd)':'var(--dm)')+'">'+pc(tvPct)+(tvPct>0.8?' \u26a0 High dependency on terminal assumptions':'')+'</td></tr>';
+    h+='<td colspan="'+_nYrs+'" style="border-left:2px solid var(--bd);color:'+(tvPct>0.8?'var(--rd)':'var(--dm)')+'">'+pc(tvPct)+(tvPct>0.8?' \u26a0 High dependency on terminal assumptions':'')+'</td></tr>';
     h+='<tr><td style="font-weight:600">Total PV (FCF + TV)</td>';
     for(var hi=0;hi<hn;hi++)h+='<td></td>';h+='<td></td>';
-    h+='<td colspan="5" style="border-left:2px solid var(--bd);font-weight:600;color:var(--bl)">'+D(dcf.totPv)+'</td></tr>';
+    h+='<td colspan="'+_nYrs+'" style="border-left:2px solid var(--bd);font-weight:600;color:var(--bl)">'+D(dcf.totPv)+'</td></tr>';
     h+='<tr><td>− Net Debt / + Net Cash</td>';
     for(var hi=0;hi<hn;hi++)h+='<td></td>';
-    h+='<td colspan="5" style="border-left:2px solid var(--bd)">'+D(-dcf.nd)+'</td></tr>';
+    h+='<td colspan="'+_nYrs+'" style="border-left:2px solid var(--bd)">'+D(-dcf.nd)+'</td></tr>';
     h+='<tr><td style="font-weight:600">Equity Value</td>';
     for(var hi=0;hi<hn;hi++)h+='<td></td>';h+='<td></td>';
-    h+='<td colspan="5" style="border-left:2px solid var(--bd);font-weight:600">'+D(dcf.eq)+'</td></tr>';
+    h+='<td colspan="'+_nYrs+'" style="border-left:2px solid var(--bd);font-weight:600">'+D(dcf.eq)+'</td></tr>';
     h+='<tr style="border-top:2px solid var(--bd)"><td style="font-weight:700;color:var(--pu)">Intrinsic Value / share</td>';
     for(var hi=0;hi<hn;hi++)h+='<td></td>';h+='<td></td>';
-    h+='<td colspan="5" style="border-left:2px solid var(--bd);font-weight:700;color:var(--pu)">'+pr(dcf.iv)+'&nbsp;<span style="font-size:9px;color:var(--dm)">vs current '+pr(d.p)+'</span></td></tr>';
+    h+='<td colspan="'+_nYrs+'" style="border-left:2px solid var(--bd);font-weight:700;color:var(--pu)">'+pr(dcf.iv)+'&nbsp;<span style="font-size:9px;color:var(--dm)">vs current '+pr(d.p)+'</span></td></tr>';
     h+='<tr><td style="font-weight:600">Margin of Safety</td>';
     for(var hi=0;hi<hn;hi++)h+='<td></td>';h+='<td></td>';
-    h+='<td colspan="5" style="border-left:2px solid var(--bd);font-weight:700;color:'+mosC+'">'+pc(dcf.mos)+' — '+mosL+'</td></tr>';
+    h+='<td colspan="'+_nYrs+'" style="border-left:2px solid var(--bd);font-weight:700;color:'+mosC+'">'+pc(dcf.mos)+' — '+mosL+'</td></tr>';
     h+='</tbody></table></div>';
 
     // FCF → Price explanation
@@ -1124,7 +1125,7 @@ function render(){
 
   // ── SENSITIVITY TABLE ────────────────────────────────────────────────────
   var _ds=calcDCF();
-  if(_ds&&_ds.pFcf&&_ds.pFcf.length===5){
+  if(_ds&&_ds.pFcf&&_ds.pFcf.length>=5){
     var _wArr=[0.10,0.15,0.20,0.25,0.30],_tArr=[0.01,0.015,0.02,0.025,0.03];
     var _wB=ST.dcf.wacc/100;
     h+='<div class="card"><div style="padding:12px 16px"><div class="ct" style="margin-bottom:8px">DCF Sensitivity vs Hurdle Rates</div>';
@@ -1136,9 +1137,9 @@ function render(){
       h+='<tr><td style="background:var(--ib);color:var(--bl);padding:4px 8px;border:1px solid var(--bd);text-align:center">'+(g*100).toFixed(1)+'%</td>';
       _wArr.forEach(function(w){
         if(w<=g){h+='<td style="padding:4px 8px;border:1px solid var(--bd);text-align:center;color:var(--dm)">N/A</td>';return;}
-        var _p5=0;for(var _i=0;_i<5;_i++){_p5+=_ds.pFcf[_i]/Math.pow(1+w,_i+1);}
-        var _tv=(_ds.pFcf[4]*(1+g))/(w-g),_pt=_tv/Math.pow(1+w,5);
-        var _sh=ST.dcf.sh5||d.sh,_iv=_sh>0?(_p5+_pt-_ds.nd)/_sh:0;
+        var _p5=0;for(var _i=0;_i<_ds.nYrs;_i++){_p5+=_ds.pFcf[_i]/Math.pow(1+w,_i+1);}
+        var _tv=(_ds.pFcf[_ds.nYrs-1]*(1+g))/(w-g),_pt=_tv/Math.pow(1+w,_ds.nYrs);
+        var _sh=ST.dcf['sh'+_ds.nYrs]||d.sh,_iv=_sh>0?(_p5+_pt-_ds.nd)/_sh:0;
         h+='<td style="padding:4px 8px;border:1px solid var(--bd);text-align:center;background:'+(_iv>d.p?'rgba(34,197,94,0.12)':_iv<0?'rgba(239,68,68,0.12)':'var(--ib)')+';color:'+(_iv>d.p?'var(--gn)':_iv<0?'var(--rd)':'var(--br)')+'">'+pr(_iv)+'</td>';
       });
       h+='</tr>';
