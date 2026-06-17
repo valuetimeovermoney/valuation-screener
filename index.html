@@ -1990,9 +1990,12 @@ function render(){
   } else if(_qr2>=0.25&&_rfs2.length===0){
     h+='<div style="color:var(--gn);font-size:12px;font-weight:600;margin-bottom:6px">✓ Strong Buy Candidate</div>';
     h+='<div style="font-size:11px;color:var(--lb);line-height:1.8">Quality Ratio ≥25% with no risk flags. Business earns and grows enough to justify the price. Consider full position sizing. Monitor: maintain FCF yield >5% and revenue CAGR on track.</div>';
+  } else if(_qr2>=0.25){
+    h+='<div style="color:var(--yw);font-size:12px;font-weight:600;margin-bottom:6px">✓ Strong Buy — Watch Risk Flags</div>';
+    h+='<div style="font-size:11px;color:var(--lb);line-height:1.8">Quality Ratio '+pc(_qr2)+' clears the 25% threshold — the math supports buying. However '+_rfs2.length+' risk flag'+(  _rfs2.length>1?'s':'')+' need monitoring: '+_rfs2.slice(0,2).join('; ')+'. '+(  _fy2<0.08?'FCF yield is '+pc(_fy2)+' (below 8%) — the return is mostly growth-dependent, so revenue execution is critical. ':'')+' Consider a partial position and add on confirmation.</div>';
   } else if(_qr2>=0.20){
     h+='<div style="color:var(--yw);font-size:12px;font-weight:600;margin-bottom:6px">◐ Watchlist — Wait for Better Entry</div>';
-    h+='<div style="font-size:11px;color:var(--lb);line-height:1.8">Quality Ratio close to 25% but not quite. '+(c.gap>0?'Need '+pc(c.gap)+' more in yield or growth. ':'')+(_fy2<0.08?'FCF yield thin — consider waiting for a pullback. ':'')+(c.evF&&c.evF>25?'Multiple elevated vs history — multiple compression is a headwind. ':'')+(_rfs2.length>0?_rfs2.length+' risk flag(s) worth monitoring. ':'')+'Initiate a small position or wait for a better price.</div>';
+    h+='<div style="font-size:11px;color:var(--lb);line-height:1.8">Quality Ratio '+pc(_qr2)+' — need '+(c.gap>0?pc(c.gap)+' more':'')+' to reach 25%. '+(_fy2<0.08?'FCF yield is '+pc(_fy2)+' (below 8%) — consider waiting for a pullback to improve yield. ':'')+( c.evF&&c.evF>25?'Multiple elevated vs history — compression is a headwind. ':'')+(_rfs2.length>0?_rfs2.length+' risk flag(s) worth monitoring. ':'')+'Initiate a small position or wait for a better price.</div>';
   } else if(_qr2>=0.10){
     h+='<div style="color:var(--yw);font-size:12px;font-weight:600;margin-bottom:6px">⚠ Needs Significant Improvement</div>';
     h+='<div style="font-size:11px;color:var(--lb);line-height:1.8">Quality Ratio '+pc(_qr2)+' — '+(c.gap*100).toFixed(1)+'pp gap to 25%. '+((_fy2<0.05)?'FCF yield very low — price is the issue. Use Path to 25% → Via Lower Price for target entry. ':'')+((_rc2<0.05)?'Revenue growth slow — needs re-acceleration to justify price. ':'')+(_rfs2.length>0?'Address: '+_rfs2[0]+' ':'')+' Monitor closely before committing capital.</div>';
