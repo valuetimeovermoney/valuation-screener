@@ -40,8 +40,8 @@ table.t td:first-child{text-align:left;font-family:var(--f);color:var(--lb)}
 table.t tr.yoy td{font-size:9px;color:var(--dm);border-bottom:1px solid #0d1220}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.mc{background:#0a0e18;border-radius:5px;padding:10px 12px;border:1px solid var(--bd)}
-.val-box{background:#0a0e18;border-radius:5px;padding:10px;border:1px solid #232d3f;text-align:center}
+.mc{background:var(--ib);border-radius:5px;padding:10px 12px;border:1px solid var(--bd)}
+.val-box{background:var(--ib);border-radius:5px;padding:10px;border:1px solid #232d3f;text-align:center}
 .val-label{font-size:9px;color:var(--dm);font-weight:600;text-transform:uppercase;margin-bottom:4px}
 .val-num{font-size:16px;font-weight:800;font-family:var(--m);color:var(--bl);margin-bottom:2px}
 .val-note{font-size:9px;color:var(--dm)}
@@ -49,7 +49,7 @@ table.t tr.yoy td{font-size:9px;color:var(--dm);border-bottom:1px solid #0d1220}
 .tog.on{background:var(--bl)22;color:var(--bl);border-color:var(--bl)44}
 b.s{color:var(--lb)}
 .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.val-box{background:#0a0e18;border-radius:5px;padding:10px;border:1px solid #232d3f;text-align:center}
+.val-box{background:var(--ib);border-radius:5px;padding:10px;border:1px solid #232d3f;text-align:center}
 .val-label{font-size:9px;color:var(--dm);font-weight:600;text-transform:uppercase;margin-bottom:4px}
 .val-num{font-size:16px;font-weight:800;font-family:var(--m);color:var(--bl);margin-bottom:2px}
 .val-note{font-size:9px;color:var(--dm)}
@@ -63,15 +63,15 @@ b.s{color:var(--lb)}
 </style>
 </head>
 <body>
-<style>.vtm-nav{background:#0d1117;border-bottom:1px solid #30363d;padding:0 16px;display:flex;align-items:center;gap:2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;position:sticky;top:0;z-index:999}.vtm-nav a{color:#8b949e;text-decoration:none;padding:9px 13px;font-size:12px;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s}.vtm-nav a:hover{color:#e6edf3}.vtm-nav a.vtm-active{color:#58a6ff;border-bottom-color:#58a6ff}.vtm-brand{font-weight:800!important;font-size:14px!important;color:#e6edf3!important;padding-right:16px!important;border-bottom:none!important}</style>
-<nav class="vtm-nav"><a class="vtm-brand" href="/valuation-screener/">Value<span style="color:#d29922">Time</span></a><a id="vtm-l1" href="/valuation-screener/" class="vtm-active">Screener</a><span id="vtm-co-sep" style="display:none;color:#30363d;font-size:16px;margin:0 2px">|</span><a id="vtm-co-ticker" style="display:none;font-weight:700;color:#e6edf3!important" href="#"></a><a id="vtm-co-overview" style="display:none" href="#" onclick="vtSwitch('overview');return false;">Overview</a><a id="vtm-co-news" style="display:none" href="#" onclick="vtSwitch('news');return false;">News</a><a id="vtm-co-calendar" style="display:none" href="#" onclick="vtSwitch('calendar');return false;">Calendar</a><a id="vtm-co-transcripts" style="display:none" href="#" onclick="vtSwitch('transcripts');return false;">Transcripts</a><a id="vtm-co-captable" style="display:none" href="#" onclick="vtSwitch('captable');return false;">Cap Table</a><span style="flex:1"></span><a id="vtm-l2" href="/valuation-screener/valuation/">Valuation</a><a id="vtm-l3" href="/valuation-screener/portfolio-monitor.html">Portfolio Monitor</a><a id="vtm-l4" href="/valuation-screener/watchlist.html">Watchlist</a></nav>
+<style>.vtm-nav{background:var(--cd);border-bottom:1px solid var(--bd);padding:0 16px;display:flex;align-items:center;gap:2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;position:sticky;top:0;z-index:999}.vtm-nav a{color:var(--lb);text-decoration:none;padding:9px 13px;font-size:12px;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s}.vtm-nav a:hover{color:var(--br)}.vtm-nav a.vtm-active{color:var(--bl);border-bottom-color:var(--bl)}.vtm-brand{font-weight:800!important;font-size:14px!important;color:var(--br)!important;padding-right:16px!important;border-bottom:none!important}</style>
+<nav class="vtm-nav"><a class="vtm-brand" href="/valuation-screener/">Value<span style="color:#d29922">Time</span></a><a id="vtm-l1" href="/valuation-screener/" class="vtm-active">Screener</a><span id="vtm-co-sep" style="display:none;color:var(--bd);font-size:16px;margin:0 2px">|</span><a id="vtm-co-ticker" style="display:none;font-weight:700;color:var(--br)!important" href="#"></a><a id="vtm-co-overview" style="display:none" href="#" onclick="vtSwitch('overview');return false;">Overview</a><a id="vtm-co-news" style="display:none" href="#" onclick="vtSwitch('news');return false;">News</a><a id="vtm-co-calendar" style="display:none" href="#" onclick="vtSwitch('calendar');return false;">Calendar</a><a id="vtm-co-transcripts" style="display:none" href="#" onclick="vtSwitch('transcripts');return false;">Transcripts</a><a id="vtm-co-captable" style="display:none" href="#" onclick="vtSwitch('captable');return false;">Cap Table</a><span style="flex:1"></span><a id="vtm-l2" href="/valuation-screener/valuation/">Valuation</a><a id="vtm-l3" href="/valuation-screener/portfolio-monitor.html">Portfolio Monitor</a><a id="vtm-l4" href="/valuation-screener/watchlist.html">Watchlist</a></nav>
 <script>(function(){var p=location.pathname;if(p.includes('/valuation/'))document.getElementById('vtm-l2').classList.add('vtm-active');else if(p.includes('portfolio-monitor'))document.getElementById('vtm-l3').classList.add('vtm-active');else if(p.includes('watchlist'))document.getElementById('vtm-l4').classList.add('vtm-active');})();</script>
 <div class="w">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px"><div><div style="font-size:9px;font-weight:800;letter-spacing:3px;color:var(--bl)">VALUATION SCREENER</div><h1>Company Analysis</h1></div><div style="display:flex;gap:8px;align-items:center"><button id="thbtn" onclick="toggleTheme()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--bd);background:var(--ib);color:var(--lb);font-size:11px;cursor:pointer;font-weight:600">Day Mode</button></div></div>
   <div class="sb"><input id="qi" placeholder="Ticker (e.g. AAPL, MSFT, GOOG)"/><button id="gb" onclick="go()">Analyze</button></div>
   <div id="sr" style="display:none;background:var(--cd);border:1px solid var(--bd);border-radius:8px;margin-top:-14px;margin-bottom:12px;max-height:350px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4)"></div>
   <div id="ld" style="display:none;text-align:center;padding:50px 0;color:var(--dm)"><div class="sp"></div><div>Fetching…</div></div>
-  <div id="er" style="display:none;background:#450a0a;border:1px solid #dc2626;border-radius:6px;padding:12px;color:#fca5a5;font-size:13px;margin-bottom:16px"></div>
+  <div id="er" style="display:none;background:rgba(220,38,38,0.12);border:1px solid #dc2626;border-radius:6px;padding:12px;color:var(--rd);font-size:13px;margin-bottom:16px"></div>
   <div id="out"></div>
   <div id="es" style="text-align:center;padding:60px 20px;color:#1e2a3a"><div style="font-size:36px;margin-bottom:10px">⬡</div><div style="font-size:13px;color:var(--dm)">Enter a ticker to auto-populate</div></div>
 </div>
@@ -696,7 +696,7 @@ function renderStockChart(ticker, pts, spPts, ipoYear) {
   var fromHi = (curPx - hi52) / hi52;   // negative = below 52W high
   var fromLo = (curPx - lo52) / lo52;   // positive = above 52W low
 
-  var row2 = '<div style="display:flex;flex-wrap:wrap;gap:20px;margin-top:8px;padding:8px 10px;background:#0a0e18;border-radius:5px;border:1px solid var(--bd);font-size:11px;align-items:center">';
+  var row2 = '<div style="display:flex;flex-wrap:wrap;gap:20px;margin-top:8px;padding:8px 10px;background:var(--ib);border-radius:5px;border:1px solid var(--bd);font-size:11px;align-items:center">';
 
   // Baggers
   if (baggers != null) {
@@ -874,7 +874,7 @@ function render(){
   var _replVal=(_replTA-_replIG-_replTL)/1e6;  // Net tangible asset value to equity
   var _belowRepl=_replVal>0&&c.mc>0&&c.mc<_replVal;
   if(_isNetNet||_negEV||_cashGtMcap||_belowRepl){
-    h+='<div style="background:#052e16;border:2px solid #22c55e55;border-radius:10px;padding:16px;margin-bottom:12px">';
+    h+='<div style="background:rgba(34,197,94,0.08);border:2px solid rgba(34,197,94,0.35);border-radius:10px;padding:16px;margin-bottom:12px">';
     h+='<div style="font-size:20px;font-weight:800;color:var(--gn);margin-bottom:8px">';
     if(_negEV)h+='💎 NEGATIVE EV — Below Net Cash';
     else if(_isNetNet)h+='🏷️ NET-NET — Below Liquidation Value';
@@ -888,11 +888,11 @@ function render(){
       var _mos=c.mc>0?(_assetVal-c.mc)/c.mc:0;
       var _mosPs=d.sh>0?_assetVal/d.sh:0;
       h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">';
-      h+='<div style="background:#0a1a0a;border-radius:6px;padding:10px;border:1px solid #22c55e33">';
+      h+='<div style="background:rgba(34,197,94,0.05);border-radius:6px;padding:10px;border:1px solid rgba(34,197,94,0.2)">';
       h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:4px">Net Cash Value</div>';
       h+='<div style="font-size:9px;color:var(--lb);line-height:1.7">Cash: '+D(d.ca)+'<br>− Debt: '+D(d.de)+'<br><b style="color:var(--gn)">= Net Cash: '+D(_netCash)+'</b></div>';
       h+='</div>';
-      h+='<div style="background:#0a1a0a;border-radius:6px;padding:10px;border:1px solid #22c55e33">';
+      h+='<div style="background:rgba(34,197,94,0.05);border-radius:6px;padding:10px;border:1px solid rgba(34,197,94,0.2)">';
       h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:4px">Margin of Safety</div>';
       h+='<div style="font-size:9px;color:var(--lb);line-height:1.7">Net Cash/share: <b>'+pr(_mosPs)+'</b><br>Price: <b>'+pr(d.p)+'</b><br><b style="color:var(--gn);font-size:14px">MOS: '+pc(_mos)+'</b></div>';
       h+='</div></div>';
@@ -901,11 +901,11 @@ function render(){
       var _replPs=d.sh>0?_replVal/d.sh:0;
       var _replMos=c.mc>0?(_replVal-c.mc)/c.mc:0;
       h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">';
-      h+='<div style="background:#0a1a0a;border-radius:6px;padding:10px;border:1px solid #22c55e33">';
+      h+='<div style="background:rgba(34,197,94,0.05);border-radius:6px;padding:10px;border:1px solid rgba(34,197,94,0.2)">';
       h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:4px">Replacement Value</div>';
       h+='<div style="font-size:9px;color:var(--lb);line-height:1.7">Total Tangible Assets: '+D((_replTA-_replIG)/1e6)+'<br>− Total Liabilities: '+D(_replTL/1e6)+'<br><b style="color:var(--gn)">= Net Tangible Value: '+D(_replVal)+'</b><br><span style="color:var(--dm)">Tangible assets after all debts</span></div>';
       h+='</div>';
-      h+='<div style="background:#0a1a0a;border-radius:6px;padding:10px;border:1px solid #22c55e33">';
+      h+='<div style="background:rgba(34,197,94,0.05);border-radius:6px;padding:10px;border:1px solid rgba(34,197,94,0.2)">';
       h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:4px">Replacement MOS</div>';
       h+='<div style="font-size:9px;color:var(--lb);line-height:1.7">Repl/share: <b>'+pr(_replPs)+'</b><br>Price: <b>'+pr(d.p)+'</b><br><b style="color:var(--gn);font-size:14px">MOS: '+pc(_replMos)+'</b></div>';
       h+='</div></div>';
@@ -914,11 +914,11 @@ function render(){
       var _ncavPs=d.sh>0?_ncav/d.sh:0;
       var _ncavMos=c.mc>0?(_ncav-c.mc)/c.mc:0;
       h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">';
-      h+='<div style="background:#0a1a0a;border-radius:6px;padding:10px;border:1px solid #22c55e33">';
+      h+='<div style="background:rgba(34,197,94,0.05);border-radius:6px;padding:10px;border:1px solid rgba(34,197,94,0.2)">';
       h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:4px">NCAV (Net Current Asset Value)</div>';
       h+='<div style="font-size:9px;color:var(--lb);line-height:1.7">Current Assets: '+D(+_latBs0.tca)+'<br>− Total Liabilities: '+D(+_latBs0.tl)+'<br><b style="color:var(--gn)">= NCAV: '+D(_ncav)+'</b></div>';
       h+='</div>';
-      h+='<div style="background:#0a1a0a;border-radius:6px;padding:10px;border:1px solid #22c55e33">';
+      h+='<div style="background:rgba(34,197,94,0.05);border-radius:6px;padding:10px;border:1px solid rgba(34,197,94,0.2)">';
       h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:4px">NCAV Margin of Safety</div>';
       h+='<div style="font-size:9px;color:var(--lb);line-height:1.7">NCAV/share: <b>'+pr(_ncavPs)+'</b><br>Price: <b>'+pr(d.p)+'</b><br><b style="color:var(--gn);font-size:14px">MOS: '+pc(_ncavMos)+'</b></div>';
       h+='</div></div>';
@@ -955,7 +955,7 @@ function render(){
     if(d.divNextEx&&d.divNextEx.exDate){
       var _exD=new Date(d.divNextEx.exDate),_now=new Date();
       var _fut=!isNaN(_exD)&&_exD>_now,_days=!isNaN(_exD)?Math.round((_exD-_now)/86400000):null;
-      h+='<div style="display:inline-flex;align-items:center;gap:8px;padding:5px 10px;border-radius:5px;margin-bottom:8px;border:1px solid '+(_fut?'var(--yw)':'var(--bd)')+';background:'+(_fut?'#1a1505':'#0d1520')+'">';
+      h+='<div style="display:inline-flex;align-items:center;gap:8px;padding:5px 10px;border-radius:5px;margin-bottom:8px;border:1px solid '+(_fut?'var(--yw)':'var(--bd)')+';background:'+(_fut?'rgba(234,179,8,0.1)':'var(--ib)')+'">';
       h+='<span style="font-size:10px;font-weight:700;color:'+(_fut?'var(--yw)':'var(--dm)')+'">'+(_fut?'NEXT EX-DATE':'LAST EX-DATE')+'</span>';
       h+='<b style="font-family:var(--m)">'+d.divNextEx.exDate+'</b>';
       h+='<span style="color:var(--gn)"> $'+d.divNextEx.amount.toFixed(4)+'</span>';
@@ -987,7 +987,7 @@ function render(){
     _divArr.slice(0,5).reverse().forEach(function(x){h+='<span style="color:var(--tl);margin-right:4px">'+D(x.v)+'</span>';});
     h+='</div></div>';
   }else{
-    h+='<div style="background:#0a0e18;border:1px solid var(--bd);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--dm)">No dividend — reinvests earnings or buys back stock.</div>';
+    h+='<div style="background:var(--ib);border:1px solid var(--bd);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--dm)">No dividend — reinvests earnings or buys back stock.</div>';
   }
   // Buyback summary
   var _buyArr=(d.buyH||[]).filter(function(x){return x&&x.v>0;});
@@ -997,7 +997,7 @@ function render(){
     var _latBuyYr=_buyArr[0]?_buyArr[0].y:'';
     var _buyMc=c.mc>0?_latBuy/c.mc:0;
     var _soTrend=d.soH&&d.soH.length>=2?(d.soH[0].v-d.soH[d.soH.length-1].v)/d.soH[d.soH.length-1].v:0;
-    h+='<div style="background:#0a0e18;border:1px solid var(--bd);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px">';
+    h+='<div style="background:var(--ib);border:1px solid var(--bd);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px">';
     h+='<div style="font-weight:700;color:var(--tl);margin-bottom:6px">🔄 Share Buybacks</div>';
     h+='<div style="display:flex;flex-wrap:wrap;gap:8px 20px;font-size:11px;margin-bottom:6px">';
     h+='<span style="color:var(--lb)">Cash spent ('+_latBuyYr+'): <b>'+D(_latBuy)+'</b></span>';
@@ -1037,7 +1037,7 @@ function render(){
   h+='<div class="ct" style="color:var(--pu);margin-bottom:0">'+(_isOE?'Owner Earnings (Buffett: NI+D&A\u2212MaintCapEx\u2212SBC+\u0394WC)':'Adjusted FCF (CFO\u2212SBC\u2212MaintCapEx)')+' ('+d.fy+')</div>';
   h+='<div style="display:flex;gap:4px">';
   h+='<span onclick="ST.fcfMethod=\'adj\';render();" style="cursor:pointer;padding:3px 8px;border-radius:4px;font-size:9px;font-weight:700;'+(! _isOE?'background:var(--pu);color:#fff':'background:var(--ib);color:var(--dm)')+';border:1px solid var(--bd)">Adj FCF</span>';
-  h+='<div style="font-size:9px;color:var(--dm);margin-top:4px;padding:6px 8px;background:#0a0e18;border-radius:4px">';
+  h+='<div style="font-size:9px;color:var(--dm);margin-top:4px;padding:6px 8px;background:var(--ib);border-radius:4px">';
   h+='<b style="color:var(--yw)">\u0394WC in OE:</b> Uses 3Y normalized \u0394WC (Buffett: structural WC only, not timing noise). ';
   h+='<b style="color:var(--yw)">\u0394WC in Adj FCF:</b> Embedded in CFO (CFO=NI+D&A+\u0394WC). ';
   h+='They differ when WC swings materially or non-cash items (deferred tax, gains) are large.</div>';
@@ -1116,7 +1116,7 @@ function render(){
     ];
     _qm.forEach(function(m){
       var col=m.v>0&&m.v<m.good?'var(--gn)':m.v>0&&m.v<m.ok?'var(--yw)':'var(--dm)';
-      h+='<div style="background:#0a0e18;border-radius:6px;padding:8px;border:1px solid var(--bd);text-align:center">';
+      h+='<div style="background:var(--ib);border-radius:6px;padding:8px;border:1px solid var(--bd);text-align:center">';
       h+='<div style="font-size:9px;color:var(--dm);font-weight:700;text-transform:uppercase;margin-bottom:4px">'+m.l+'</div>';
       h+='<div style="font-size:16px;font-weight:700;font-family:var(--m);color:'+col+'">'+m.fmt(m.v)+'</div>';
       h+='</div>';
@@ -1184,7 +1184,7 @@ function render(){
     var _ncibVal=d.p>0&&_ncibCap>0?(_ncibCap*d.p*1e6/1e9).toFixed(1):null; // $B at current price
     var _bbShares=d.p>0&&_bbAvg>0?(_bbAvg/d.p*1e6).toFixed(1):null; // shares retired per year (M)
     if(_ncibCap>0){
-      h+='<div style="margin-top:8px;padding:8px 10px;background:#0a0e18;border-radius:5px;border:1px solid var(--bd);font-size:10px">';
+      h+='<div style="margin-top:8px;padding:8px 10px;background:var(--ib);border-radius:5px;border:1px solid var(--bd);font-size:10px">';
       h+='<b style="color:var(--yw)">NCIB Capacity Estimate: </b>';
       h+='<span style="color:var(--lb)">Max 10% float rule = <b>'+_ncibCap.toFixed(1)+'M shares</b>';
       if(_ncibVal)h+=' (\u2248 $'+_ncibVal+'B at current price '+pr(d.p)+')';
@@ -1296,7 +1296,7 @@ function render(){
     // ── REVENUE SEGMENTS (inline under Revenue) ──────────────────────────
     // Debug/fallback for segment data
     if(!d.segments||!d.segments.length){
-      h+='<tr style="background:#0d1520"><td colspan="99" style="padding:3px 8px;font-size:9px;color:var(--dm)">\u21b3 Segments: no data</td></tr>';
+      h+='<tr style="background:var(--ib)"><td colspan="99" style="padding:3px 8px;font-size:9px;color:var(--dm)">\u21b3 Segments: no data</td></tr>';
     }
     if(d.segments&&d.segments.length){
       // Align segment years with income statement years
@@ -1310,9 +1310,9 @@ function render(){
       }).sort(function(a,b){return d.segments[0][b]-d.segments[0][a];}).slice(0,6):[];
       if(_segK.length>1){
         // Collapsible sub-header
-        h+='<tr style="background:#0a0e18"><td colspan="99" style="padding:3px 6px;cursor:pointer" onclick="togSection(\'Seg\')"><span style="font-size:9px;color:var(--yw);font-weight:700;letter-spacing:0.5px">\u21b3 Revenue by Segment '+(ST.showSeg?'\u25bc':'\u25b6 (tap to show)')+'</span></td></tr>';
+        h+='<tr style="background:var(--ib)"><td colspan="99" style="padding:3px 6px;cursor:pointer" onclick="togSection(\'Seg\')"><span style="font-size:9px;color:var(--yw);font-weight:700;letter-spacing:0.5px">\u21b3 Revenue by Segment '+(ST.showSeg?'\u25bc':'\u25b6 (tap to show)')+'</span></td></tr>';
         if(ST.showSeg)_segK.forEach(function(k,ki){
-          h+='<tr style="font-size:9px;background:#0d1520">';
+          h+='<tr style="font-size:9px;background:var(--ib)">';
           h+='<td style="color:'+_segColors2[ki%6]+';padding-left:12px">'+k+'</td>';
           // For each year column, find matching segment data
           _segYrs.forEach(function(yr){
@@ -1449,7 +1449,7 @@ function render(){
     h+='<td></td><td></td></tr>';
 
     // Quality Ratio = Adj FCF/EV + Rev YoY
-    h+='<tr style="border-top:2px solid var(--bd);background:#0d1b2a"><td style="font-weight:700;color:var(--br);font-size:12px">= Quality Ratio</td>';
+    h+='<tr style="border-top:2px solid var(--bd);background:var(--ib)"><td style="font-weight:700;color:var(--br);font-size:12px">= Quality Ratio</td>';
     fsRv.forEach(function(r,i){
       var prev=fsRv[i-1];var yoy=prev&&prev.r>0?r.r/prev.r-1:null;
       var evYld=_evYields[i];
@@ -1460,7 +1460,7 @@ function render(){
     for(var _qi14=0;_qi14<_nQs;_qi14++)h+='<td></td>';
     if(hasTTM)h+='<td style="font-weight:700;font-size:12px;color:'+(c.qr>=0.25?'var(--gn)':c.qr>=0.15?'var(--yw)':'var(--rd)')+'">'+pc(c.qr)+'</td>';
     h+='<td style="font-weight:700;font-size:12px;color:'+(c.qr>=0.25?'var(--gn)':c.qr>=0.15?'var(--yw)':'var(--rd)')+'">'+pc(c.qr)+'</td><td></td></tr>';
-    h+='<tr style="font-size:9px;background:#0d1b2a"><td style="color:var(--dm);padding-left:10px">= Adj FCF/EV + Rev YoY · 🟢 ≥25% target</td>';
+    h+='<tr style="font-size:9px;background:var(--ib)"><td style="color:var(--dm);padding-left:10px">= Adj FCF/EV + Rev YoY · 🟢 ≥25% target</td>';
     for(var _qi=0;_qi<fsN+(hasTTM?1:0)+_nQs+2;_qi++)h+='<td></td>';h+='</tr>';
 
     // Buybacks
@@ -1507,14 +1507,12 @@ function render(){
     var latBsQ=(d.qBs&&d.qBs[0])||null;
     var _bsQLabel=latBsQ?(latBsQ.period||'Q?')+'\''+((latBsQ.calendarYear||latBsQ.date||'').toString().slice(2,4)):'Latest Q';
 
-    var _cfHasTTM2=typeof hasTTM!=='undefined'&&hasTTM;
     h+='<div style="overflow-x:auto"><table class="t"><thead><tr><th style="min-width:170px"></th>';
     bsRaw.forEach(function(y){h+='<th>'+(yrOf(y)||'')+'</th>';});
     if(latBsQ)h+='<th style="color:var(--yw);font-size:10px;opacity:0.85">'+_bsQLabel+'</th>';
-    if(_cfHasTTM2)h+='<th style="color:var(--yw);font-size:10px;opacity:0.85">TTM</th>';
     h+='<th style="color:var(--lb)">3Y Avg</th><th style="color:var(--tl)">CAGR</th><th style="color:var(--tl)">Signal</th></tr></thead><tbody>';
 
-    var cs3=hn3+(latBsQ?1:0)+(_cfHasTTM2?1:0)+4;
+    var cs3=hn3+(latBsQ?1:0)+4;
     function secH(t2){h+='<tr style="border-top:2px solid var(--bd)"><td colspan="'+cs3+'" style="font-size:9px;font-weight:700;color:var(--dm);letter-spacing:1px;padding:5px 5px 3px;text-transform:uppercase">'+t2+'</td></tr>';}
     function bRow(l,fn,sig){h+='<tr><td'+(sig?' style="font-weight:600"':'')+'>'+l+'</td>';bsH2.forEach(function(y,i){h+='<td'+(sig?' style="font-weight:600"':'')+'>'+fn(y,i)+'</td>';});h+='<td>'+(sig||'')+'</td></tr>';}
 
@@ -1530,7 +1528,6 @@ function render(){
       h+='<tr><td'+(bold?' style="font-weight:700"':'')+'>'+label+'</td>';
       vals.forEach(function(v){h+='<td'+(bold?' style="font-weight:700"':'')+'>'+D(v)+'</td>';});
       if(latBsQ)h+='<td style="color:var(--yw)'+(bold?';font-weight:700':'')+'">'+D(fn(latBsQ,hn3))+'</td>';
-      if(_cfHasTTM2)h+='<td></td>';
       h+='<td style="color:var(--lb)">'+D(avg3)+'</td>';
       h+='<td style="color:'+_cgCol+'">'+(_cg?pc(_cg):'—')+'</td>';
       h+='<td></td></tr>';
@@ -1586,7 +1583,6 @@ function render(){
     var ndUp=ndArr.length>=2&&ndArr[ndArr.length-1]>ndArr[0];
     var ndAvg=av(ndArr);
     if(latBsQ){var _qNDCa=bm(latBsQ,'cashAndShortTermInvestments','cashAndCashEquivalents','cash');var _qNDDe=bm(latBsQ,'shortTermDebt','currentDebt')+bm(latBsQ,'longTermDebt','longTermBorrowings');var _qND=_qNDCa-_qNDDe;h+='<td style="color:var(--yw);font-weight:600">'+D(_qND)+'</td>';}
-    if(_cfHasTTM2)h+='<td></td>';
     h+='<td style="color:var(--lb)">'+D(ndAvg)+'</td><td></td>';
     h+='<td style="color:'+(ndArr[ndArr.length-1]>0?'var(--gn)':'var(--rd)')+'">'+((ndArr[ndArr.length-1]||0)>0?'✓ Net Cash':'⚠ Net Debt')+(ndUp?' ↑':' ↓')+'</td></tr>';
     // Working Capital
@@ -1594,28 +1590,24 @@ function render(){
     bsRaw.forEach(function(y){var wc=(bv(y,'totalCurrentAssets')-bv(y,'totalCurrentLiabilities'))/1e6;h+='<td style="font-weight:600;color:'+(wc>0?'var(--gn)':'var(--rd)')+'">'+D(wc)+'</td>';});
     var _latWC=bsRaw.length?(bv(bsRaw[bsRaw.length-1],'totalCurrentAssets')-bv(bsRaw[bsRaw.length-1],'totalCurrentLiabilities'))/1e6:null;
     if(latBsQ){var _qWC=(bv(latBsQ,'totalCurrentAssets')-bv(latBsQ,'totalCurrentLiabilities'))/1e6;h+='<td style="color:var(--yw);font-weight:600">'+D(_qWC)+'</td>';}
-    if(_cfHasTTM2)h+='<td></td>';
     h+='<td></td><td></td><td style="color:'+(_latWC>0?'var(--gn)':'var(--rd)')+'">'+(_latWC>0?'✓ Positive':'⚠ Negative')+'</td></tr>';
     // Current Ratio
     h+='<tr><td>Current Ratio <span style="font-size:8px;color:var(--dm)">(Curr.Assets÷Curr.Liab)</span></td>';
     bsRaw.forEach(function(y){var cr=bv(y,'totalCurrentLiabilities')>0?bv(y,'totalCurrentAssets')/bv(y,'totalCurrentLiabilities'):null;h+='<td style="color:'+(cr>1.5?'var(--gn)':cr>1?'var(--yw)':'var(--rd)')+'">'+pc(cr)+'</td>';});
     var _lCR=bv(latBsR,'totalCurrentLiabilities')>0?bv(latBsR,'totalCurrentAssets')/bv(latBsR,'totalCurrentLiabilities'):null;
     if(latBsQ){var _qCR=bv(latBsQ,'totalCurrentLiabilities')>0?bv(latBsQ,'totalCurrentAssets')/bv(latBsQ,'totalCurrentLiabilities'):null;h+='<td style="color:var(--yw)">'+pc(_qCR)+'</td>';}
-    if(_cfHasTTM2)h+='<td></td>';
     h+='<td></td><td></td><td>'+(_lCR>1.5?'✓ Healthy':_lCR>1?'◐ OK':'⚠ Tight')+'</td></tr>';
     // D/E
     h+='<tr><td>Debt / Equity</td>';
     bsRaw.forEach(function(y){var eq=bv(y,'totalStockholdersEquity','totalEquity');var de2=bv(y,'shortTermDebt','currentDebt')+bv(y,'longTermDebt');var r2=eq>0?de2/eq:null;h+='<td style="color:'+(r2!=null&&r2<0.5?'var(--gn)':r2!=null&&r2<1.5?'var(--yw)':'var(--rd)')+'">'+pc(r2)+'</td>';});
     var _lDE2=bv(latBsR,'totalStockholdersEquity','totalEquity');var _lDEv=_lDE2>0?(bv(latBsR,'shortTermDebt','currentDebt')+bv(latBsR,'longTermDebt'))/_lDE2:null;
     if(latBsQ){var _qDEeq=bv(latBsQ,'totalStockholdersEquity','totalEquity');var _qDEv=_qDEeq>0?(bv(latBsQ,'shortTermDebt','currentDebt')+bv(latBsQ,'longTermDebt'))/_qDEeq:null;h+='<td style="color:var(--yw)">'+pc(_qDEv)+'</td>';}
-    if(_cfHasTTM2)h+='<td></td>';
     h+='<td></td><td></td><td>'+(_lDEv!=null?(_lDEv<0.5?'✓ Conservative':_lDEv<1.5?'◐ Moderate':'⚠ Leveraged'):'—')+'</td></tr>';
     // D/FCF
     h+='<tr><td>Debt / Adj FCF</td>';
     bsRaw.forEach(function(y,i){var de2=(bv(y,'shortTermDebt','currentDebt')+bv(y,'longTermDebt'))/1e6;var f3=(fsF2||[])[i];var r2=f3&&f3.v>0?de2/f3.v:null;h+='<td style="color:'+(r2!=null&&r2<2?'var(--gn)':r2!=null&&r2<4?'var(--yw)':'var(--rd)')+'">'+fx(r2)+'</td>';});
     var _lDAF2=latFcfV2>0?(bv(latBsR,'shortTermDebt','currentDebt')+bv(latBsR,'longTermDebt'))/1e6/latFcfV2:null;
     if(latBsQ)h+='<td></td>';
-    if(_cfHasTTM2)h+='<td></td>';
     h+='<td></td><td></td><td>'+(_lDAF2!=null?(_lDAF2<2?'✓ <2yr':_lDAF2<4?'◐ 2–4yr':'⚠ >4yr'):'—')+'</td></tr>';
     // Interest Coverage
     h+='<tr><td style="font-weight:600">Interest Coverage <span style="font-size:8px;color:var(--dm);font-weight:400">(EBIT÷IntEx · year shown below each)</span></td>';
@@ -1633,17 +1625,15 @@ function render(){
     var _ttmIC=_ttmInc&&_ttmInc.intEx>0&&_ttmInc.ebit>0?_ttmInc.ebit/_ttmInc.intEx:null;
     if(_ttmIC)_icL=_ttmIC;
     if(latBsQ)h+='<td></td>';
-    if(_cfHasTTM2)h+='<td style="font-weight:600;color:'+(_ttmIC!=null&&_ttmIC>8?'var(--gn)':_ttmIC!=null&&_ttmIC>3?'var(--yw)':_ttmIC!=null?'var(--rd)':'var(--dm)')+'">'+((_ttmIC)?_ttmIC.toFixed(1)+'x':'—')+'</td>';
     h+='<td style="font-weight:600;color:'+(_icL!=null&&_icL>8?'var(--gn)':_icL!=null&&_icL>3?'var(--yw)':_icL!=null?'var(--rd)':'var(--dm)')+'">'+((_ttmIC)?_ttmIC.toFixed(1)+'x':'—')+'</td>';
     h+='<td></td><td style="font-weight:600;color:'+(_icL!=null&&_icL>8?'var(--gn)':_icL!=null&&_icL>3?'var(--yw)':_icL!=null?'var(--rd)':'var(--dm)')+'">'+((_icL)?(_icL>8?'✓ Fortress':_icL>3?'◐ OK':'⚠ Thin'):'—')+'</td></tr>';
     h+='<tr style="font-size:8px"><td style="color:var(--dm);padding-left:8px">— = no interest expense (debt-free or not reported)</td>';
-    for(var _ici=0;_ici<hn3+(latBsQ?1:0)+(_cfHasTTM2?1:0)+3;_ici++)h+='<td></td>';h+='</tr>';
+    for(var _ici=0;_ici<hn3+(latBsQ?1:0)+3;_ici++)h+='<td></td>';h+='</tr>';
     // Solvency
     h+='<tr><td>Solvency (A/L)</td>';
     bsRaw.forEach(function(y){var ta2=bv(y,'totalAssets');var eq2=bv(y,'totalStockholdersEquity','totalEquity');var li=ta2-eq2;var s2=li>0?ta2/li:null;h+='<td style="color:'+(s2>2?'var(--gn)':s2>1.5?'var(--yw)':'var(--rd)')+'">'+pc(s2)+'</td>';});
     var _lLi2=bv(latBsR,'totalAssets')-bv(latBsR,'totalStockholdersEquity','totalEquity');var _lSol=_lLi2>0?bv(latBsR,'totalAssets')/_lLi2:null;
     if(latBsQ){var _qLi=bv(latBsQ,'totalAssets')-bv(latBsQ,'totalStockholdersEquity','totalEquity');var _qSol=_qLi>0?bv(latBsQ,'totalAssets')/_qLi:null;h+='<td style="color:var(--yw)">'+pc(_qSol)+'</td>';}
-    if(_cfHasTTM2)h+='<td></td>';
     h+='<td></td><td></td><td>'+(_lSol>2?'✓ Solid':_lSol>1.5?'◐ OK':'⚠ Tight')+'</td></tr>';
 
     // ── CASH FLOW STATEMENT ──────────────
@@ -1662,7 +1652,6 @@ function render(){
       var _cg=vpos.length>=3&&vpos[0]>0&&vpos[vpos.length-1]>0?cagr(vpos[0],vpos[vpos.length-1],vpos.length-1):null;
       h+='<tr><td style="font-weight:600;color:'+(col||'var(--lb)')+'">'+label+'</td>';
       vals.forEach(function(v){h+='<td style="color:'+(v>0?'var(--tl)':v<0?'var(--rd)':'var(--dm)')+'">'+D(v)+'</td>';});
-      if(_cfHasTTM2)h+='<td style="color:var(--yw)">'+D(ttmVal!=null?ttmVal:null)+'</td>';
       h+='<td style="color:var(--lb)">'+D(avg3)+'</td>';
       h+='<td style="color:'+((_cg||0)>0?'var(--gn)':(_cg||0)<0?'var(--rd)':'var(--dm)')+'">'+(_cg?pc(_cg):'—')+'</td>';
       h+='<td></td></tr>';
@@ -1670,7 +1659,6 @@ function render(){
 
     h+='<tr><td style="font-weight:600;color:var(--tl)">CFO (Operating)</td>';
     fsCfo4.forEach(function(x){var v=x?x.v:null;h+='<td style="font-weight:600;color:'+(v>0?'var(--tl)':'var(--rd)')+'">'+D(v)+'</td>';});
-    if(_cfHasTTM2)h+='<td style="color:var(--yw);font-weight:600">'+D(ttmCFO)+'</td>';
     var _cfoVals=fsCfo4.map(function(x){return x?x.v:null;}).filter(Boolean);
     var _cfoAvg=_cfoVals.length>=3?av(_cfoVals.slice(-3)):null;
     var _cfoCg=_cfoVals.length>=3?cagr(_cfoVals[0],_cfoVals[_cfoVals.length-1],_cfoVals.length-1):null;
@@ -1681,21 +1669,18 @@ function render(){
     // CFI
     h+='<tr><td>CFI (Investing)</td>';
     fsCfi.forEach(function(x){var v=x?x.v:null;h+='<td style="color:'+(v<0?'var(--dm)':'var(--yw)')+'">'+D(v)+'</td>';});
-    if(_cfHasTTM2)h+='<td></td>';
     h+='<td></td><td></td><td style="font-size:9px;color:var(--dm)">Negative = investing in growth</td></tr>';
 
     // CFF
     h+='<tr><td>CFF (Financing)</td>';
     fsCff.forEach(function(x){var v=x?x.v:null;h+='<td style="color:'+(v<0?'var(--tl)':'var(--yw)')+'">'+D(v)+'</td>';});
     var _cffNeg=fsCff.every(function(x){return x&&x.v<0;});
-    if(_cfHasTTM2)h+='<td></td>';
     h+='<td></td><td></td><td>'+(_cffNeg?'✓ Returning capital / paying debt':'ℹ Raising capital')+'</td></tr>';
 
     // Net Change in Cash
     h+='<tr style="border-top:1px solid var(--bd)"><td style="font-weight:600">Net Change in Cash</td>';
     var _ncVals=(fsNc||[]).map(function(x){return x?x.v:null;}).filter(Boolean);
     fsNc.forEach(function(x){var v=x?x.v:null;h+='<td style="font-weight:600;color:'+(v>0?'var(--gn)':'var(--rd)')+'">'+D(v)+'</td>';});
-    if(_cfHasTTM2)h+='<td></td>';
     var _ncAvg=_ncVals.length>=3?av(_ncVals.slice(-3)):null;
     h+='<td style="color:var(--lb)">'+D(_ncAvg)+'</td><td></td><td></td></tr>';
 
@@ -1705,20 +1690,17 @@ function render(){
     var _fcfAvg2=_fcfVals2.length>=3?av(_fcfVals2.slice(-3)):null;
     var _fcfCg2=_fcfVals2.length>=3&&_fcfVals2[0]>0?cagr(_fcfVals2[0],_fcfVals2[_fcfVals2.length-1],_fcfVals2.length-1):null;
     fsF2.forEach(function(x){h+='<td style="font-weight:700;color:var(--tl)">'+D(x?x.v:null)+'</td>';});
-    if(_cfHasTTM2)h+='<td style="color:var(--yw);font-weight:700">'+D(ttmFcf)+'</td>';
     h+='<td style="color:var(--lb)">'+D(_fcfAvg2)+'</td><td style="color:'+(_fcfCg2>0?'var(--gn)':'var(--rd)')+'">'+(_fcfCg2?pc(_fcfCg2):'—')+'</td><td></td></tr>';
 
     // FCF Margin
     h+='<tr><td>FCF Margin (FCF/Rev)</td>';
     fsF2.forEach(function(x,i){var rv=(fsRv4||[])[i];var r2=rv&&rv.r>0&&x?x.v/rv.r:null;h+='<td style="color:'+(r2>0.15?'var(--gn)':r2>0.08?'var(--yw)':'var(--rd)')+'">'+pc(r2)+'</td>';});
-    if(_cfHasTTM2){var _ttmFM=ttmRev>0?ttmFcf/ttmRev:null;h+='<td style="color:var(--yw)">'+pc(_ttmFM)+'</td>';}
     var _lFM=fsRv4.length&&fsRv4[fsRv4.length-1]&&latFcfV2?latFcfV2/fsRv4[fsRv4.length-1].r:null;
     h+='<td></td><td></td><td>'+(_lFM!=null?(_lFM>0.15?'✓ >15%':_lFM>0.08?'◐ 8–15%':'⚠ <8%'):'—')+'</td></tr>';
 
     // FCF/CFO
     h+='<tr><td>Adj FCF / CFO</td>';
     fsF2.forEach(function(x,i){var cf=fsCfo4[i];var r2=cf&&cf.v>0&&x?x.v/cf.v:null;h+='<td style="color:'+(r2>0.8?'var(--gn)':r2>0.5?'var(--yw)':'var(--rd)')+'">'+pc(r2)+'</td>';});
-    if(_cfHasTTM2){var _ttmFCR=ttmCFO>0?ttmFcf/ttmCFO:null;h+='<td style="color:var(--yw)">'+pc(_ttmFCR)+'</td>';}
     var _lFCR=fsCfo4.length&&fsCfo4[fsCfo4.length-1]&&fsCfo4[fsCfo4.length-1].v>0&&fsF2.length&&fsF2[fsF2.length-1]?fsF2[fsF2.length-1].v/fsCfo4[fsCfo4.length-1].v:null;
     h+='<td>'+(_lFCR!=null?(_lFCR>0.8?'✓ '+pc(_lFCR):'◐ '+pc(_lFCR)):'—')+'</td></tr>';
 
@@ -1726,12 +1708,13 @@ function render(){
     var _hasDiv2=(fsDiv4||[]).some(function(x){return x&&x.v>0;});
     if(_hasDiv2){
       h+='<tr><td>Dividends Paid</td>';
-      fsDiv4.forEach(function(x){h+='<td>'+D(x?x.v:null)+'</td>';});if(_cfHasTTM2)h+='<td></td>';h+='<td></td></tr>';
+      fsDiv4.forEach(function(x){h+='<td>'+D(x?x.v:null)+'</td>';});
+h+='<td></td></tr>';
       // Div Yield
       var mcapV4=fsSo4.map(function(x,i){var yr=(fsRv4||[])[i]?fsRv4[i].y:null;var px=yr&&ST.priceHist?null:d.p;(ST.priceHist||[]).forEach(function(p){if(p.date.slice(0,4)===yr)px=p.close;});return x&&x.v?+(x.v*(px||d.p)).toFixed(1):null;});
       h+='<tr><td>Dividend Yield</td>';
       fsDiv4.forEach(function(x,i){var mc=mcapV4[i];var dy=mc&&x&&x.v>0?x.v/mc:null;h+='<td style="color:'+(dy>=0.03?'var(--tl)':'var(--dm)')+'">'+pc(dy)+'</td>';});
-      if(_cfHasTTM2)h+='<td></td>';h+='<td></td></tr>';
+h+='<td></td></tr>';
     }
 
     // Cash Flow Flags
@@ -1769,7 +1752,7 @@ function render(){
     if(d._tbv<=0)cm2.push('ℹ Negative TBV — common for asset-light / heavy buybacks.');
 
     if(cm2.length){
-      h+='<div style="margin-top:8px;padding:8px 10px;background:#0a0e18;border-radius:5px;border:1px solid var(--bd);font-size:10px;color:var(--lb);line-height:1.7">';
+      h+='<div style="margin-top:8px;padding:8px 10px;background:var(--ib);border-radius:5px;border:1px solid var(--bd);font-size:10px;color:var(--lb);line-height:1.7">';
       cm2.forEach(function(t2){var col=t2.startsWith('✓')?'var(--gn)':t2.startsWith('⚠')?'var(--rd)':'var(--lb)';h+='<span style="color:'+col+'">'+t2+'</span><br>';});
       h+='</div>';
     }
@@ -1799,7 +1782,7 @@ function render(){
     var totalAnn=fcfYield+revGrowth+reRateAnn;
 
     // Formula bar
-    h+='<div style="padding:10px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd);margin-bottom:10px">';
+    h+='<div style="padding:10px;background:var(--ib);border-radius:6px;border:1px solid var(--bd);margin-bottom:10px">';
     h+='<div style="display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;margin-bottom:6px">';
     h+='<span style="color:var(--dm)">FCF/EV <b style="color:var(--tl)">'+pc(fcfYield)+'</b></span>';
     h+='<span style="color:var(--dm)">+ Growth <b style="color:var(--bl)">'+pc(revGrowth)+'</b></span>';
@@ -1816,7 +1799,7 @@ function render(){
     // Path 1: Via Price Drop
     var np2=c.sh>0&&(0.25-revGrowth)>0?(c.af/(0.25-revGrowth)-c.nd)/d.sh:null;
     var priceDrop=np2&&np2>0&&np2<d.p?(np2-d.p)/d.p:null;
-    h+='<div style="background:#0a0e18;border-radius:6px;padding:10px;border:1px solid var(--bd)">';
+    h+='<div style="background:var(--ib);border-radius:6px;padding:10px;border:1px solid var(--bd)">';
     h+='<div style="font-size:9px;color:var(--dm);font-weight:700;margin-bottom:6px">① BUY AT LOWER PRICE</div>';
     if(np2&&np2>0&&np2<d.p){
       h+='<div style="font-size:18px;font-weight:800;font-family:var(--m);color:var(--yw)">'+pr(np2)+'</div>';
@@ -1829,7 +1812,7 @@ function render(){
 
     // Path 2: Via Growth Acceleration
     var reqGrowth=0.25-fcfYield-reRateAnn;
-    h+='<div style="background:#0a0e18;border-radius:6px;padding:10px;border:1px solid var(--bd)">';
+    h+='<div style="background:var(--ib);border-radius:6px;padding:10px;border:1px solid var(--bd)">';
     h+='<div style="font-size:9px;color:var(--dm);font-weight:700;margin-bottom:6px">② ACCELERATE GROWTH</div>';
     h+='<div style="font-size:18px;font-weight:800;font-family:var(--m);color:var(--yw)">'+pc(Math.max(0,reqGrowth))+'</div>';
     h+='<div style="font-size:10px;color:var(--dm);margin-top:2px">rev CAGR needed ('+pc(revGrowth)+' now)</div>';
@@ -1839,7 +1822,7 @@ function render(){
     // Path 3: Via Multiple Expansion
     var reqMult=curMult>0?curMult*Math.pow(1.25-fcfYield-revGrowth+1,reYrs):0;
     var multGap=reqMult>0?reqMult-curMult:null;
-    h+='<div style="background:#0a0e18;border-radius:6px;padding:10px;border:1px solid var(--bd)">';
+    h+='<div style="background:var(--ib);border-radius:6px;padding:10px;border:1px solid var(--bd)">';
     h+='<div style="font-size:9px;color:var(--dm);font-weight:700;margin-bottom:6px">③ MULTIPLE EXPANSION</div>';
     h+='<div style="font-size:18px;font-weight:800;font-family:var(--m);color:var(--yw)">'+(reqMult>0?fx(reqMult):'—')+'</div>';
     h+='<div style="font-size:10px;color:var(--dm);margin-top:2px">exit EV/FCF needed ('+fx(curMult)+' now)</div>';
@@ -1912,7 +1895,7 @@ function render(){
       _allCos.forEach(function(co,idx){
         var cm=calcM(co);
         var _isCurrent=idx===0;
-        var _bg=_isCurrent?'background:#0f172a':'';
+        var _bg=_isCurrent?'background:var(--ib)':'';
         h+='<tr style="'+_bg+'">';
         h+='<td><b style="color:'+(_isCurrent?'var(--yw)':'var(--bl)')+'">'+co.t+'</b> <span style="font-size:9px;color:var(--dm)">'+co.n.slice(0,20)+'</span></td>';
         h+='<td>'+D(cm.mc)+'</td>';
@@ -2024,7 +2007,7 @@ function render(){
       if(_gfs.length){
         h+='<div style="font-size:9px;font-weight:700;color:var(--gn);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Green Flags ('+_gfs.length+')</div>';
         h+='<div style="margin-bottom:10px">';
-        _gfs.forEach(function(f){h+='<div style="padding:6px 8px;background:#052e1622;border-left:3px solid var(--gn);margin-bottom:4px;font-size:11px;color:var(--lb);line-height:1.5">'+f+'</div>';});
+        _gfs.forEach(function(f){h+='<div style="padding:6px 8px;background:rgba(34,197,94,0.08)22;border-left:3px solid var(--gn);margin-bottom:4px;font-size:11px;color:var(--lb);line-height:1.5">'+f+'</div>';});
         h+='</div>';
       }
       if(_rfs.length){
@@ -2034,7 +2017,7 @@ function render(){
     }
   }
   // ── SUGGESTED ACTION PLAN ──────────────────────────────
-  h+='<div style="margin-top:12px;padding:12px;background:#0a0e18;border-radius:6px;border:1px solid var(--bd)">';
+  h+='<div style="margin-top:12px;padding:12px;background:var(--ib);border-radius:6px;border:1px solid var(--bd)">';
   h+='<div style="font-size:10px;font-weight:700;color:var(--br);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Suggested Action</div>';
   var _qr2=c.qr;var _fy2=c.fy;var _rc2=c.rc;var _rfs2=_rfs||[];var _gfs2=_gfs||[];
   if(_isNetNet||_negEV||_cashGtMcap){
@@ -2062,7 +2045,7 @@ function render(){
 
 
   
-  h+='<div style="font-size:9px;color:#2a3040;padding-top:8px;border-top:1px solid var(--bd)">Quality ≥25% 🟢 | Adj FCF = CFO − SBC − Maint CapEx | Data: FMP (SEC 10-K) | <a id="vallink" href="/valuation-screener/valuation/" style="color:#4a5568">DCF & Valuation Model →</a></div>';
+  h+='<div style="font-size:9px;color:var(--dm);padding-top:8px;border-top:1px solid var(--bd)">Quality ≥25% 🟢 | Adj FCF = CFO − SBC − Maint CapEx | Data: FMP (SEC 10-K) | <a id="vallink" href="/valuation-screener/valuation/" style="color:var(--dm)">DCF & Valuation Model →</a></div>';
   h+='</div><!-- /vt-overview -->';
   h+='<div id="vt-news" style="display:none"><div id="vt-news-body"><div style="text-align:center;padding:40px;color:var(--dm)">Click to load news<br><br><button onclick="loadVtNews()" class="vtab vtab-active" style="padding:8px 20px">Load News for '+d.t+'</button></div></div></div>';
   h+='<div id="vt-calendar" style="display:none"><div id="vt-cal-body"><div style="text-align:center;padding:40px;color:var(--dm)">Click to load earnings &amp; dividend calendar<br><br><button onclick="loadVtCal()" class="vtab vtab-active" style="padding:8px 20px">Load Calendar</button></div></div></div>';
