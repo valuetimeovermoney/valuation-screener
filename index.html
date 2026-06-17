@@ -2151,27 +2151,60 @@ async function loadVtNews(){
   var el=document.getElementById('vt-news-body');if(!el)return;
   el.innerHTML='<div style="text-align:center;padding:40px;color:var(--dm)"><div class="sp"></div><div style="margin-top:10px">Loading news for '+escH(nm||tk)+'…</div></div>';
   try{
-    // stable/news is the primary endpoint; v3/stock_news as fallback
-    var [sNews, v3p0, v3p1, press] = await Promise.all([
-      _sf('news?symbols='+encodeURIComponent(tkBase)+'&limit=100'),
+    // Fetch all sources in parallel
+    var [sNews, v3p0, v3p1, v3p2, press, genNews] = await Promise.all([
+      _sf('news?symbols='+encodeURIComponent(tkBase)+'&limit=200'),
       _sfv('https://financialmodelingprep.com/api/v3/stock_news?tickers='+encodeURIComponent(tkBase)+'&limit=100'),
       _sfv('https://financialmodelingprep.com/api/v3/stock_news?tickers='+encodeURIComponent(tkBase)+'&limit=100&page=1'),
-      _sf('press-releases?symbol='+encodeURIComponent(tkBase)+'&limit=30'),
+      _sfv('https://financialmodelingprep.com/api/v3/stock_news?tickers='+encodeURIComponent(tkBase)+'&limit=100&page=2'),
+      _sf('press-releases?symbol='+encodeURIComponent(tkBase)+'&limit=50'),
+      _sf('general-news?limit=50'),
     ]);
-    console.log('[News] stable/news=',sNews&&sNews.length,'v3=',v3p0&&v3p0.length,'press=',press&&press.length);
-    var seen={};var newsArr=[];
-    [(Array.isArray(sNews)?sNews:[]),(Array.isArray(v3p0)?v3p0:[]),(Array.isArray(v3p1)?v3p1:[])].forEach(function(src){
-      src.forEach(function(a){var k=a.url||a.title;if(k&&!seen[k]){seen[k]=1;newsArr.push(a);}});
-    });
-    newsArr.sort(function(a,b){var da=a.publishedDate||a.date||'',db=b.publishedDate||b.date||'';return da>db?-1:1;});
-    var pressArr=(Array.isArray(press)?press:[]).sort(function(a,b){var da=a.date||'',db=b.date||'';return da>db?-1:1;});
 
-    if(!newsArr.length&&!pressArr.length){
+    // Tag each article with its type
+    var seen={};var allItems=[];
+
+    function addItems(arr,type){
+      (Array.isArray(arr)?arr:[]).forEach(function(a){
+        var key=a.url||a.title;if(!key)return;
+        if(seen[key])return;
+        seen[key]=1;
+        a._type=type;
+        allItems.push(a);
+      });
+    }
+
+    addItems(sNews,'Stock News');
+    addItems(v3p0,'Stock News');
+    addItems(v3p1,'Stock News');
+    addItems(v3p2,'Stock News');
+    addItems(press,'Press Release');
+
+    // From general-news, only include articles mentioning the company name or ticker
+    var _nm=(nm||'').toLowerCase();var _tk=tkBase.toLowerCase();
+    (Array.isArray(genNews)?genNews:[]).forEach(function(a){
+      var key=a.url||a.title;if(!key||seen[key])return;
+      var txt=((a.title||'')+(a.text||'')).toLowerCase();
+      if(txt.indexOf(_tk)!==-1||(  _nm&&txt.indexOf(_nm)!==-1)){
+        seen[key]=1;a._type='General News';allItems.push(a);
+      }
+    });
+
+    // Sort all by date newest first
+    allItems.sort(function(a,b){
+      var da=a.publishedDate||a.date||'',db=b.publishedDate||b.date||'';
+      return da>db?-1:da<db?1:0;
+    });
+
+    var newsCount=allItems.filter(function(a){return a._type!=='Press Release';}).length;
+    var pressCount=allItems.filter(function(a){return a._type==='Press Release';}).length;
+
+    if(!allItems.length){
       var h2='<div style="padding:20px;background:var(--cd);border:1px solid var(--bd);border-radius:8px">';
       h2+='<div style="font-size:13px;font-weight:600;color:var(--br);margin-bottom:8px">No news found in FMP for '+escH(tkBase)+'</div>';
       h2+='<div style="font-size:12px;color:var(--dm);margin-bottom:14px">Browse directly:</div>';
       h2+='<div style="display:flex;flex-wrap:wrap;gap:8px">';
-      [['Yahoo Finance','https://finance.yahoo.com/quote/'+tkBase+'/news/'],['Seeking Alpha','https://seekingalpha.com/symbol/'+tkBase],['Reuters','https://www.reuters.com/search/news?blob='+tkBase],['Bloomberg','https://www.bloomberg.com/search?query='+tkBase],['Google News','https://news.google.com/search?q='+encodeURIComponent((nm||tkBase)+' stock')],['EDGAR Filings','https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=&CIK='+tkBase+'&type=8-K&dateb=&owner=include&count=40']].forEach(function(ln){
+      [['Yahoo Finance','https://finance.yahoo.com/quote/'+tkBase+'/news/'],['Seeking Alpha','https://seekingalpha.com/symbol/'+tkBase],['Reuters','https://www.reuters.com/search/news?blob='+tkBase],['Bloomberg','https://www.bloomberg.com/search?query='+tkBase],['Google News','https://news.google.com/search?q='+encodeURIComponent((nm||tkBase)+' stock')],['EDGAR Filings','https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK='+tkBase+'&type=8-K&dateb=&owner=include&count=40']].forEach(function(ln){
         h2+='<a href="'+ln[1]+'" target="_blank" style="display:inline-block;background:var(--ib);border:1px solid var(--bd);border-radius:6px;padding:8px 14px;color:var(--bl);text-decoration:none;font-size:12px;font-weight:600">'+ln[0]+' ↗</a>';
       });
       h2+='</div></div>';
@@ -2179,37 +2212,46 @@ async function loadVtNews(){
       return;
     }
 
+    // Type badge styles
+    var _typeBadge={
+      'Stock News':'color:var(--bl);background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.3)',
+      'Press Release':'color:var(--pu);background:rgba(129,140,248,0.1);border:1px solid rgba(129,140,248,0.3)',
+      'General News':'color:var(--tl);background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.3)',
+    };
+
     var h2='<div>';
     h2+='<div style="display:flex;align-items:center;justify-content:space-between;padding:0 0 10px;border-bottom:1px solid var(--bd);margin-bottom:4px">';
-    h2+='<div style="font-size:11px;color:var(--dm)"><b style="color:var(--br)">'+escH(tkBase)+'</b> — '+newsArr.length+' articles'+(pressArr.length?' · '+pressArr.length+' press releases':'')+'</div>';
-    h2+='<div style="display:flex;gap:12px"><a href="https://finance.yahoo.com/quote/'+tkBase+'/news/" target="_blank" style="font-size:10px;color:var(--bl);text-decoration:none">Yahoo ↗</a><a href="https://seekingalpha.com/symbol/'+tkBase+'" target="_blank" style="font-size:10px;color:var(--bl);text-decoration:none">SA ↗</a></div>';
+    h2+='<div style="font-size:11px;color:var(--dm)">';
+    h2+='<b style="color:var(--br)">'+escH(tkBase)+'</b> — ';
+    h2+=allItems.length+' total';
+    if(newsCount)h2+=' · <span style="color:var(--bl)">'+newsCount+' news</span>';
+    if(pressCount)h2+=' · <span style="color:var(--pu)">'+pressCount+' press releases</span>';
+    h2+='</div>';
+    h2+='<div style="display:flex;gap:10px">';
+    h2+='<a href="https://finance.yahoo.com/quote/'+tkBase+'/news/" target="_blank" style="font-size:10px;color:var(--bl);text-decoration:none">Yahoo ↗</a>';
+    h2+='<a href="https://seekingalpha.com/symbol/'+tkBase+'" target="_blank" style="font-size:10px;color:var(--bl);text-decoration:none">Seeking Alpha ↗</a>';
+    h2+='<a href="https://news.google.com/search?q='+encodeURIComponent((nm||tkBase)+' stock')+'" target="_blank" style="font-size:10px;color:var(--bl);text-decoration:none">Google News ↗</a>';
+    h2+='</div>';
     h2+='</div>';
 
-    newsArr.forEach(function(a){
+    allItems.forEach(function(a){
       var pub=a.publishedDate||a.date||'';
-      var src=escH(a.site||a.publisher||'');
+      var src=escH(a.site||a.publisher||a.tickers||'');
+      var type=a._type||'Stock News';
+      var badge=_typeBadge[type]||_typeBadge['Stock News'];
       h2+='<div onclick="window.open(\''+escH(a.url||'#')+'\',\'_blank\')" style="padding:11px 0;border-bottom:1px solid var(--bd);cursor:pointer;display:flex;gap:10px;align-items:flex-start" onmouseover="this.style.background=\'rgba(56,139,253,0.04)\'" onmouseout="this.style.background=\'transparent\'">';
       if(a.image)h2+='<img src="'+escH(a.image)+'" style="width:68px;height:48px;object-fit:cover;border-radius:4px;flex-shrink:0;border:1px solid var(--bd);margin-top:2px" onerror="this.style.display=\'none\'">';
       h2+='<div style="flex:1;min-width:0">';
+      h2+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">';
+      h2+='<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:3px;'+badge+'">'+escH(type)+'</span>';
+      if(src)h2+='<span style="font-size:10px;color:var(--tl)">'+src+'</span>';
+      h2+='<span style="font-size:10px;color:var(--dm)" title="'+escH(_fmtFull(pub))+'">'+_fmtTime(pub)+'</span>';
+      h2+='</div>';
       h2+='<div style="font-size:13px;font-weight:600;color:var(--br);line-height:1.4;margin-bottom:3px">'+escH(a.title||'')+'</div>';
-      if(a.text||a.summary)h2+='<div style="font-size:11px;color:var(--lb);line-height:1.5;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+escH(a.text||a.summary||'')+'</div>';
-      h2+='<div style="font-size:11px;color:var(--dm)">'+(src?'<span style="color:var(--tl)">'+src+'</span> · ':'')+' <span title="'+escH(_fmtFull(pub))+'">'+_fmtTime(pub)+'</span></div>';
+      if(a.text||a.summary)h2+='<div style="font-size:11px;color:var(--lb);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+escH(a.text||a.summary||'')+'</div>';
       h2+='</div></div>';
     });
 
-    if(pressArr.length){
-      h2+='<div style="margin-top:16px;padding-top:12px;border-top:2px solid var(--bd)">';
-      h2+='<div style="font-size:10px;font-weight:700;color:var(--pu);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Press Releases ('+pressArr.length+')</div>';
-      pressArr.forEach(function(a){
-        var pub=a.date||'';
-        h2+='<div onclick="window.open(\''+escH(a.url||'#')+'\',\'_blank\')" style="padding:10px 0;border-bottom:1px solid var(--bd);cursor:pointer" onmouseover="this.style.background=\'rgba(139,92,246,0.04)\'" onmouseout="this.style.background=\'transparent\'">';
-        h2+='<div style="font-size:12px;font-weight:600;color:var(--br);margin-bottom:3px">'+escH(a.title||'')+'</div>';
-        if(a.text)h2+='<div style="font-size:11px;color:var(--lb);line-height:1.5;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+escH(a.text)+'</div>';
-        h2+='<div style="font-size:10px;color:var(--dm)">'+_fmtTime(pub)+(pub?' · '+pub.slice(0,10):'')+'</div>';
-        h2+='</div>';
-      });
-      h2+='</div>';
-    }
     h2+='</div>';
     el=document.getElementById('vt-news-body');if(el)el.innerHTML=h2;
   }catch(e){console.error('[News]',e);var _el=document.getElementById('vt-news-body');if(_el)_el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
