@@ -27,11 +27,11 @@
 body { background: var(--bg-primary); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; font-size: 14px; min-height: 100vh; }
 
 /* Shared top nav */
-.vtm-nav{background:#0d1117;border-bottom:1px solid #30363d;padding:0 16px;display:flex;align-items:center;gap:2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;position:sticky;top:0;z-index:999}
-.vtm-nav a{color:#8b949e;text-decoration:none;padding:9px 13px;font-size:12px;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s}
-.vtm-nav a:hover{color:#e6edf3}
-.vtm-nav a.vtm-active{color:#58a6ff;border-bottom-color:#58a6ff}
-.vtm-brand{font-weight:800!important;font-size:14px!important;color:#e6edf3!important;padding-right:16px!important;border-bottom:none!important}
+.vtm-nav{background:var(--bg-secondary);border-bottom:1px solid var(--border);padding:0 16px;display:flex;align-items:center;gap:2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;position:sticky;top:0;z-index:999}
+.vtm-nav a{color:var(--text-secondary);text-decoration:none;padding:9px 13px;font-size:12px;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s}
+.vtm-nav a:hover{color:var(--text-primary)}
+.vtm-nav a.vtm-active{color:var(--accent-blue);border-bottom-color:var(--accent-blue)}
+.vtm-brand{font-weight:800!important;font-size:14px!important;color:var(--text-primary)!important;padding-right:16px!important;border-bottom:none!important}
 
 /* Header */
 .site-header { background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; gap: 16px; }
@@ -207,7 +207,10 @@ select.ctrl-select:focus, input.ctrl-input:focus { border-color: var(--accent-bl
 
 <!-- Tab Nav -->
 <nav class="tab-nav">
-  <button class="tab-btn active" onclick="switchTab('news', this)">
+  <button class="tab-btn active" onclick="switchTab('companies', this)">
+    <i class="bi bi-list-ul"></i> Companies
+  </button>
+  <button class="tab-btn" onclick="switchTab('news', this)">
     <i class="bi bi-newspaper"></i> News &amp; Analysis
   </button>
   <button class="tab-btn" onclick="switchTab('calendar', this)">
@@ -218,8 +221,55 @@ select.ctrl-select:focus, input.ctrl-input:focus { border-color: var(--accent-bl
 <!-- Main Content -->
 <div class="main-content">
 
+  <!-- ===================== COMPANIES TAB ===================== -->
+  <div id="tab-companies" class="tab-panel active">
+    <div class="controls-bar" style="gap:8px;flex-wrap:wrap">
+      <div class="ctrl-group">
+        <div class="ctrl-label">Search</div>
+        <input class="ctrl-input" id="coSearch" placeholder="Name or ticker…" oninput="renderCompanies()" style="min-width:180px">
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Sector</div>
+        <select class="ctrl-select" id="coSector" onchange="renderCompanies()">
+          <option value="">All Sectors</option>
+          <option>Technology</option><option>Healthcare</option><option>Materials</option>
+          <option>Consumer</option><option>Financial Services</option><option>Energy</option>
+          <option>Industrials</option><option>Services</option><option>Real Estate</option>
+          <option>Telecommunication Services</option>
+        </select>
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Country</div>
+        <select class="ctrl-select" id="coCountry" onchange="renderCompanies()">
+          <option value="">All Countries</option>
+          <option value="US">US</option>
+          <option value="CA">Canada</option>
+        </select>
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Exchange</div>
+        <select class="ctrl-select" id="coExchange" onchange="renderCompanies()">
+          <option value="">All Exchanges</option>
+        </select>
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Sort by</div>
+        <select class="ctrl-select" id="coSort" onchange="renderCompanies()">
+          <option value="name">Name A–Z</option>
+          <option value="cap_desc">Market Cap ↓</option>
+          <option value="cap_asc">Market Cap ↑</option>
+          <option value="sector">Sector</option>
+        </select>
+      </div>
+      <div class="ctrl-spacer"></div>
+      <button class="btn-outline-custom" onclick="clearCoFilters()" style="align-self:flex-end">Clear Filters</button>
+      <div style="align-self:flex-end;font-size:12px;color:var(--text-muted)" id="coCount"></div>
+    </div>
+    <div id="coTable"></div>
+  </div>
+
   <!-- ===================== NEWS TAB ===================== -->
-  <div id="tab-news" class="tab-panel active">
+  <div id="tab-news" class="tab-panel">
     <div class="alert-no-keys" id="noKeysAlert">
       <i class="bi bi-key me-1"></i> No API keys configured.
       <a href="#" onclick="openSettings(); return false;" style="color:inherit;font-weight:600;">Open Settings</a>
@@ -604,6 +654,7 @@ function switchTab(id, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + id).classList.add('active');
   btn.classList.add('active');
+  if (id === 'companies') renderCompanies();
 }
 
 // ─── COMPANY FILTER ───────────────────────────────────────────────────────────
@@ -1001,12 +1052,91 @@ function escHtml(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 function fmtNum(n) { if (!n) return ''; if (n>=1e9) return '$'+(n/1e9).toFixed(2)+'B'; if (n>=1e6) return '$'+(n/1e6).toFixed(1)+'M'; return '$'+n.toLocaleString(); }
 
+// ─── COMPANIES TAB ────────────────────────────────────────────────────────────
+function renderCompanies() {
+  const q = (document.getElementById('coSearch').value || '').toLowerCase().trim();
+  const sector = document.getElementById('coSector').value;
+  const country = document.getElementById('coCountry').value;
+  const exchange = document.getElementById('coExchange').value;
+  const sort = document.getElementById('coSort').value;
+
+  let list = PORTFOLIO.filter(c => {
+    if (sector && c.sector !== sector) return false;
+    if (country && c.country !== country) return false;
+    if (exchange && c.exchange !== exchange) return false;
+    if (q && !(c.name.toLowerCase().includes(q) || c.ticker.toLowerCase().includes(q) || (c.apiTicker||'').toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  list.sort((a, b) => {
+    if (sort === 'cap_desc') return (b.cap||0) - (a.cap||0);
+    if (sort === 'cap_asc') return (a.cap||0) - (b.cap||0);
+    if (sort === 'sector') return a.sector.localeCompare(b.sector) || a.name.localeCompare(b.name);
+    return a.name.localeCompare(b.name);
+  });
+
+  document.getElementById('coCount').textContent = list.length + ' of ' + PORTFOLIO.length + ' companies';
+
+  const SECTOR_COLORS = { Technology:'var(--accent-blue)', Healthcare:'var(--accent-green)', Materials:'var(--accent-gold)', Consumer:'var(--accent-orange)', 'Financial Services':'var(--accent-purple)', Energy:'#e3883d', Industrials:'#58a6ff', Services:'#3fb950', 'Real Estate':'#bc8cff', 'Telecommunication Services':'#8b949e' };
+
+  if (!list.length) {
+    document.getElementById('coTable').innerHTML = '<div class="empty-state"><i class="bi bi-search"></i><p>No companies match your filters.</p><button class="btn-outline-custom" onclick="clearCoFilters()" style="margin-top:12px">Clear Filters</button></div>';
+    return;
+  }
+
+  let h = '<table style="width:100%;border-collapse:collapse;font-size:13px">';
+  h += '<thead><tr style="border-bottom:2px solid var(--border);color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px">';
+  h += '<th style="padding:8px 10px;text-align:left;font-weight:600">Company</th>';
+  h += '<th style="padding:8px 10px;text-align:left;font-weight:600">Ticker</th>';
+  h += '<th style="padding:8px 10px;text-align:left;font-weight:600">Sector</th>';
+  h += '<th style="padding:8px 10px;text-align:left;font-weight:600">Industry</th>';
+  h += '<th style="padding:8px 10px;text-align:left;font-weight:600">Exchange</th>';
+  h += '<th style="padding:8px 10px;text-align:right;font-weight:600">Mkt Cap</th>';
+  h += '<th style="padding:8px 4px;text-align:center;font-weight:600">Links</th>';
+  h += '</tr></thead><tbody>';
+
+  list.forEach(c => {
+    const sCol = SECTOR_COLORS[c.sector] || 'var(--text-secondary)';
+    const capStr = c.cap >= 1000 ? '$' + (c.cap/1000).toFixed(1) + 'B' : c.cap ? '$' + c.cap + 'M' : '—';
+    const screenerTk = encodeURIComponent(c.ticker);
+    h += `<tr style="border-bottom:1px solid var(--border);transition:background 0.1s" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">`;
+    h += `<td style="padding:9px 10px;font-weight:600;color:var(--text-primary)">${escHtml(c.name)}</td>`;
+    h += `<td style="padding:9px 10px"><code style="font-size:12px;color:var(--accent-blue);background:rgba(88,166,255,0.1);padding:2px 6px;border-radius:3px">${escHtml(c.ticker)}</code></td>`;
+    h += `<td style="padding:9px 10px"><span style="font-size:11px;color:${sCol}">${escHtml(c.sector)}</span></td>`;
+    h += `<td style="padding:9px 10px;color:var(--text-secondary);font-size:12px">${escHtml(c.industry||'')}</td>`;
+    h += `<td style="padding:9px 10px;color:var(--text-muted);font-size:12px">${escHtml(c.exchange||'')}${c.country?' · '+escHtml(c.country):''}</td>`;
+    h += `<td style="padding:9px 10px;text-align:right;color:var(--text-secondary);font-size:12px">${capStr}</td>`;
+    h += `<td style="padding:9px 4px;text-align:center;white-space:nowrap">`;
+    h += `<a href="/valuation-screener/?t=${screenerTk}" style="font-size:11px;color:var(--accent-blue);text-decoration:none;padding:2px 6px;border:1px solid rgba(88,166,255,0.3);border-radius:3px;margin:0 2px" title="Open in Screener">📊</a>`;
+    h += `<a href="https://finance.yahoo.com/quote/${encodeURIComponent(c.apiTicker||c.ticker)}/" target="_blank" style="font-size:11px;color:var(--text-muted);text-decoration:none;padding:2px 6px;border:1px solid var(--border);border-radius:3px;margin:0 2px" title="Yahoo Finance">Y</a>`;
+    h += `</td></tr>`;
+  });
+
+  h += '</tbody></table>';
+  document.getElementById('coTable').innerHTML = h;
+}
+
+function clearCoFilters() {
+  document.getElementById('coSearch').value = '';
+  document.getElementById('coSector').value = '';
+  document.getElementById('coCountry').value = '';
+  document.getElementById('coExchange').value = '';
+  document.getElementById('coSort').value = 'name';
+  renderCompanies();
+}
+
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('portfolioCount').textContent = PORTFOLIO.length + ' companies';
   loadSettings();
   updateMonthLabel();
   onSectorChange();
+  // Populate exchange dropdown
+  const exchanges = [...new Set(PORTFOLIO.map(c => c.exchange).filter(Boolean))].sort();
+  const exSel = document.getElementById('coExchange');
+  exchanges.forEach(e => { const o = document.createElement('option'); o.value = e; o.textContent = e; exSel.appendChild(o); });
+  // Render companies immediately
+  renderCompanies();
   document.getElementById('settingsModal').addEventListener('click', function(e) { if (e.target === this) closeSettings(); });
 });
 </script>
