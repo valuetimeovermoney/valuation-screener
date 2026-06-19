@@ -263,9 +263,70 @@ select.ctrl-select:focus, input.ctrl-input:focus { border-color: var(--accent-bl
       </div>
       <div class="ctrl-spacer"></div>
       <button class="btn-outline-custom" onclick="clearCoFilters()" style="align-self:flex-end">Clear Filters</button>
+      <button class="btn-primary-custom" onclick="openAddCompany()" style="align-self:flex-end"><i class="bi bi-plus-lg"></i> Add Company</button>
       <div style="align-self:flex-end;font-size:12px;color:var(--text-muted)" id="coCount"></div>
     </div>
     <div id="coTable"></div>
+  </div>
+
+  <!-- Add Company Modal -->
+  <div id="addCoModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;align-items:center;justify-content:center">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;width:420px;max-width:95vw;position:relative">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div style="font-size:15px;font-weight:700;color:var(--text-primary)">Add Company</div>
+        <button onclick="closeAddCompany()" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1">&times;</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <div style="flex:1">
+          <div class="ctrl-label" style="margin-bottom:4px">Ticker <span style="color:var(--accent-red)">*</span></div>
+          <input class="ctrl-input" id="addTicker" placeholder="e.g. AAPL or BOS.TO" style="width:100%;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+        </div>
+        <div style="align-self:flex-end">
+          <button class="btn-outline-custom" id="addLookupBtn" onclick="lookupTicker()" style="white-space:nowrap">🔍 Lookup</button>
+        </div>
+      </div>
+      <div id="addLookupStatus" style="font-size:11px;color:var(--text-muted);margin-bottom:8px;min-height:16px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div style="grid-column:1/-1">
+          <div class="ctrl-label" style="margin-bottom:4px">Company Name <span style="color:var(--accent-red)">*</span></div>
+          <input class="ctrl-input" id="addName" placeholder="Full company name" style="width:100%">
+        </div>
+        <div>
+          <div class="ctrl-label" style="margin-bottom:4px">Sector</div>
+          <select class="ctrl-select" id="addSector" style="width:100%">
+            <option value="">— Select —</option>
+            <option>Technology</option><option>Healthcare</option><option>Materials</option>
+            <option>Consumer</option><option>Financial Services</option><option>Energy</option>
+            <option>Industrials</option><option>Services</option><option>Real Estate</option>
+            <option>Telecommunication Services</option>
+          </select>
+        </div>
+        <div>
+          <div class="ctrl-label" style="margin-bottom:4px">Industry</div>
+          <input class="ctrl-input" id="addIndustry" placeholder="e.g. Software" style="width:100%">
+        </div>
+        <div>
+          <div class="ctrl-label" style="margin-bottom:4px">Exchange</div>
+          <input class="ctrl-input" id="addExchange" placeholder="e.g. NASDAQ" style="width:100%">
+        </div>
+        <div>
+          <div class="ctrl-label" style="margin-bottom:4px">Country</div>
+          <select class="ctrl-select" id="addCountry" style="width:100%">
+            <option value="US">US</option>
+            <option value="CA">Canada</option>
+            <option value="">Other</option>
+          </select>
+        </div>
+        <div>
+          <div class="ctrl-label" style="margin-bottom:4px">Mkt Cap ($M)</div>
+          <input class="ctrl-input" id="addCap" placeholder="e.g. 500" type="number" style="width:100%">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn-outline-custom" onclick="closeAddCompany()">Cancel</button>
+        <button class="btn-primary-custom" onclick="saveNewCompany()"><i class="bi bi-check-lg"></i> Add to List</button>
+      </div>
+    </div>
   </div>
 
   <!-- ===================== NEWS TAB ===================== -->
@@ -1052,6 +1113,95 @@ function escHtml(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 function fmtNum(n) { if (!n) return ''; if (n>=1e9) return '$'+(n/1e9).toFixed(2)+'B'; if (n>=1e6) return '$'+(n/1e6).toFixed(1)+'M'; return '$'+n.toLocaleString(); }
 
+// ─── PORTFOLIO PERSISTENCE ────────────────────────────────────────────────────
+const PM_LIST_KEY = 'pm_portfolio';
+let pmList = [];
+
+function pmLoad() {
+  try {
+    const saved = localStorage.getItem(PM_LIST_KEY);
+    pmList = saved ? JSON.parse(saved) : PORTFOLIO.slice();
+  } catch(e) { pmList = PORTFOLIO.slice(); }
+  if (!pmList.length) { pmList = PORTFOLIO.slice(); pmSave(); }
+}
+
+function pmSave() {
+  localStorage.setItem(PM_LIST_KEY, JSON.stringify(pmList));
+  document.getElementById('portfolioCount').textContent = pmList.length + ' companies';
+  repopulateExchanges();
+}
+
+function pmRemove(ticker) {
+  if (!confirm('Remove ' + ticker + ' from your list?')) return;
+  pmList = pmList.filter(c => c.ticker !== ticker);
+  pmSave();
+  renderCompanies();
+}
+
+function repopulateExchanges() {
+  const exchanges = [...new Set(pmList.map(c => c.exchange).filter(Boolean))].sort();
+  const exSel = document.getElementById('coExchange');
+  const cur = exSel.value;
+  exSel.innerHTML = '<option value="">All Exchanges</option>';
+  exchanges.forEach(e => { const o = document.createElement('option'); o.value = e; o.textContent = e; if (e === cur) o.selected = true; exSel.appendChild(o); });
+}
+
+// ─── ADD COMPANY MODAL ────────────────────────────────────────────────────────
+function openAddCompany() {
+  ['addTicker','addName','addIndustry','addExchange','addCap'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('addSector').value = '';
+  document.getElementById('addCountry').value = 'US';
+  document.getElementById('addLookupStatus').textContent = '';
+  document.getElementById('addCoModal').style.display = 'flex';
+  document.getElementById('addTicker').focus();
+}
+function closeAddCompany() { document.getElementById('addCoModal').style.display = 'none'; }
+
+async function lookupTicker() {
+  const tk = document.getElementById('addTicker').value.trim();
+  if (!tk) return;
+  const status = document.getElementById('addLookupStatus');
+  const btn = document.getElementById('addLookupBtn');
+  status.textContent = 'Looking up…'; status.style.color = 'var(--text-muted)';
+  btn.disabled = true;
+  const fmpKey = settings.fmp || 'zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J';
+  try {
+    const r = await fetch(`https://financialmodelingprep.com/stable/profile?symbol=${encodeURIComponent(tk.split('.')[0])}&apikey=${fmpKey}`);
+    const data = await r.json();
+    const p = Array.isArray(data) ? data[0] : data;
+    if (!p || !p.companyName) { status.textContent = 'Not found — fill in manually.'; status.style.color = 'var(--accent-red)'; btn.disabled = false; return; }
+    document.getElementById('addName').value = p.companyName || '';
+    document.getElementById('addExchange').value = p.exchangeShortName || p.exchange || '';
+    document.getElementById('addIndustry').value = p.industry || '';
+    document.getElementById('addCap').value = p.mktCap ? Math.round(p.mktCap/1e6) : '';
+    // Map FMP sector to our sectors
+    const sMap = { 'Technology':'Technology','Healthcare':'Healthcare','Basic Materials':'Materials','Consumer Cyclical':'Consumer','Consumer Defensive':'Consumer','Financial Services':'Financial Services','Energy':'Energy','Industrials':'Industrials','Communication Services':'Services','Real Estate':'Real Estate','Utilities':'Services' };
+    document.getElementById('addSector').value = sMap[p.sector] || '';
+    document.getElementById('addCountry').value = p.country === 'CA' ? 'CA' : 'US';
+    status.textContent = '✓ Found: ' + p.companyName; status.style.color = 'var(--accent-green)';
+  } catch(e) { status.textContent = 'Lookup failed — fill in manually.'; status.style.color = 'var(--accent-red)'; }
+  btn.disabled = false;
+}
+
+function saveNewCompany() {
+  const ticker = document.getElementById('addTicker').value.trim().toUpperCase();
+  const name = document.getElementById('addName').value.trim();
+  if (!ticker || !name) { alert('Ticker and Company Name are required.'); return; }
+  if (pmList.find(c => c.ticker === ticker)) { alert(ticker + ' is already in your list.'); return; }
+  pmList.push({
+    name, ticker, apiTicker: ticker.split('.')[0],
+    exchange: document.getElementById('addExchange').value.trim(),
+    sector: document.getElementById('addSector').value,
+    industry: document.getElementById('addIndustry').value.trim(),
+    country: document.getElementById('addCountry').value,
+    cap: parseFloat(document.getElementById('addCap').value) || 0,
+  });
+  pmList.sort((a, b) => a.name.localeCompare(b.name));
+  pmSave();
+  closeAddCompany();
+  renderCompanies();
+}
+
 // ─── COMPANIES TAB ────────────────────────────────────────────────────────────
 function renderCompanies() {
   const q = (document.getElementById('coSearch').value || '').toLowerCase().trim();
@@ -1060,7 +1210,7 @@ function renderCompanies() {
   const exchange = document.getElementById('coExchange').value;
   const sort = document.getElementById('coSort').value;
 
-  let list = PORTFOLIO.filter(c => {
+  let list = pmList.filter(c => {
     if (sector && c.sector !== sector) return false;
     if (country && c.country !== country) return false;
     if (exchange && c.exchange !== exchange) return false;
@@ -1093,12 +1243,14 @@ function renderCompanies() {
   h += '<th style="padding:8px 10px;text-align:left;font-weight:600">Exchange</th>';
   h += '<th style="padding:8px 10px;text-align:right;font-weight:600">Mkt Cap</th>';
   h += '<th style="padding:8px 4px;text-align:center;font-weight:600">Links</th>';
+  h += '<th style="padding:8px 4px;width:32px"></th>';
   h += '</tr></thead><tbody>';
 
   list.forEach(c => {
     const sCol = SECTOR_COLORS[c.sector] || 'var(--text-secondary)';
     const capStr = c.cap >= 1000 ? '$' + (c.cap/1000).toFixed(1) + 'B' : c.cap ? '$' + c.cap + 'M' : '—';
     const screenerTk = encodeURIComponent(c.ticker);
+    const tkSafe = c.ticker.replace(/'/g, "\\'");
     h += `<tr style="border-bottom:1px solid var(--border);transition:background 0.1s" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">`;
     h += `<td style="padding:9px 10px;font-weight:600;color:var(--text-primary)">${escHtml(c.name)}</td>`;
     h += `<td style="padding:9px 10px"><code style="font-size:12px;color:var(--accent-blue);background:rgba(88,166,255,0.1);padding:2px 6px;border-radius:3px">${escHtml(c.ticker)}</code></td>`;
@@ -1109,7 +1261,9 @@ function renderCompanies() {
     h += `<td style="padding:9px 4px;text-align:center;white-space:nowrap">`;
     h += `<a href="/valuation-screener/?t=${screenerTk}" style="font-size:11px;color:var(--accent-blue);text-decoration:none;padding:2px 6px;border:1px solid rgba(88,166,255,0.3);border-radius:3px;margin:0 2px" title="Open in Screener">📊</a>`;
     h += `<a href="https://finance.yahoo.com/quote/${encodeURIComponent(c.apiTicker||c.ticker)}/" target="_blank" style="font-size:11px;color:var(--text-muted);text-decoration:none;padding:2px 6px;border:1px solid var(--border);border-radius:3px;margin:0 2px" title="Yahoo Finance">Y</a>`;
-    h += `</td></tr>`;
+    h += `</td>`;
+    h += `<td style="padding:9px 4px;text-align:center"><button onclick="pmRemove('${tkSafe}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:2px 4px;border-radius:3px;line-height:1" title="Remove" onmouseover="this.style.color='var(--accent-red)'" onmouseout="this.style.color='var(--text-muted)'">✕</button></td>`;
+    h += `</tr>`;
   });
 
   h += '</tbody></table>';
@@ -1127,17 +1281,15 @@ function clearCoFilters() {
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('portfolioCount').textContent = PORTFOLIO.length + ' companies';
+  pmLoad();
   loadSettings();
   updateMonthLabel();
   onSectorChange();
-  // Populate exchange dropdown
-  const exchanges = [...new Set(PORTFOLIO.map(c => c.exchange).filter(Boolean))].sort();
-  const exSel = document.getElementById('coExchange');
-  exchanges.forEach(e => { const o = document.createElement('option'); o.value = e; o.textContent = e; exSel.appendChild(o); });
-  // Render companies immediately
+  repopulateExchanges();
   renderCompanies();
   document.getElementById('settingsModal').addEventListener('click', function(e) { if (e.target === this) closeSettings(); });
+  document.getElementById('addCoModal').addEventListener('click', function(e) { if (e.target === this) closeAddCompany(); });
+  document.getElementById('addTicker').addEventListener('keydown', function(e) { if (e.key === 'Enter') lookupTicker(); });
 });
 </script>
 </body>
