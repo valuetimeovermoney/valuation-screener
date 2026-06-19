@@ -339,8 +339,18 @@ select.ctrl-select:focus, input.ctrl-input:focus { border-color: var(--accent-bl
 
     <div class="controls-bar">
       <div class="ctrl-group">
+        <div class="ctrl-label">Search</div>
+        <input class="ctrl-select" type="text" id="newsSearch" placeholder="keyword…" style="min-width:140px" oninput="newsPage=0;renderNews()">
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Ticker</div>
+        <select class="ctrl-select" id="newsTickerFilter" onchange="newsPage=0;renderNews()" style="min-width:130px">
+          <option value="">All Companies</option>
+        </select>
+      </div>
+      <div class="ctrl-group">
         <div class="ctrl-label">Sector</div>
-        <select class="ctrl-select" id="newsSectorFilter" onchange="onSectorChange()">
+        <select class="ctrl-select" id="newsSectorFilter" onchange="newsPage=0;renderNews()">
           <option value="">All Sectors</option>
           <option>Technology</option>
           <option>Healthcare</option>
@@ -355,14 +365,8 @@ select.ctrl-select:focus, input.ctrl-input:focus { border-color: var(--accent-bl
         </select>
       </div>
       <div class="ctrl-group">
-        <div class="ctrl-label">Company</div>
-        <select class="ctrl-select" id="newsCompanyFilter" style="min-width:200px">
-          <option value="">All in sector</option>
-        </select>
-      </div>
-      <div class="ctrl-group">
         <div class="ctrl-label">Date Range</div>
-        <select class="ctrl-select" id="newsDateRange">
+        <select class="ctrl-select" id="newsDateRange" onchange="fetchNews()">
           <option value="7">Last 7 days</option>
           <option value="14">Last 14 days</option>
           <option value="30" selected>Last 30 days</option>
@@ -371,7 +375,7 @@ select.ctrl-select:focus, input.ctrl-input:focus { border-color: var(--accent-bl
       </div>
       <div class="ctrl-group">
         <div class="ctrl-label">Category</div>
-        <select class="ctrl-select" id="newsCatFilter" onchange="renderNews()">
+        <select class="ctrl-select" id="newsCatFilter" onchange="newsPage=0;renderNews()">
           <option value="">All Categories</option>
           <option value="earnings">Earnings</option>
           <option value="management">Management</option>
@@ -380,6 +384,15 @@ select.ctrl-select:focus, input.ctrl-input:focus { border-color: var(--accent-bl
           <option value="analyst">Analyst Coverage</option>
           <option value="risk">Risk Flags</option>
           <option value="operations">Operations</option>
+        </select>
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Sort By</div>
+        <select class="ctrl-select" id="newsSortBy" onchange="newsPage=0;renderNews()">
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+          <option value="ticker">Ticker A→Z</option>
+          <option value="sentiment">Sentiment</option>
         </select>
       </div>
       <div class="ctrl-group">
@@ -392,12 +405,12 @@ select.ctrl-select:focus, input.ctrl-input:focus { border-color: var(--accent-bl
       </div>
       <div class="ctrl-spacer"></div>
       <button class="btn-primary-custom" onclick="fetchNews()" id="fetchNewsBtn">
-        <i class="bi bi-arrow-clockwise"></i> Load News
+        <i class="bi bi-arrow-clockwise"></i> Refresh
       </button>
     </div>
 
     <div class="status-bar" id="newsStatus">
-      <span>Select filters and click <strong>Load News</strong></span>
+      <span>Loading news…</span>
     </div>
 
     <div id="newsContainer">
@@ -716,21 +729,11 @@ function switchTab(id, btn) {
   document.getElementById('tab-' + id).classList.add('active');
   btn.classList.add('active');
   if (id === 'companies') renderCompanies();
+  if (id === 'news') { if (!allNews.length) fetchNews(); else renderNews(); }
 }
 
-// ─── COMPANY FILTER ───────────────────────────────────────────────────────────
-function onSectorChange() {
-  const sector = document.getElementById('newsSectorFilter').value;
-  const sel = document.getElementById('newsCompanyFilter');
-  sel.innerHTML = '<option value="">All in sector</option>';
-  const filtered = sector ? PORTFOLIO.filter(c => c.sector === sector) : PORTFOLIO;
-  filtered.sort((a,b) => a.name.localeCompare(b.name)).forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c.apiTicker;
-    opt.textContent = `${c.name} (${c.ticker})`;
-    sel.appendChild(opt);
-  });
-}
+// ─── COMPANY FILTER (kept for calendar tab compatibility) ─────────────────────
+function onSectorChange() {}
 
 // ─── NEWS MODULE ──────────────────────────────────────────────────────────────
 const NEWS_CATS = {
@@ -776,15 +779,9 @@ async function fetchNews() {
   document.getElementById('newsPagination').innerHTML = '';
   document.getElementById('newsStatus').innerHTML = '<span>Fetching news…</span>';
 
-  const sector = document.getElementById('newsSectorFilter').value;
-  const company = document.getElementById('newsCompanyFilter').value;
   const days = parseInt(document.getElementById('newsDateRange').value);
   const source = document.getElementById('newsSource').value;
-
-  let companies;
-  if (company) companies = PORTFOLIO.filter(c => c.apiTicker === company);
-  else if (sector) companies = PORTFOLIO.filter(c => c.sector === sector);
-  else companies = PORTFOLIO;
+  const companies = pmList;
 
   const dateFrom = new Date(Date.now() - days * 86400000).toISOString().split('T')[0];
 
@@ -889,22 +886,36 @@ async function fetchNapiNews(companies, dateFrom) {
 
 function renderNews() {
   const catFilter = document.getElementById('newsCatFilter').value;
+  const tickerFilter = document.getElementById('newsTickerFilter').value;
+  const sectorFilter = document.getElementById('newsSectorFilter').value;
+  const searchQ = (document.getElementById('newsSearch').value || '').toLowerCase().trim();
+  const sortBy = document.getElementById('newsSortBy').value;
+
   let filtered = allNews;
+  if (tickerFilter) filtered = filtered.filter(a => a.ticker === tickerFilter);
+  if (sectorFilter) filtered = filtered.filter(a => a.sector === sectorFilter);
   if (catFilter) filtered = filtered.filter(a => categorize(a.title, a.summary).key === catFilter);
+  if (searchQ) filtered = filtered.filter(a => (a.title||'').toLowerCase().includes(searchQ) || (a.summary||'').toLowerCase().includes(searchQ) || (a.ticker||'').toLowerCase().includes(searchQ));
+
+  if (sortBy === 'oldest') filtered = filtered.slice().sort((a,b) => new Date(a.published) - new Date(b.published));
+  else if (sortBy === 'ticker') filtered = filtered.slice().sort((a,b) => (a.ticker||'').localeCompare(b.ticker||''));
+  else if (sortBy === 'sentiment') filtered = filtered.slice().sort((a,b) => (b.sentiment||0) - (a.sentiment||0));
+  else filtered = filtered.slice().sort((a,b) => new Date(b.published) - new Date(a.published));
+
   if (!filtered.length) {
-    document.getElementById('newsContainer').innerHTML = `<div class="empty-state"><i class="bi bi-inbox"></i><p>No articles found${catFilter?' for this category':''}</p></div>`;
+    document.getElementById('newsContainer').innerHTML = `<div class="empty-state"><i class="bi bi-inbox"></i><p>No articles match your filters</p></div>`;
     document.getElementById('newsPagination').innerHTML = '';
     return;
   }
   const slice = filtered.slice(newsPage * PAGE_SIZE, (newsPage + 1) * PAGE_SIZE);
   document.getElementById('newsContainer').innerHTML = `<div class="news-grid">${slice.map(buildNewsCard).join('')}</div>`;
-  renderNewsPagination(filtered.length, catFilter);
+  renderNewsPagination(filtered.length);
 }
 
 function buildNewsCard(a) {
   const cat = categorize(a.title, a.summary);
   const sent = a.sentiment !== undefined ? sentBadge(a.sentiment, a.sentLabel) : '';
-  const co = PORTFOLIO.find(c => c.apiTicker === a.ticker || c.ticker === a.ticker);
+  const co = pmList.find(c => c.apiTicker === a.ticker || c.ticker === a.ticker);
   const secDot = co ? `<span class="sec-dot sec-${co.sector.split(' ')[0]}"></span>` : '';
   return `<div class="news-card" onclick="window.open('${escHtml(a.url||'#')}','_blank')">
     <div class="news-card-header">
@@ -928,26 +939,25 @@ function sentBadge(score, label) {
   return `<span class="news-sentiment ${cls}">${icon} ${(label||'Neutral').replace('_',' ')}</span>`;
 }
 
-function renderNewsPagination(total, catFilter) {
+function renderNewsPagination(total) {
   const pages = Math.ceil(total / PAGE_SIZE);
   if (pages <= 1) { document.getElementById('newsPagination').innerHTML = ''; return; }
-  let html = `<button class="page-btn" onclick="goPage(${newsPage-1},'${catFilter}')" ${newsPage===0?'disabled':''}>‹ Prev</button>`;
-  for (let i = 0; i < Math.min(pages,8); i++) html += `<button class="page-btn ${i===newsPage?'active':''}" onclick="goPage(${i},'${catFilter}')">${i+1}</button>`;
+  let html = `<button class="page-btn" onclick="goPage(${newsPage-1})" ${newsPage===0?'disabled':''}>‹ Prev</button>`;
+  for (let i = 0; i < Math.min(pages,8); i++) html += `<button class="page-btn ${i===newsPage?'active':''}" onclick="goPage(${i})">${i+1}</button>`;
   if (pages > 8) html += `<span style="color:var(--text-muted);font-size:13px">… ${pages} pages</span>`;
-  html += `<button class="page-btn" onclick="goPage(${newsPage+1},'${catFilter}')" ${newsPage===pages-1?'disabled':''}>Next ›</button>`;
+  html += `<button class="page-btn" onclick="goPage(${newsPage+1})" ${newsPage===pages-1?'disabled':''}>Next ›</button>`;
   document.getElementById('newsPagination').innerHTML = html;
 }
 
-function goPage(p, catFilter) {
+function goPage(p) {
   newsPage = p;
-  document.getElementById('newsCatFilter').value = catFilter;
   renderNews();
   window.scrollTo(0, 0);
 }
 
 function updateNewsStatus(coCount) {
   const src = document.getElementById('newsSource').value.toUpperCase();
-  document.getElementById('newsStatus').innerHTML = `<span class="status-dot"></span><span><strong>${allNews.length}</strong> articles · <strong>${coCount}</strong> companies · Source: <strong>${src}</strong></span><span style="color:var(--text-muted)">Last updated ${new Date().toLocaleTimeString()}</span>`;
+  document.getElementById('newsStatus').innerHTML = `<span class="status-dot"></span><span><strong>${allNews.length}</strong> articles · <strong>${coCount}</strong> companies · Source: <strong>${src}</strong></span><span style="color:var(--text-muted)">Updated ${new Date().toLocaleTimeString()} · Use filters above to narrow results</span>`;
 }
 
 // ─── CALENDAR MODULE ──────────────────────────────────────────────────────────
@@ -1144,6 +1154,21 @@ function repopulateExchanges() {
   const cur = exSel.value;
   exSel.innerHTML = '<option value="">All Exchanges</option>';
   exchanges.forEach(e => { const o = document.createElement('option'); o.value = e; o.textContent = e; if (e === cur) o.selected = true; exSel.appendChild(o); });
+  repopulateNewsTickerFilter();
+}
+
+function repopulateNewsTickerFilter() {
+  const sel = document.getElementById('newsTickerFilter');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All Companies</option>';
+  pmList.slice().sort((a,b) => a.ticker.localeCompare(b.ticker)).forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.apiTicker || c.ticker;
+    o.textContent = c.ticker + (c.name ? ' — ' + c.name.slice(0,28) : '');
+    if (o.value === cur) o.selected = true;
+    sel.appendChild(o);
+  });
 }
 
 // ─── ADD COMPANY MODAL ────────────────────────────────────────────────────────
@@ -1225,7 +1250,7 @@ function renderCompanies() {
     return a.name.localeCompare(b.name);
   });
 
-  document.getElementById('coCount').textContent = list.length + ' of ' + PORTFOLIO.length + ' companies';
+  document.getElementById('coCount').textContent = list.length + ' of ' + pmList.length + ' companies';
 
   const SECTOR_COLORS = { Technology:'var(--accent-blue)', Healthcare:'var(--accent-green)', Materials:'var(--accent-gold)', Consumer:'var(--accent-orange)', 'Financial Services':'var(--accent-purple)', Energy:'#e3883d', Industrials:'#58a6ff', Services:'#3fb950', 'Real Estate':'#bc8cff', 'Telecommunication Services':'#8b949e' };
 
@@ -1284,7 +1309,6 @@ document.addEventListener('DOMContentLoaded', () => {
   pmLoad();
   loadSettings();
   updateMonthLabel();
-  onSectorChange();
   repopulateExchanges();
   renderCompanies();
   document.getElementById('settingsModal').addEventListener('click', function(e) { if (e.target === this) closeSettings(); });
