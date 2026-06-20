@@ -2585,7 +2585,7 @@ async function loadVtTranscripts(){
     console.log('[Transcripts] found=',deduped.length,'raw=',all.length);
 
     if(!deduped.length){
-      el.innerHTML='<div style="padding:20px;background:var(--cd);border:1px solid var(--bd);border-radius:8px;color:var(--lb)">No earnings call transcripts found for <b style="color:var(--br)">'+escH(tk)+'</b> in the last 3 years.</div>';
+      el.innerHTML='<div style="padding:20px;background:var(--cd);border:1px solid var(--bd);border-radius:8px;color:var(--lb)">No earnings call transcripts available for <b style="color:var(--br)">'+escH(tk)+'</b> in FMP. Smaller/foreign listings often aren'+"'"+'t covered.</div>';
       return;
     }
 
