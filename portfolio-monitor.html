@@ -860,14 +860,18 @@ async function fmpGet(url, label) {
   } catch(e) { if (label) _newsDiag.push(`${label}: ${e.message.slice(0,40)}`); return null; }
 }
 
+const FMP_DEFAULT_KEY = 'zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J';
+
 async function fetchFmpNews(companies, dateFrom) {
-  const AK = settings.fmp;
+  // Prefer the stored key, but fall back to the known-good default
+  const AK = (settings.fmp && settings.fmp.trim()) || FMP_DEFAULT_KEY;
   const V3 = 'https://financialmodelingprep.com/api/v3';
   const V4 = 'https://financialmodelingprep.com/api/v4';
   const ST = 'https://financialmodelingprep.com/stable';
   const tickers = companies.map(c => c.apiTicker).filter(Boolean);
   if (!tickers.length) return [];
   _newsDiag = [];
+  _newsDiag.push(`key …${AK.slice(-4)} (len ${AK.length})`);
 
   const dateFrom9 = new Date(dateFrom);
   const seen = new Set();
@@ -897,6 +901,12 @@ async function fetchFmpNews(companies, dateFrom) {
   }
 
   const setProg = (msg) => { const el = document.getElementById('newsStatus'); if (el) el.innerHTML = `<span>${msg}</span>`; };
+
+  // Probe a basic endpoint to confirm the key is valid at all
+  try {
+    const pr = await fetch(`${ST}/quote?symbol=AAPL&apikey=${AK}`);
+    _newsDiag.push(`key-test(quote): HTTP ${pr.status}`);
+  } catch(e) { _newsDiag.push(`key-test: ${e.message.slice(0,30)}`); }
 
   // Build batched stock-news + press-release tasks (batched symbols = fast)
   const BATCH = 20;
