@@ -844,32 +844,33 @@ async function fetchNews() {
 
 async function fetchFmpNews(companies, dateFrom) {
   const BATCH = 20;
-  const tickers = companies.map(c => c.apiTicker).filter(t => !t.includes('.V') && !t.includes('.TO') && !t.includes('.CN') && !t.includes('.NE') && !t.includes('.v'));
+  const tickers = companies.map(c => c.apiTicker).filter(Boolean);
+  if (!tickers.length) return [];
   const allArticles = [];
   for (let i = 0; i < tickers.length; i += BATCH) {
     const batch = tickers.slice(i, i + BATCH).join(',');
-    // Use /stable/news (free-tier compatible); fall back to /api/v3/stock_news
     let data = null;
     for (const url of [
       `https://financialmodelingprep.com/stable/news?symbols=${encodeURIComponent(batch)}&limit=50&from=${dateFrom}&apikey=${settings.fmp}`,
       `https://financialmodelingprep.com/api/v3/stock_news?tickers=${encodeURIComponent(batch)}&limit=50&apikey=${settings.fmp}`,
     ]) {
-      const r = await fetch(url);
-      if (r.status === 403 || r.status === 401) continue;
-      if (!r.ok) throw new Error(`FMP API error ${r.status}: ${r.statusText}`);
-      const json = await r.json();
-      if (json['Error Message']) continue;
-      data = json;
-      break;
+      try {
+        const r = await fetch(url);
+        if (r.status === 403 || r.status === 401) continue;
+        if (!r.ok) continue;
+        const json = await r.json();
+        if (json['Error Message'] || !Array.isArray(json)) continue;
+        data = json;
+        break;
+      } catch(e) { continue; }
     }
-    if (!data) throw new Error('FMP API returned 403 — your API key may not have access to news endpoints. Try Alpha Vantage instead.');
+    if (!data) continue;
     if (Array.isArray(data)) {
       data.forEach(item => {
-        // /stable/news uses publishedDate; /api/v3 also uses publishedDate
         const pub = new Date(item.publishedDate || item.publishedAt || '');
         if (pub >= new Date(dateFrom)) {
           const sym = item.symbol || item.ticker || '';
-          const co = companies.find(c => c.apiTicker === sym);
+          const co = companies.find(c => c.apiTicker === sym || c.ticker === sym);
           allArticles.push({ title:item.title, url:item.url, source:item.site||item.source, published:item.publishedDate||item.publishedAt, summary:item.text||item.summary, ticker:sym, companyName:co?co.name:sym, sector:co?co.sector:'' });
         }
       });
