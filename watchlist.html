@@ -6,16 +6,17 @@
 <title>My Watchlist — ValueTime</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#090c14;--cd:#0f1320;--bd:#1a2234;--bl:#38bdf8;--lb:#7a8494;--br:#f0f4f8;--gn:#22c55e;--rd:#ef4444;--yw:#eab308;--dm:#4a5568;--f:'DM Sans',system-ui,sans-serif;--m:'JetBrains Mono',monospace}
+:root{--bg:#090c14;--cd:#0f1320;--bd:#1a2234;--bl:#38bdf8;--lb:#7a8494;--br:#f0f4f8;--gn:#22c55e;--rd:#ef4444;--yw:#eab308;--dm:#4a5568;--tx:#c8d0dc;--f:'DM Sans',system-ui,sans-serif;--m:'JetBrains Mono',monospace}
+body.light{--bg:#f6f8fa;--cd:#ffffff;--bd:#d0d7de;--bl:#0969da;--lb:#57606a;--br:#1c2128;--gn:#1a7f37;--rd:#cf222e;--yw:#9a6700;--dm:#57606a;--tx:#1c2128}
 *{margin:0;padding:0;box-sizing:border-box}
-body{min-height:100vh;background:var(--bg);font-family:var(--f);color:#c8d0dc}
+body{min-height:100vh;background:var(--bg);font-family:var(--f);color:var(--tx);transition:background 0.2s,color 0.2s}
 .w{max-width:980px;margin:0 auto;padding:24px 16px}
 .sp{width:28px;height:28px;border:3px solid var(--bd);border-top-color:var(--bl);border-radius:50%;margin:0 auto 12px;animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 .wl-card{background:var(--cd);border:1px solid var(--bd);border-radius:10px;padding:16px 20px;display:flex;align-items:center;gap:16px;margin-bottom:10px;flex-wrap:wrap}
 .wl-name{font-size:15px;font-weight:700;color:var(--br);flex:1;min-width:160px}
 .wl-ticker{font-family:var(--m);font-size:13px;color:var(--bl);font-weight:700}
-.wl-sector{font-size:11px;color:var(--dm);background:#1a2234;border-radius:4px;padding:2px 8px;white-space:nowrap}
+.wl-sector{font-size:11px;color:var(--dm);background:var(--bd);border-radius:4px;padding:2px 8px;white-space:nowrap}
 .wl-price{font-family:var(--m);font-size:18px;font-weight:800;color:var(--bl);white-space:nowrap}
 .wl-chg-pos{color:var(--gn);font-size:12px;font-family:var(--m)}
 .wl-chg-neg{color:var(--rd);font-size:12px;font-family:var(--m)}
@@ -30,7 +31,7 @@ body{min-height:100vh;background:var(--bg);font-family:var(--f);color:#c8d0dc}
 </style>
 </head>
 <body>
-<style>.vtm-nav{background:#0d1117;border-bottom:1px solid #30363d;padding:0 16px;display:flex;align-items:center;gap:2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;position:sticky;top:0;z-index:999}.vtm-nav a{color:#8b949e;text-decoration:none;padding:9px 13px;font-size:12px;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s}.vtm-nav a:hover{color:#e6edf3}.vtm-nav a.vtm-active{color:#58a6ff;border-bottom-color:#58a6ff}.vtm-brand{font-weight:800!important;font-size:14px!important;color:#e6edf3!important;padding-right:16px!important;border-bottom:none!important}</style>
+<style>.vtm-nav{background:var(--cd);border-bottom:1px solid var(--bd);padding:0 16px;display:flex;align-items:center;gap:2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;position:sticky;top:0;z-index:999}.vtm-nav a{color:var(--lb);text-decoration:none;padding:9px 13px;font-size:12px;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s}.vtm-nav a:hover{color:var(--br)}.vtm-nav a.vtm-active{color:var(--bl);border-bottom-color:var(--bl)}.vtm-brand{font-weight:800!important;font-size:14px!important;color:var(--br)!important;padding-right:16px!important;border-bottom:none!important}</style>
 <nav class="vtm-nav"><a class="vtm-brand" href="/valuation-screener/">Value<span style="color:#d29922">Time</span></a><a id="vtm-l1" href="/valuation-screener/">Screener</a><a id="vtm-l2" href="/valuation-screener/valuation/">Valuation</a><a id="vtm-l3" href="/valuation-screener/portfolio-monitor.html">Portfolio Monitor</a><a id="vtm-l4" href="/valuation-screener/watchlist.html">Watchlist</a></nav>
 <script>(function(){var p=location.pathname;if(p.includes('/valuation/'))document.getElementById('vtm-l2').classList.add('vtm-active');else if(p.includes('portfolio-monitor'))document.getElementById('vtm-l3').classList.add('vtm-active');else if(p.includes('watchlist'))document.getElementById('vtm-l4').classList.add('vtm-active');else document.getElementById('vtm-l1').classList.add('vtm-active');})();</script>
 
@@ -40,7 +41,10 @@ body{min-height:100vh;background:var(--bg);font-family:var(--f);color:#c8d0dc}
       <h1 style="font-size:22px;font-weight:800;color:var(--br)">★ My Watchlist</h1>
       <div style="font-size:12px;color:var(--lb);margin-top:4px">Companies you've saved for later</div>
     </div>
-    <button onclick="refreshPrices()" style="background:none;border:1px solid var(--bd);color:var(--lb);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--f)">↻ Refresh</button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="refreshPrices()" style="background:none;border:1px solid var(--bd);color:var(--lb);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--f)">↻ Refresh</button>
+      <button id="wlThemeBtn" onclick="wlToggleTheme()" title="Toggle day/night mode" style="background:none;border:1px solid var(--bd);color:var(--lb);border-radius:6px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px">☀</button>
+    </div>
   </div>
   <div id="wl-out"><div style="text-align:center;padding:40px;color:var(--dm)"><div class="sp"></div><div>Loading…</div></div></div>
 </div>
@@ -49,6 +53,9 @@ body{min-height:100vh;background:var(--bg);font-family:var(--f);color:#c8d0dc}
 var AK='zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J';
 var BASE='https://financialmodelingprep.com/stable/';
 var WL_KEY='vtm_wl';
+
+(function(){if(localStorage.getItem('pm_theme')==='light'){document.body.classList.add('light');document.addEventListener('DOMContentLoaded',function(){var b=document.getElementById('wlThemeBtn');if(b)b.textContent='☾';});}})();
+function wlToggleTheme(){var isLight=document.body.classList.toggle('light');localStorage.setItem('pm_theme',isLight?'light':'dark');document.getElementById('wlThemeBtn').textContent=isLight?'☾':'☀';}
 
 function wlGet(){try{return JSON.parse(localStorage.getItem(WL_KEY)||'[]');}catch(e){return[];}}
 function wlSave(a){localStorage.setItem(WL_KEY,JSON.stringify(a));}

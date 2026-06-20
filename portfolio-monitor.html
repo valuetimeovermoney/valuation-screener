@@ -23,8 +23,24 @@
   --accent-purple: #bc8cff;
   --accent-orange: #e3883d;
 }
+body.light {
+  --bg-primary: #f6f8fa;
+  --bg-secondary: #ffffff;
+  --bg-card: #f0f4f8;
+  --bg-hover: #e8edf2;
+  --border: #d0d7de;
+  --text-primary: #1c2128;
+  --text-secondary: #57606a;
+  --text-muted: #6e7781;
+  --accent-green: #1a7f37;
+  --accent-gold: #9a6700;
+  --accent-blue: #0969da;
+  --accent-red: #cf222e;
+  --accent-purple: #8250df;
+  --accent-orange: #bc4c00;
+}
 * { box-sizing: border-box; }
-body { background: var(--bg-primary); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; font-size: 14px; min-height: 100vh; }
+body { background: var(--bg-primary); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; font-size: 14px; min-height: 100vh; transition: background 0.2s, color 0.2s; }
 
 /* Shared top nav */
 .vtm-nav{background:var(--bg-secondary);border-bottom:1px solid var(--border);padding:0 16px;display:flex;align-items:center;gap:2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;position:sticky;top:0;z-index:999}
@@ -200,6 +216,9 @@ select.ctrl-select:focus, input.ctrl-input:focus { border-color: var(--accent-bl
   <div class="logo">Portfolio<span>Monitor</span></div>
   <span class="badge-count" id="portfolioCount">141 companies</span>
   <div class="header-spacer"></div>
+  <div class="btn-icon" onclick="toggleTheme()" id="themeBtn" title="Toggle day/night mode">
+    <i class="bi bi-sun"></i>
+  </div>
   <div class="btn-icon" onclick="openSettings()" title="API Settings">
     <i class="bi bi-gear"></i>
   </div>
@@ -692,6 +711,22 @@ const PORTFOLIO = [
   { name:"Zedge", ticker:"ZDGE", apiTicker:"ZDGE", exchange:"NYSE American", cap:38, sector:"Services", industry:"Internet Content", country:"US" },
   { name:"Zoomd", ticker:"ZOMD.V", apiTicker:"ZOMD.V", exchange:"TSX-V", cap:140, sector:"Technology", industry:"Software & IT Services", country:"CA" },
 ];
+
+// ─── THEME ────────────────────────────────────────────────────────────────────
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light');
+  localStorage.setItem('pm_theme', isLight ? 'light' : 'dark');
+  document.getElementById('themeBtn').innerHTML = isLight ? '<i class="bi bi-moon"></i>' : '<i class="bi bi-sun"></i>';
+}
+(function() {
+  if (localStorage.getItem('pm_theme') === 'light') {
+    document.body.classList.add('light');
+    document.addEventListener('DOMContentLoaded', function() {
+      const btn = document.getElementById('themeBtn');
+      if (btn) btn.innerHTML = '<i class="bi bi-moon"></i>';
+    });
+  }
+})();
 
 // ─── SETTINGS ─────────────────────────────────────────────────────────────────
 const SETTINGS_KEY = 'pm_settings';
