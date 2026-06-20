@@ -941,16 +941,18 @@ async function fetchFmpNews(companies, dateFrom) {
   const setProg = (msg) => { const el = document.getElementById('newsStatus'); if (el) el.innerHTML = `<span>${msg}</span>`; };
   setProg(`Fetching news from FMP (${tickers.length} companies)…`);
 
-  // Use single-ticker stable/news?symbols=TICKER — the only path confirmed working.
-  // Run all companies in parallel, capped at 15 concurrent requests.
-  const CONCURRENCY = 15;
+  // Correct FMP stable news path is /news/stock?symbols= (plural). Also pull press
+  // releases per company. Run all companies in parallel, capped concurrency.
+  const CONCURRENCY = 12;
   for (let i = 0; i < tickers.length; i += CONCURRENCY) {
     const chunk = tickers.slice(i, i + CONCURRENCY);
     setProg(`Fetching news… ${Math.min(i + CONCURRENCY, tickers.length)} / ${tickers.length}`);
     await Promise.all(chunk.map(async (tk, idx) => {
-      const label = (i === 0 && idx === 0) ? 'news' : null;
-      const data = await fmpGet(`${ST}/news?symbols=${encodeURIComponent(tk)}&limit=50&apikey=${AK}`, label);
-      if (data) data.forEach(item => pushItem(item, 'News', tk));
+      const label = (i === 0 && idx === 0) ? 'news/stock' : null;
+      const news = await fmpGet(`${ST}/news/stock?symbols=${encodeURIComponent(tk)}&limit=50&apikey=${AK}`, label);
+      if (news) news.forEach(item => pushItem(item, 'News', tk));
+      const pr = await fmpGet(`${ST}/news/press-releases?symbols=${encodeURIComponent(tk)}&limit=20&apikey=${AK}`, (i===0&&idx===0)?'press-releases':null);
+      if (pr) pr.forEach(item => pushItem(item, 'Press Release', tk));
     }));
   }
 
