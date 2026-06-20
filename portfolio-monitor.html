@@ -695,10 +695,10 @@ const PORTFOLIO = [
 
 // ─── SETTINGS ─────────────────────────────────────────────────────────────────
 const SETTINGS_KEY = 'pm_settings';
-let settings = { fmp:'', av:'', napi:'', corsProxy:'' };
+let settings = { fmp:'zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J', av:'', napi:'', corsProxy:'' };
 
 function loadSettings() {
-  try { const s = JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}'); Object.assign(settings, s); } catch(e) {}
+  try { const s = JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}'); Object.keys(s).forEach(k => { if (s[k]) settings[k] = s[k]; }); } catch(e) {}
   document.getElementById('fmpKey').value = settings.fmp || '';
   document.getElementById('avKey').value = settings.av || '';
   document.getElementById('napiKey').value = settings.napi || '';
