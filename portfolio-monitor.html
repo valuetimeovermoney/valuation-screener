@@ -861,17 +861,47 @@ async function fmpGet(url, label) {
 }
 
 const FMP_DEFAULT_KEY = 'zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J';
+let _fmpWorkingKey = null;
+
+// Return the first FMP key that authenticates against a basic endpoint.
+async function resolveFmpKey() {
+  if (_fmpWorkingKey) return _fmpWorkingKey;
+  const ST = 'https://financialmodelingprep.com/stable';
+  const stored = (settings.fmp && settings.fmp.trim()) || '';
+  // Try stored key first, then the known-good default. Dedupe.
+  const candidates = [...new Set([stored, FMP_DEFAULT_KEY].filter(Boolean))];
+  for (const k of candidates) {
+    try {
+      const r = await fetch(`${ST}/quote?symbol=AAPL&apikey=${k}`);
+      _newsDiag.push(`key …${k.slice(-4)}(len ${k.length}): HTTP ${r.status}`);
+      if (r.ok) {
+        _fmpWorkingKey = k;
+        // Heal localStorage if the stored key was the broken one
+        if (k === FMP_DEFAULT_KEY && stored !== FMP_DEFAULT_KEY) {
+          settings.fmp = FMP_DEFAULT_KEY;
+          localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+          _newsDiag.push('reset stored key → default');
+        }
+        return k;
+      }
+    } catch(e) { _newsDiag.push(`key …${k.slice(-4)}: ${e.message.slice(0,30)}`); }
+  }
+  return null;
+}
 
 async function fetchFmpNews(companies, dateFrom) {
-  // Prefer the stored key, but fall back to the known-good default
-  const AK = (settings.fmp && settings.fmp.trim()) || FMP_DEFAULT_KEY;
   const V3 = 'https://financialmodelingprep.com/api/v3';
   const V4 = 'https://financialmodelingprep.com/api/v4';
   const ST = 'https://financialmodelingprep.com/stable';
   const tickers = companies.map(c => c.apiTicker).filter(Boolean);
   if (!tickers.length) return [];
   _newsDiag = [];
-  _newsDiag.push(`key …${AK.slice(-4)} (len ${AK.length})`);
+
+  const AK = await resolveFmpKey();
+  if (!AK) {
+    _newsDiag.push('no working key — all candidates returned 401');
+    return [];
+  }
 
   const dateFrom9 = new Date(dateFrom);
   const seen = new Set();
@@ -901,12 +931,6 @@ async function fetchFmpNews(companies, dateFrom) {
   }
 
   const setProg = (msg) => { const el = document.getElementById('newsStatus'); if (el) el.innerHTML = `<span>${msg}</span>`; };
-
-  // Probe a basic endpoint to confirm the key is valid at all
-  try {
-    const pr = await fetch(`${ST}/quote?symbol=AAPL&apikey=${AK}`);
-    _newsDiag.push(`key-test(quote): HTTP ${pr.status}`);
-  } catch(e) { _newsDiag.push(`key-test: ${e.message.slice(0,30)}`); }
 
   // Build batched stock-news + press-release tasks (batched symbols = fast)
   const BATCH = 20;
