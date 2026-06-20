@@ -834,6 +834,9 @@ async function fetchNews() {
     newsPage = 0;
     renderNews();
     updateNewsStatus(companies.length);
+    if (!articles.length && _newsDiag && _newsDiag.length) {
+      document.getElementById('newsContainer').innerHTML = `<div class="empty-state"><i class="bi bi-inbox"></i><p>No articles returned.</p><p style="font-size:12px;color:var(--text-muted);margin-top:8px;font-family:monospace">Endpoint results: ${_newsDiag.map(escHtml).join(' · ')}</p><p style="font-size:12px;color:var(--text-muted);margin-top:6px">If endpoints show HTTP 403, your FMP plan may not include those news endpoints.</p></div>`;
+    }
   } catch(e) {
     document.getElementById('newsContainer').innerHTML = `<div class="empty-state"><i class="bi bi-exclamation-triangle"></i><p style="color:var(--accent-red)">Error: ${e.message}</p><p>Check your API key and try again.</p></div>`;
     document.getElementById('newsStatus').innerHTML = `<span style="color:var(--accent-red)">Failed to fetch news</span>`;
@@ -842,106 +845,116 @@ async function fetchNews() {
   btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Load News';
 }
 
-async function fmpGet(url) {
+// Diagnostics for the last news fetch (surfaced in the status bar)
+let _newsDiag = [];
+
+async function fmpGet(url, label) {
   try {
     const r = await fetch(url);
-    if (!r.ok) return null;
+    if (!r.ok) { if (label) _newsDiag.push(`${label}: HTTP ${r.status}`); return null; }
     const j = await r.json();
-    if (!j || j['Error Message'] || (typeof j === 'object' && !Array.isArray(j) && j.status === 'error')) return null;
-    return Array.isArray(j) ? j : null;
-  } catch(e) { return null; }
+    if (j && j['Error Message']) { if (label) _newsDiag.push(`${label}: ${String(j['Error Message']).slice(0,60)}`); return null; }
+    if (!Array.isArray(j)) { if (label) _newsDiag.push(`${label}: no array`); return null; }
+    if (label) _newsDiag.push(`${label}: ${j.length}`);
+    return j;
+  } catch(e) { if (label) _newsDiag.push(`${label}: ${e.message.slice(0,40)}`); return null; }
 }
 
 async function fetchFmpNews(companies, dateFrom) {
   const AK = settings.fmp;
-  const BASE3 = 'https://financialmodelingprep.com/api/v3';
-  const BASE4 = 'https://financialmodelingprep.com/api/v4';
-  const BASES = 'https://financialmodelingprep.com/stable';
+  const V3 = 'https://financialmodelingprep.com/api/v3';
+  const V4 = 'https://financialmodelingprep.com/api/v4';
+  const ST = 'https://financialmodelingprep.com/stable';
   const tickers = companies.map(c => c.apiTicker).filter(Boolean);
   if (!tickers.length) return [];
+  _newsDiag = [];
 
   const dateFrom9 = new Date(dateFrom);
   const seen = new Set();
   const allArticles = [];
 
-  function pushItem(item, type, fallbackTicker) {
+  function pushItem(item, type, fallbackTicker, requireMatch) {
     const url = item.url || item.link || '';
     const title = item.title || '';
     const key = url || title;
     if (!key || seen.has(key)) return;
-    seen.add(key);
     const pub = new Date(item.publishedDate || item.publishedAt || item.date || '');
-    if (pub < dateFrom9) return;
+    if (isFinite(pub) && pub < dateFrom9) return;
     const sym = item.symbol || item.ticker || fallbackTicker || '';
     const co = companies.find(c => c.apiTicker === sym || c.ticker === sym);
+    if (requireMatch && !co) return;
+    seen.add(key);
     allArticles.push({
       title, url,
-      source: item.site || item.source || type,
+      source: item.site || item.source || item.publisher || type,
       published: item.publishedDate || item.publishedAt || item.date,
       summary: item.text || item.summary || item.content || '',
       ticker: sym,
-      companyName: co ? co.name : (item.companyName || sym),
+      companyName: co ? co.name : (item.companyName || sym || 'Market News'),
       sector: co ? co.sector : '',
       newsType: type,
     });
   }
 
-  // ── 1. stable/news batched (primary stock news)
+  const setProg = (msg) => { const el = document.getElementById('newsStatus'); if (el) el.innerHTML = `<span>${msg}</span>`; };
+
+  // Build batched stock-news + press-release tasks (batched symbols = fast)
   const BATCH = 20;
-  for (let i = 0; i < tickers.length; i += BATCH) {
-    const batch = tickers.slice(i, i + BATCH).join(',');
-    const data = await fmpGet(`${BASES}/news?symbols=${encodeURIComponent(batch)}&limit=100&from=${dateFrom}&apikey=${AK}`)
-               || await fmpGet(`${BASE3}/stock_news?tickers=${encodeURIComponent(batch)}&limit=100&apikey=${AK}`);
-    if (data) data.forEach(item => pushItem(item, 'News', ''));
-    if (i + BATCH < tickers.length) await sleep(200);
+  const batches = [];
+  for (let i = 0; i < tickers.length; i += BATCH) batches.push(tickers.slice(i, i + BATCH).join(','));
+
+  setProg(`Fetching news from FMP (${batches.length} batches across ${tickers.length} companies)…`);
+
+  // ── Run all source families in parallel ──────────────────────────────
+  const tasks = [];
+
+  // 1) Stock news — try stable/news/stock then legacy v3/stock_news per batch
+  batches.forEach((batch, bi) => {
+    tasks.push((async () => {
+      const data = await fmpGet(`${ST}/news/stock?symbols=${encodeURIComponent(batch)}&limit=100&apikey=${AK}`, bi===0?'stock-news':null)
+                || await fmpGet(`${ST}/news/stock-latest?symbols=${encodeURIComponent(batch)}&limit=100&apikey=${AK}`)
+                || await fmpGet(`${V3}/stock_news?tickers=${encodeURIComponent(batch)}&limit=100&apikey=${AK}`, bi===0?'v3-stock_news':null);
+      if (data) data.forEach(item => pushItem(item, 'News', ''));
+    })());
+  });
+
+  // 2) Press releases — batched stable endpoint (fast), fallback per-batch v3
+  batches.forEach((batch, bi) => {
+    tasks.push((async () => {
+      const data = await fmpGet(`${ST}/news/press-releases?symbols=${encodeURIComponent(batch)}&limit=100&apikey=${AK}`, bi===0?'press-rel':null);
+      if (data) data.forEach(item => pushItem(item, 'Press Release', ''));
+    })());
+  });
+
+  // 3) General market news (latest)
+  tasks.push((async () => {
+    const data = await fmpGet(`${ST}/news/general-latest?limit=100&apikey=${AK}`, 'general')
+              || await fmpGet(`${V4}/general-news?page=0&apikey=${AK}`);
+    if (data) data.forEach(item => pushItem(item, 'General', ''));
+  })());
+
+  // 4) FMP RSS feed — broad, filtered to portfolio tickers only
+  tasks.push((async () => {
+    const data = await fmpGet(`${V3}/rss_feed?limit=200&apikey=${AK}`, 'rss');
+    if (data) data.forEach(item => pushItem(item, 'RSS', '', true));
+  })());
+
+  await Promise.all(tasks);
+
+  // ── Fallback: if STILL nothing, fetch per-company (first 30) v3 stock_news ──
+  if (!allArticles.length) {
+    setProg('No batch results — trying per-company fallback…');
+    const subset = tickers.slice(0, 30);
+    const CC = 8;
+    for (let i = 0; i < subset.length; i += CC) {
+      await Promise.all(subset.slice(i, i + CC).map(async tk => {
+        const d = await fmpGet(`${V3}/stock_news?tickers=${encodeURIComponent(tk)}&limit=20&apikey=${AK}`);
+        if (d) d.forEach(item => pushItem(item, 'News', tk));
+        const p = await fmpGet(`${V3}/press-releases/${encodeURIComponent(tk)}?limit=10&apikey=${AK}`);
+        if (p) p.forEach(item => pushItem(item, 'Press Release', tk));
+      }));
+    }
   }
-
-  // ── 2. Press releases per company (in parallel, max 6 at a time)
-  const PR_LIMIT = 6;
-  for (let i = 0; i < tickers.length; i += PR_LIMIT) {
-    const chunk = tickers.slice(i, i + PR_LIMIT);
-    await Promise.all(chunk.map(async tk => {
-      const data = await fmpGet(`${BASE3}/press-releases/${encodeURIComponent(tk)}?limit=20&apikey=${AK}`);
-      if (data) data.forEach(item => pushItem(item, 'Press Release', tk));
-    }));
-    if (i + PR_LIMIT < tickers.length) await sleep(200);
-  }
-
-  // ── 3. FMP general financial news (market-wide)
-  const general = await fmpGet(`${BASE4}/general-news?page=0&apikey=${AK}`);
-  if (general) general.forEach(item => {
-    const key = item.url || item.title;
-    if (!key || seen.has(key)) return;
-    seen.add(key);
-    const pub = new Date(item.publishedDate || item.date || '');
-    if (pub < dateFrom9) return;
-    allArticles.push({
-      title: item.title, url: item.url,
-      source: item.site || item.source || 'General',
-      published: item.publishedDate || item.date,
-      summary: item.text || item.summary || '',
-      ticker: '', companyName: 'Market News', sector: '',
-      newsType: 'General',
-    });
-  });
-
-  // ── 4. FMP RSS feed (latest headlines across all tracked stocks)
-  const rss = await fmpGet(`${BASE3}/rss_feed?limit=100&apikey=${AK}`);
-  if (rss) rss.forEach(item => {
-    const sym = item.symbol || item.ticker || '';
-    const co = companies.find(c => c.apiTicker === sym || c.ticker === sym);
-    if (!co && sym) return; // only keep items relevant to our portfolio
-    pushItem(item, 'RSS', sym);
-  });
-
-  // ── 5. ESG / Sustainability news (v4 endpoint)
-  const esg = await fmpGet(`${BASE4}/esg-environmental-social-governance-news?page=0&apikey=${AK}`);
-  if (esg) esg.forEach(item => {
-    const sym = item.symbol || item.ticker || '';
-    const co = companies.find(c => c.apiTicker === sym || c.ticker === sym);
-    if (!co) return;
-    pushItem(item, 'ESG', sym);
-  });
 
   return allArticles.sort((a,b) => new Date(b.published) - new Date(a.published));
 }
