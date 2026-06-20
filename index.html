@@ -2426,11 +2426,12 @@ async function loadVtCapTable(){
     // Institutional ownership needs year+quarter; use the most recent completed quarter
     var _nowD=new Date(),_yr=_nowD.getFullYear(),_q=Math.floor(_nowD.getMonth()/3)+1;
     _q-=1;if(_q<1){_q=4;_yr-=1;} // step back to last completed filing quarter
-    var [insiders, insStats, sharesFloat, instSum] = await Promise.all([
+    var [insiders, insStats, sharesFloat, instSum, instHolders] = await Promise.all([
       _sf('insider-trading/search?symbol='+encodeURIComponent(tkBase)+'&limit=100').then(toArr),
       _sf('insider-trading/statistics?symbol='+encodeURIComponent(tkBase)).then(toArr),
       _sf('shares-float?symbol='+encodeURIComponent(tkBase)).then(toArr),
       _sf('institutional-ownership/symbol-positions-summary?symbol='+encodeURIComponent(tkBase)+'&year='+_yr+'&quarter='+_q).then(toArr),
+      _sf('institutional-ownership/institutional-holders/symbol-positions-summary?symbol='+encodeURIComponent(tkBase)+'&year='+_yr+'&quarter='+_q).then(toArr),
     ]);
     var instHolder=instSum;
     console.log('[CapTable] insiders=',insiders&&insiders.length,'inst=',instHolder&&instHolder.length,'stats=',insStats,'float=',sharesFloat);
@@ -2455,6 +2456,57 @@ async function loadVtCapTable(){
         h2+='<div style="background:var(--cd);border:1px solid var(--bd);border-radius:8px;padding:12px;text-align:center"><div style="font-size:9px;color:var(--dm);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">'+it[0]+'</div><div style="font-size:15px;font-weight:700;color:'+it[2]+'">'+it[1]+'</div></div>';
       });
       h2+='</div></div>';
+    }
+
+    // ── Ownership Breakdown (Donut Chart) ─────────────────
+    var _ioPctNum=null;
+    var _io2=Array.isArray(instHolder)?instHolder[0]:instHolder;
+    if(_io2&&_io2.ownershipPercent!=null){
+      _ioPctNum=_io2.ownershipPercent>1?_io2.ownershipPercent:_io2.ownershipPercent*100;
+    }
+    // Try to get insider % from shares float (outstandingShares - floatShares = insider/restricted shares)
+    var _insiderPctNum=null;
+    if(sf0&&sf0.outstandingShares&&sf0.floatShares){
+      var _restrictedShares=sf0.outstandingShares-sf0.floatShares;
+      _insiderPctNum=Math.max(0,_restrictedShares/sf0.outstandingShares*100);
+    }
+    if(_ioPctNum!=null){
+      var _retailPct=Math.max(0,100-(_ioPctNum||0)-(_insiderPctNum||0));
+      var _pieSegs=[
+        {pct:_ioPctNum,color:'#38bdf8',label:'Institutional'},
+        {pct:_insiderPctNum||0,color:'#eab308',label:'Insider/Restricted'},
+        {pct:_retailPct,color:'#4a5568',label:'Retail/Other'},
+      ].filter(function(s){return s.pct>0.01;});
+      // Build SVG donut
+      (function(){
+        var cx=80,cy=80,R=64,IR=40;
+        var total=_pieSegs.reduce(function(a,s){return a+s.pct;},0);
+        var svgPaths='';
+        var angle=-Math.PI/2;
+        _pieSegs.forEach(function(seg){
+          var sweep=(seg.pct/total)*2*Math.PI;
+          if(sweep>=2*Math.PI-0.001){sweep=2*Math.PI-0.001;}
+          var x1=cx+R*Math.cos(angle),y1=cy+R*Math.sin(angle);
+          var x2=cx+R*Math.cos(angle+sweep),y2=cy+R*Math.sin(angle+sweep);
+          var ix1=cx+IR*Math.cos(angle+sweep),iy1=cy+IR*Math.sin(angle+sweep);
+          var ix2=cx+IR*Math.cos(angle),iy2=cy+IR*Math.sin(angle);
+          var lg=sweep>Math.PI?1:0;
+          var d='M '+x1.toFixed(2)+' '+y1.toFixed(2)+' A '+R+' '+R+' 0 '+lg+' 1 '+x2.toFixed(2)+' '+y2.toFixed(2)+' L '+ix1.toFixed(2)+' '+iy1.toFixed(2)+' A '+IR+' '+IR+' 0 '+lg+' 0 '+ix2.toFixed(2)+' '+iy2.toFixed(2)+' Z';
+          svgPaths+='<path d="'+d+'" fill="'+seg.color+'" stroke="var(--cd)" stroke-width="2"/>';
+          angle+=sweep;
+        });
+        var svg='<svg width="160" height="160" viewBox="0 0 160 160" style="display:block">'+svgPaths+'</svg>';
+        var legend='<div style="display:flex;flex-direction:column;gap:10px;justify-content:center">';
+        _pieSegs.forEach(function(seg){
+          legend+='<div style="display:flex;align-items:center;gap:8px"><div style="width:12px;height:12px;border-radius:3px;background:'+seg.color+';flex-shrink:0"></div><div><div style="font-size:12px;font-weight:600;color:var(--br)">'+seg.label+'</div><div style="font-size:14px;font-weight:800;font-family:var(--m);color:'+seg.color+'">'+seg.pct.toFixed(1)+'%</div></div></div>';
+        });
+        legend+='</div>';
+        var caption=_insiderPctNum!=null?'Insider/Restricted = shares held back from public float. Retail = estimated residual.':'Retail = estimated residual (100% − Institutional). Insider % not separately disclosed.';
+        h2+='<div><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Ownership Breakdown</div>';
+        h2+='<div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">'+svg+legend+'</div>';
+        h2+='<div style="font-size:10px;color:var(--dm);margin-top:8px">'+caption+'</div>';
+        h2+='</div>';
+      })();
     }
 
     // ── Insider Activity ──────────────────────────────────
@@ -2533,6 +2585,36 @@ async function loadVtCapTable(){
           h2+='<div style="background:var(--ib);border:1px solid var(--bd);border-radius:6px;padding:8px;text-align:center"><div style="font-size:8px;color:var(--dm);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">'+p[0]+'</div><div style="font-size:14px;font-weight:700;color:'+p[2]+'">'+p[1]+'</div></div>';
         });
         h2+='</div>';
+      }
+      // Top institutional holders ranked list
+      var _instH=Array.isArray(instHolders)?instHolders:[];
+      if(_instH.length){
+        // Sort by sharesNumber descending
+        _instH.sort(function(a,b){return (b.sharesNumber||b.shares||0)-(a.sharesNumber||a.shares||0);});
+        var _totalShares=sf0&&sf0.outstandingShares?sf0.outstandingShares:null;
+        h2+='<div style="margin-top:14px"><div style="font-size:10px;font-weight:700;color:var(--dm);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">Top Institutional Holders</div>';
+        h2+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:440px">';
+        h2+='<tr style="border-bottom:2px solid var(--bd)"><th style="text-align:left;padding:5px 10px;color:var(--dm);font-weight:600;font-size:10px">Holder</th><th style="text-align:right;padding:5px 10px;color:var(--dm);font-weight:600;font-size:10px">Shares</th><th style="text-align:right;padding:5px 10px;color:var(--dm);font-weight:600;font-size:10px">% Outstanding</th><th style="text-align:right;padding:5px 10px;color:var(--dm);font-weight:600;font-size:10px">Value</th><th style="text-align:center;padding:5px 10px;color:var(--dm);font-weight:600;font-size:10px">QoQ</th></tr>';
+        _instH.slice(0,25).forEach(function(h,idx){
+          var shares=h.sharesNumber||h.shares||0;
+          var pct=h.ownershipPercent!=null?(h.ownershipPercent>1?h.ownershipPercent:h.ownershipPercent*100):(_totalShares&&shares?shares/_totalShares*100:null);
+          var val=h.marketValue||h.value||0;
+          var chg=h.changeInSharesNumberPercentage||h.changePercent||null;
+          var isNew=h.isNew||false;
+          var isSold=h.isSoldOut||false;
+          var chgHtml='';
+          if(isNew)chgHtml='<span style="font-size:9px;font-weight:700;color:var(--gn);background:rgba(34,197,94,0.12);padding:1px 5px;border-radius:3px">NEW</span>';
+          else if(isSold)chgHtml='<span style="font-size:9px;font-weight:700;color:var(--rd);background:rgba(239,68,68,0.12);padding:1px 5px;border-radius:3px">SOLD</span>';
+          else if(chg!=null){var up=chg>0;chgHtml='<span style="font-size:10px;color:'+(up?'var(--gn)':'var(--rd)')+'">'+(up?'▲':'▼')+' '+Math.abs(chg).toFixed(1)+'%</span>';}
+          h2+='<tr style="border-bottom:1px solid var(--bd)" onmouseover="this.style.background=\'rgba(56,139,253,0.04)\'" onmouseout="this.style.background=\'\'">';
+          h2+='<td style="padding:6px 10px;color:var(--br);font-weight:600">'+escH(h.holderName||h.name||'')+'</td>';
+          h2+='<td style="padding:6px 10px;text-align:right;font-family:var(--m);color:var(--lb)">'+cm(shares)+'</td>';
+          h2+='<td style="padding:6px 10px;text-align:right;font-family:var(--m);color:var(--bl)">'+(pct!=null?pct.toFixed(2)+'%':'—')+'</td>';
+          h2+='<td style="padding:6px 10px;text-align:right;font-family:var(--m);color:var(--dm)">'+(val>0?'$'+D(val/1e6)+'M':'—')+'</td>';
+          h2+='<td style="padding:6px 10px;text-align:center">'+chgHtml+'</td>';
+          h2+='</tr>';
+        });
+        h2+='</table></div></div>';
       }
       h2+='</div>';
     }
