@@ -730,10 +730,19 @@ function toggleTheme() {
 
 // ─── SETTINGS ─────────────────────────────────────────────────────────────────
 const SETTINGS_KEY = 'pm_settings';
-let settings = { fmp:'zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J', av:'', napi:'', corsProxy:'' };
+const FMP_KEY = 'zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J'; // 32-char working key (same as screener)
+let settings = { fmp:FMP_KEY, av:'', napi:'', corsProxy:'' };
+
+// A valid FMP key is a 32-char alphanumeric string. Reject anything else.
+function isValidFmpKey(k) { return typeof k === 'string' && /^[A-Za-z0-9]{32}$/.test(k.trim()); }
 
 function loadSettings() {
   try { const s = JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}'); Object.keys(s).forEach(k => { if (s[k]) settings[k] = s[k]; }); } catch(e) {}
+  // Heal a corrupt/stale FMP key (e.g. the 40-char value that caused 401s)
+  if (!isValidFmpKey(settings.fmp)) {
+    settings.fmp = FMP_KEY;
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch(e) {}
+  }
   document.getElementById('fmpKey').value = settings.fmp || '';
   document.getElementById('avKey').value = settings.av || '';
   document.getElementById('napiKey').value = settings.napi || '';
@@ -860,7 +869,7 @@ async function fmpGet(url, label) {
   } catch(e) { if (label) _newsDiag.push(`${label}: ${e.message.slice(0,40)}`); return null; }
 }
 
-const FMP_DEFAULT_KEY = 'zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J';
+const FMP_DEFAULT_KEY = FMP_KEY;
 let _fmpWorkingKey = null;
 
 // Return the first FMP key that authenticates against a basic endpoint.
@@ -868,19 +877,18 @@ async function resolveFmpKey() {
   if (_fmpWorkingKey) return _fmpWorkingKey;
   const ST = 'https://financialmodelingprep.com/stable';
   const stored = (settings.fmp && settings.fmp.trim()) || '';
-  // Try stored key first, then the known-good default. Dedupe.
-  const candidates = [...new Set([stored, FMP_DEFAULT_KEY].filter(Boolean))];
+  // Only consider syntactically-valid keys; always include the known-good default.
+  const candidates = [...new Set([stored, FMP_DEFAULT_KEY].filter(isValidFmpKey))];
   for (const k of candidates) {
     try {
       const r = await fetch(`${ST}/quote?symbol=AAPL&apikey=${k}`);
       _newsDiag.push(`key …${k.slice(-4)}(len ${k.length}): HTTP ${r.status}`);
       if (r.ok) {
         _fmpWorkingKey = k;
-        // Heal localStorage if the stored key was the broken one
-        if (k === FMP_DEFAULT_KEY && stored !== FMP_DEFAULT_KEY) {
-          settings.fmp = FMP_DEFAULT_KEY;
-          localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-          _newsDiag.push('reset stored key → default');
+        if (settings.fmp !== k) {
+          settings.fmp = k;
+          try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch(e) {}
+          _newsDiag.push('healed stored key');
         }
         return k;
       }
@@ -932,63 +940,49 @@ async function fetchFmpNews(companies, dateFrom) {
 
   const setProg = (msg) => { const el = document.getElementById('newsStatus'); if (el) el.innerHTML = `<span>${msg}</span>`; };
 
-  // Build batched stock-news + press-release tasks (batched symbols = fast)
+  // Batch tickers for the multi-symbol stock-news endpoint
   const BATCH = 20;
   const batches = [];
   for (let i = 0; i < tickers.length; i += BATCH) batches.push(tickers.slice(i, i + BATCH).join(','));
 
-  setProg(`Fetching news from FMP (${batches.length} batches across ${tickers.length} companies)…`);
+  setProg(`Fetching news from FMP (${tickers.length} companies)…`);
 
-  // ── Run all source families in parallel ──────────────────────────────
+  // ── Run all source families in parallel (paths mirror the working screener) ──
   const tasks = [];
 
-  // 1) Stock news — try stable/news/stock then legacy v3/stock_news per batch
+  // 1) Stock news — stable/news?symbols=  (already includes PR-wire releases),
+  //    with legacy v3/stock_news as fallback. Batched = fast.
   batches.forEach((batch, bi) => {
     tasks.push((async () => {
-      const data = await fmpGet(`${ST}/news/stock?symbols=${encodeURIComponent(batch)}&limit=100&apikey=${AK}`, bi===0?'stock-news':null)
-                || await fmpGet(`${ST}/news/stock-latest?symbols=${encodeURIComponent(batch)}&limit=100&apikey=${AK}`)
+      const data = await fmpGet(`${ST}/news?symbols=${encodeURIComponent(batch)}&limit=200&apikey=${AK}`, bi===0?'news':null)
                 || await fmpGet(`${V3}/stock_news?tickers=${encodeURIComponent(batch)}&limit=100&apikey=${AK}`, bi===0?'v3-stock_news':null);
       if (data) data.forEach(item => pushItem(item, 'News', ''));
     })());
   });
 
-  // 2) Press releases — batched stable endpoint (fast), fallback per-batch v3
-  batches.forEach((batch, bi) => {
-    tasks.push((async () => {
-      const data = await fmpGet(`${ST}/news/press-releases?symbols=${encodeURIComponent(batch)}&limit=100&apikey=${AK}`, bi===0?'press-rel':null);
-      if (data) data.forEach(item => pushItem(item, 'Press Release', ''));
-    })());
-  });
-
-  // 3) General market news (latest)
+  // 2) General market news
   tasks.push((async () => {
-    const data = await fmpGet(`${ST}/news/general-latest?limit=100&apikey=${AK}`, 'general')
+    const data = await fmpGet(`${ST}/general-news?limit=100&apikey=${AK}`, 'general')
               || await fmpGet(`${V4}/general-news?page=0&apikey=${AK}`);
-    if (data) data.forEach(item => pushItem(item, 'General', ''));
+    if (data) data.forEach(item => pushItem(item, 'General', '', false));
   })());
 
-  // 4) FMP RSS feed — broad, filtered to portfolio tickers only
-  tasks.push((async () => {
-    const data = await fmpGet(`${V3}/rss_feed?limit=200&apikey=${AK}`, 'rss');
-    if (data) data.forEach(item => pushItem(item, 'RSS', '', true));
-  })());
+  // 3) Press releases — stable/press-releases?symbol= is single-ticker, so fetch
+  //    a concurrency-capped subset of holdings (skips dups already in stock news).
+  const PR_SUBSET = tickers.slice(0, 60);
+  const CC = 10;
+  for (let i = 0; i < PR_SUBSET.length; i += CC) {
+    const chunk = PR_SUBSET.slice(i, i + CC);
+    tasks.push((async () => {
+      await Promise.all(chunk.map(async (tk, idx) => {
+        const data = await fmpGet(`${ST}/press-releases?symbol=${encodeURIComponent(tk)}&limit=20&apikey=${AK}`, (i===0&&idx===0)?'press-rel':null)
+                  || await fmpGet(`${V3}/press-releases/${encodeURIComponent(tk)}?limit=20&apikey=${AK}`);
+        if (data) data.forEach(item => pushItem(item, 'Press Release', tk));
+      }));
+    })());
+  }
 
   await Promise.all(tasks);
-
-  // ── Fallback: if STILL nothing, fetch per-company (first 30) v3 stock_news ──
-  if (!allArticles.length) {
-    setProg('No batch results — trying per-company fallback…');
-    const subset = tickers.slice(0, 30);
-    const CC = 8;
-    for (let i = 0; i < subset.length; i += CC) {
-      await Promise.all(subset.slice(i, i + CC).map(async tk => {
-        const d = await fmpGet(`${V3}/stock_news?tickers=${encodeURIComponent(tk)}&limit=20&apikey=${AK}`);
-        if (d) d.forEach(item => pushItem(item, 'News', tk));
-        const p = await fmpGet(`${V3}/press-releases/${encodeURIComponent(tk)}?limit=10&apikey=${AK}`);
-        if (p) p.forEach(item => pushItem(item, 'Press Release', tk));
-      }));
-    }
-  }
 
   return allArticles.sort((a,b) => new Date(b.published) - new Date(a.published));
 }
