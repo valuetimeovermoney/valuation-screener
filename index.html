@@ -856,6 +856,12 @@ function render(){
   var h='';
   // Header
   h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;background:var(--cd);border-radius:8px;padding:14px 16px;border:1px solid var(--bd);margin-bottom:12px"><div><div style="font-size:18px;font-weight:800;color:var(--br)">'+d.n+'</div><div style="font-size:11px;color:var(--dm)">'+d.t+' · '+d.sec+' · '+d.industry+'</div><div style="font-size:10px;color:var(--dm);margin-top:2px">Fiscal year ends: '+d.fyEnd+' · Latest: '+d.fy+'</div></div><div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px"><div style="display:flex;align-items:center;gap:10px"><button id="wl-btn" style="background:none;border:1px solid var(--bd);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:13px;color:'+(wlHas(d.t)?'var(--yw)':'var(--lb)')+';font-family:var(--f)">'+(wlHas(d.t)?'★ Saved':'☆ Save')+'</button><div style="font-size:24px;font-weight:800;font-family:var(--m);color:var(--bl)">'+pr(d.p)+'</div></div><div style="font-size:10px;color:var(--dm)">'+d.pd+'</div></div></div>';
+  h+='<div id="vt-subtabs" style="display:flex;gap:0;border-bottom:2px solid var(--bd);margin-bottom:16px;overflow-x:auto;white-space:nowrap">';
+  ['overview','news','calendar','transcripts','captable'].forEach(function(tab){
+    var label={'overview':'Overview','news':'News','calendar':'Calendar','transcripts':'Transcripts','captable':'Cap Table'}[tab]||tab;
+    h+='<button id="vtsub-'+tab+'" onclick="vtSwitch(\''+tab+'\')" style="background:none;border:none;border-bottom:2px solid transparent;padding:9px 16px;cursor:pointer;font-size:13px;font-weight:600;color:var(--dm);margin-bottom:-2px;white-space:nowrap;font-family:var(--f)">'+label+'</button>';
+  });
+  h+='</div>';
   h+='<div id="vt-overview">';
 
 
@@ -2081,11 +2087,24 @@ var _vtCurrent='overview';
 var _vtTabs=['overview','news','calendar','transcripts','captable'];
 function _vtNavShow(tk){
   var show=!!tk;
-  ['sep','ticker','overview','news','calendar','transcripts','captable'].forEach(function(k){
+  // Only show sep + ticker in top nav; tabs live in the sub-tab bar inside content
+  ['sep','ticker'].forEach(function(k){
     var el=document.getElementById('vtm-co-'+k);if(el)el.style.display=show?(k==='sep'?'inline':'inline-block'):'none';
   });
+  // Hide the old nav tab links (they're replaced by vt-subtabs bar)
+  ['overview','news','calendar','transcripts','captable'].forEach(function(k){
+    var el=document.getElementById('vtm-co-'+k);if(el)el.style.display='none';
+  });
   if(show){var te=document.getElementById('vtm-co-ticker');if(te)te.textContent=tk;}
-  _vtNavActive(_vtCurrent);
+  _vtSubNavActive(_vtCurrent);
+}
+function _vtSubNavActive(id){
+  ['overview','news','calendar','transcripts','captable'].forEach(function(k){
+    var el=document.getElementById('vtsub-'+k);
+    if(!el)return;
+    if(k===id){el.style.color='var(--bl)';el.style.borderBottomColor='var(--bl)';}
+    else{el.style.color='var(--dm)';el.style.borderBottomColor='transparent';}
+  });
 }
 function _vtNavActive(id){
   _vtTabs.forEach(function(k){
@@ -2097,6 +2116,7 @@ function vtSwitch(id){
   _vtCurrent=id;
   _vtShowTab(id);
   _vtNavActive(id);
+  _vtSubNavActive(id);
   if(id==='news')loadVtNews();
   if(id==='calendar')loadVtCal();
   if(id==='transcripts')loadVtTranscripts();
@@ -2109,6 +2129,7 @@ function _vtShowTab(id){
 }
 function _vtRestoreTab(){
   _vtNavShow(ST.d&&ST.d.t);
+  _vtSubNavActive(_vtCurrent||'overview');
   if(_vtCurrent&&_vtCurrent!=='overview'){
     _vtShowTab(_vtCurrent);
     _vtNavActive(_vtCurrent);
@@ -2152,13 +2173,13 @@ async function loadVtNews(){
   el.innerHTML='<div style="text-align:center;padding:40px;color:var(--dm)"><div class="sp"></div><div style="margin-top:10px">Loading news for '+escH(nm||tk)+'…</div></div>';
   try{
     // Fetch all sources in parallel
-    var [sNews, v3p0, v3p1, v3p2, press, genNews] = await Promise.all([
-      _sf('news?symbols='+encodeURIComponent(tkBase)+'&limit=200'),
-      _sfv('https://financialmodelingprep.com/api/v3/stock_news?tickers='+encodeURIComponent(tkBase)+'&limit=100'),
-      _sfv('https://financialmodelingprep.com/api/v3/stock_news?tickers='+encodeURIComponent(tkBase)+'&limit=100&page=1'),
-      _sfv('https://financialmodelingprep.com/api/v3/stock_news?tickers='+encodeURIComponent(tkBase)+'&limit=100&page=2'),
-      _sf('press-releases?symbol='+encodeURIComponent(tkBase)+'&limit=50'),
-      _sf('general-news?limit=50'),
+    function toArr(r){if(!r)return[];if(Array.isArray(r))return r;if(r.content&&Array.isArray(r.content))return r.content;if(r.data&&Array.isArray(r.data))return r.data;return[];}
+    var [sNews, v3p0, v3p1, press, genNews] = await Promise.all([
+      _sf('news?symbols='+encodeURIComponent(tkBase)+'&limit=200').then(toArr),
+      _sfv('https://financialmodelingprep.com/api/v3/stock_news?tickers='+encodeURIComponent(tkBase)+'&limit=100').then(function(r){return toArr(r);}),
+      _sfv('https://financialmodelingprep.com/api/v3/stock_news?tickers='+encodeURIComponent(tkBase)+'&limit=100&page=1').then(function(r){return toArr(r);}),
+      _sf('press-releases?symbol='+encodeURIComponent(tkBase)+'&limit=100').then(toArr),
+      _sf('general-news?limit=100').then(toArr),
     ]);
 
     // Tag each article with its type
@@ -2177,7 +2198,6 @@ async function loadVtNews(){
     addItems(sNews,'Stock News');
     addItems(v3p0,'Stock News');
     addItems(v3p1,'Stock News');
-    addItems(v3p2,'Stock News');
     addItems(press,'Press Release');
 
     // From general-news, only include articles mentioning the company name or ticker
@@ -2265,12 +2285,13 @@ async function loadVtCal(){
   el.innerHTML='<div style="text-align:center;padding:40px;color:var(--dm)"><div class="sp"></div><div style="margin-top:10px">Loading calendar…</div></div>';
   var now=new Date(),today=now.toISOString().split('T')[0];
   try{
-    var [calHist, calUpcoming, surprises, divData, splitData] = await Promise.all([
-      _sf('historical-earning-calendar?symbol='+encodeURIComponent(tkBase)+'&limit=30'),
+    var [calHist, calUpcoming, surprises, divData, splitData, outlook] = await Promise.all([
+      _sf('historical-earning-calendar?symbol='+encodeURIComponent(tkBase)+'&limit=80'),
       _sf('earning-calendar-confirmed?symbol='+encodeURIComponent(tkBase)),
-      _sf('earnings-surprises?symbol='+encodeURIComponent(tkBase)),
-      _sf('dividends?symbol='+encodeURIComponent(tkBase)+'&limit=30'),
-      _sf('stock-splits?symbol='+encodeURIComponent(tkBase)+'&limit=20'),
+      _sf('earnings-surprises?symbol='+encodeURIComponent(tkBase)+'&limit=80'),
+      _sf('dividends?symbol='+encodeURIComponent(tkBase)+'&limit=80'),
+      _sf('stock-splits?symbol='+encodeURIComponent(tkBase)+'&limit=40'),
+      _sf('company-outlook?symbol='+encodeURIComponent(tkBase)).catch(function(){return null;}),
     ]);
     console.log('[Cal] calHist=',calHist&&calHist.length,'surprises=',surprises&&surprises.length,'div=',divData&&divData.length,'splits=',splitData&&splitData.length);
 
@@ -2363,6 +2384,22 @@ async function loadVtCal(){
       h2+='</div></div>';
     }
 
+    // ── Company Events (AGM, investor day, etc.) from outlook ──────────────
+    var eventsArr=[];
+    if(outlook&&outlook.stockNews&&Array.isArray(outlook.stockNews))eventsArr=outlook.stockNews.filter(function(e){return/agm|annual general|shareholder|investor day|conference|roadshow/i.test(e.title||'');});
+    if(eventsArr.length){
+      h2+='<div><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Company Events</div>';
+      h2+='<div style="display:flex;flex-direction:column;gap:6px">';
+      eventsArr.slice(0,10).forEach(function(ev){
+        h2+='<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--cd);border:1px solid var(--bd);border-radius:6px">';
+        h2+='<div><div style="font-size:12px;font-weight:600;color:var(--br)">'+escH(ev.title||'')+'</div>';
+        h2+='<div style="font-size:10px;color:var(--dm);margin-top:2px">'+(ev.publishedDate||ev.date||'')+'</div></div>';
+        if(ev.url)h2+='<a href="'+escH(ev.url)+'" target="_blank" style="font-size:10px;color:var(--bl);text-decoration:none;white-space:nowrap">View ↗</a>';
+        h2+='</div>';
+      });
+      h2+='</div></div>';
+    }
+
     if(!merged.length&&!divArr.length&&!splitArr.length){
       h2+='<div style="padding:20px;background:var(--cd);border:1px solid var(--bd);border-radius:8px;color:var(--lb)">No calendar data found for <b style="color:var(--br)">'+escH(tk)+'</b>. <a href="https://finance.yahoo.com/quote/'+encodeURIComponent(tkBase)+'/financials/" target="_blank" style="color:var(--bl)">Check Yahoo →</a></div>';
     }
@@ -2378,12 +2415,18 @@ async function loadVtCapTable(){
   el.innerHTML='<div style="text-align:center;padding:40px;color:var(--dm)"><div class="sp"></div><div style="margin-top:10px">Loading ownership data…</div></div>';
   var tkBase=tk.split('.')[0];
   try{
-    var [insiders, instHolder, insStats, sharesFloat] = await Promise.all([
-      _sf('insider-trading?symbol='+encodeURIComponent(tkBase)+'&limit=50'),
-      _sf('institutional-ownership?symbol='+encodeURIComponent(tkBase)+'&limit=25'),
+    var [insiders, instHolder, insStats, sharesFloat, insV4] = await Promise.all([
+      _sf('insider-trading?symbol='+encodeURIComponent(tkBase)+'&limit=100'),
+      _sf('institutional-ownership?symbol='+encodeURIComponent(tkBase)+'&limit=50'),
       _sf('insider-statistics?symbol='+encodeURIComponent(tkBase)),
       _sf('shares-float?symbol='+encodeURIComponent(tkBase)),
+      _sfv('https://financialmodelingprep.com/api/v4/insider-trading?symbol='+encodeURIComponent(tkBase)+'&limit=100&apikey='+AK),
     ]);
+    // Merge stable + v4 insider trades, dedup by transactionDate+reportingName
+    var _insRaw=(Array.isArray(insiders)?insiders:[]).concat(Array.isArray(insV4)?insV4:[]);
+    var _insSeen={};var _insDeduped=[];
+    _insRaw.forEach(function(tx){var k=(tx.transactionDate||tx.filingDate||tx.date||'')+'_'+(tx.reportingName||tx.insiderName||tx.name||'')+'_'+(tx.securitiesTransacted||tx.shares||'');if(!_insSeen[k]){_insSeen[k]=1;_insDeduped.push(tx);}});
+    insiders=_insDeduped;
     console.log('[CapTable] insiders=',insiders&&insiders.length,'inst=',instHolder&&instHolder.length,'stats=',insStats,'float=',sharesFloat);
 
     var insArr=Array.isArray(insiders)?insiders:[];
@@ -2423,7 +2466,7 @@ async function loadVtCapTable(){
     if(insArr.length){
       h2+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:520px">';
       h2+='<tr style="border-bottom:2px solid var(--bd)"><th style="text-align:left;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Name</th><th style="text-align:left;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Title</th><th style="text-align:left;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Date</th><th style="text-align:center;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Type</th><th style="text-align:right;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Shares</th><th style="text-align:right;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Price</th><th style="text-align:right;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Value</th></tr>';
-      insArr.slice(0,25).forEach(function(tx){
+      insArr.slice(0,50).forEach(function(tx){
         var typ=(tx.transactionType||tx.acquistionOrDisposition||'').toLowerCase();
         var isBuy=typ.includes('purchase')||typ==='p-purchase'||typ==='buy'||typ==='a';
         var shares=Math.abs(tx.securitiesTransacted||tx.shares||0);
@@ -2481,10 +2524,12 @@ async function loadVtTranscripts(){
   el.innerHTML='<div style="text-align:center;padding:40px;color:var(--dm)"><div class="sp"></div><div style="margin-top:10px">Loading transcripts…</div></div>';
   try{
     var yr=new Date().getFullYear();
-    // stable/earning-call-transcript?symbol=TK&year=Y&quarter=Q covers individual quarters
-    // batch fetch last 3 years × 4 quarters
+    // Fetch all available history: try batch endpoint first, fall back to per-quarter
     var batchFetches=[];
-    for(var y=yr;y>=yr-2;y--){
+    // Use batch_earning_call_transcript to get all at once (v4)
+    batchFetches.push(_sfv('https://financialmodelingprep.com/api/v4/batch_earning_call_transcript/'+encodeURIComponent(tkBase)+'?apikey='+AK));
+    // Also per-quarter for last 10 years to fill any gaps
+    for(var y=yr;y>=yr-9;y--){
       for(var q=4;q>=1;q--){
         batchFetches.push(_sf('earning-call-transcript?symbol='+encodeURIComponent(tkBase)+'&year='+y+'&quarter='+q));
       }
