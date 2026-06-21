@@ -2251,50 +2251,81 @@ async function loadVtNews(){
       return;
     }
 
-    // Type badge styles
-    var _typeBadge={
-      'Stock News':'color:var(--bl);background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.3)',
-      'Press Release':'color:var(--pu);background:rgba(129,140,248,0.1);border:1px solid rgba(129,140,248,0.3)',
-      'General News':'color:var(--tl);background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.3)',
-      'Web':'color:var(--yw);background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.3)',
-    };
+    // Store globally for filter
+    window._vtNewsAll=allItems;
+    window._vtNewsTk=tkBase;
+    window._vtNewsNm=nm;
 
+    // Render filter bar + initial full list
     var h2='<div>';
-    h2+='<div style="display:flex;align-items:center;justify-content:space-between;padding:0 0 10px;border-bottom:1px solid var(--bd);margin-bottom:4px">';
-    h2+='<div style="font-size:11px;color:var(--dm)">';
-    h2+='<b style="color:var(--br)">'+escH(tkBase)+'</b> — ';
-    h2+=allItems.length+' total';
-    if(newsCount)h2+=' · <span style="color:var(--bl)">'+newsCount+' news</span>';
-    if(pressCount)h2+=' · <span style="color:var(--pu)">'+pressCount+' press releases</span>';
+    // Filter controls
+    var sources=['All','Stock News','Press Release','Web'];
+    h2+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 0 12px;border-bottom:1px solid var(--bd);margin-bottom:4px">';
+    h2+='<input id="vt-news-search" type="text" placeholder="Search news…" oninput="_vtNewsRender()" style="flex:1;min-width:160px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--br);font-family:var(--f)">';
+    h2+='<select id="vt-news-src" onchange="_vtNewsRender()" style="background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--br);font-family:var(--f);cursor:pointer">';
+    sources.forEach(function(s){h2+='<option value="'+s+'">'+s+'</option>';});
+    h2+='</select>';
+    h2+='<div style="display:flex;gap:8px">';
+    h2+='<a href="https://finance.yahoo.com/quote/'+tkBase+'/news/" target="_blank" style="font-size:10px;color:var(--bl);text-decoration:none;white-space:nowrap">Yahoo ↗</a>';
+    h2+='<a href="https://seekingalpha.com/symbol/'+tkBase+'" target="_blank" style="font-size:10px;color:var(--bl);text-decoration:none;white-space:nowrap">Seeking Alpha ↗</a>';
+    h2+='<a href="https://news.google.com/search?q='+encodeURIComponent((nm||tkBase)+' stock')+'" target="_blank" style="font-size:10px;color:var(--bl);text-decoration:none;white-space:nowrap">Google News ↗</a>';
     h2+='</div>';
-    h2+='<div style="display:flex;gap:10px">';
-    h2+='<a href="https://finance.yahoo.com/quote/'+tkBase+'/news/" target="_blank" style="font-size:10px;color:var(--bl);text-decoration:none">Yahoo ↗</a>';
-    h2+='<a href="https://seekingalpha.com/symbol/'+tkBase+'" target="_blank" style="font-size:10px;color:var(--bl);text-decoration:none">Seeking Alpha ↗</a>';
-    h2+='<a href="https://news.google.com/search?q='+encodeURIComponent((nm||tkBase)+' stock')+'" target="_blank" style="font-size:10px;color:var(--bl);text-decoration:none">Google News ↗</a>';
     h2+='</div>';
-    h2+='</div>';
-
-    allItems.forEach(function(a){
-      var pub=a.publishedDate||a.date||'';
-      var src=escH(a.site||a.publisher||a.tickers||'');
-      var type=a._type||'Stock News';
-      var badge=_typeBadge[type]||_typeBadge['Stock News'];
-      h2+='<div onclick="window.open(\''+escH(a.url||'#')+'\',\'_blank\')" style="padding:11px 0;border-bottom:1px solid var(--bd);cursor:pointer;display:flex;gap:10px;align-items:flex-start" onmouseover="this.style.background=\'rgba(56,139,253,0.04)\'" onmouseout="this.style.background=\'transparent\'">';
-      if(a.image)h2+='<img src="'+escH(a.image)+'" style="width:68px;height:48px;object-fit:cover;border-radius:4px;flex-shrink:0;border:1px solid var(--bd);margin-top:2px" onerror="this.style.display=\'none\'">';
-      h2+='<div style="flex:1;min-width:0">';
-      h2+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">';
-      h2+='<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:3px;'+badge+'">'+escH(type)+'</span>';
-      if(src)h2+='<span style="font-size:10px;color:var(--tl)">'+src+'</span>';
-      h2+='<span style="font-size:10px;color:var(--dm)" title="'+escH(_fmtFull(pub))+'">'+_fmtTime(pub)+'</span>';
-      h2+='</div>';
-      h2+='<div style="font-size:13px;font-weight:600;color:var(--br);line-height:1.4;margin-bottom:3px">'+escH(a.title||'')+'</div>';
-      if(a.text||a.summary)h2+='<div style="font-size:11px;color:var(--lb);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+escH(a.text||a.summary||'')+'</div>';
-      h2+='</div></div>';
-    });
-
+    h2+='<div id="vt-news-list"></div>';
     h2+='</div>';
     el=document.getElementById('vt-news-body');if(el)el.innerHTML=h2;
+    _vtNewsRender();
   }catch(e){console.error('[News]',e);var _el=document.getElementById('vt-news-body');if(_el)_el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
+}
+
+function _vtNewsRender(){
+  var el=document.getElementById('vt-news-list');if(!el)return;
+  var items=window._vtNewsAll||[];
+  var tkBase=window._vtNewsTk||'';
+  var q=(document.getElementById('vt-news-search')||{}).value||'';
+  var src=(document.getElementById('vt-news-src')||{}).value||'All';
+  var qL=q.toLowerCase();
+  var filtered=items.filter(function(a){
+    if(src!=='All'&&a._type!==src)return false;
+    if(qL&&!(
+      (a.title||'').toLowerCase().includes(qL)||
+      (a.text||a.summary||'').toLowerCase().includes(qL)||
+      (a.site||a.publisher||'').toLowerCase().includes(qL)
+    ))return false;
+    return true;
+  });
+  var _typeBadge={
+    'Stock News':'color:var(--bl);background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.3)',
+    'Press Release':'color:#a78bfa;background:rgba(129,140,248,0.1);border:1px solid rgba(129,140,248,0.3)',
+    'Web':'color:var(--yw);background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.3)',
+  };
+  var totalCounts=items.reduce(function(acc,a){acc[a._type]=(acc[a._type]||0)+1;return acc;},{});
+  var h='<div style="font-size:11px;color:var(--dm);margin-bottom:6px">';
+  h+='<b style="color:var(--br)">'+escH(tkBase)+'</b> — '+filtered.length+' of '+items.length+' articles';
+  Object.keys(totalCounts).forEach(function(t){
+    var badge=_typeBadge[t]||'';var m=badge.match(/color:([^;]+)/);var c=m?m[1]:'var(--dm)';
+    h+=' · <span style="color:'+c+'">'+totalCounts[t]+' '+t+'</span>';
+  });
+  h+='</div>';
+  if(!filtered.length){h+='<div style="padding:20px;text-align:center;color:var(--dm);font-size:13px">No articles match your filter.</div>';el.innerHTML=h;return;}
+  filtered.forEach(function(a){
+    var pub=a.publishedDate||a.date||'';
+    var src2=escH(a.site||a.publisher||a.tickers||'');
+    var type=a._type||'Stock News';
+    var badge=_typeBadge[type]||_typeBadge['Stock News'];
+    h+='<div onclick="window.open(\''+escH(a.url||'#')+'\',\'_blank\')" style="padding:11px 0;border-bottom:1px solid var(--bd);cursor:pointer;display:flex;gap:10px;align-items:flex-start" onmouseover="this.style.background=\'rgba(56,139,253,0.04)\'" onmouseout="this.style.background=\'transparent\'">';
+    if(a.image)h+='<img src="'+escH(a.image)+'" style="width:68px;height:48px;object-fit:cover;border-radius:4px;flex-shrink:0;border:1px solid var(--bd);margin-top:2px" onerror="this.style.display=\'none\'">';
+    h+='<div style="flex:1;min-width:0">';
+    h+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">';
+    h+='<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:3px;'+badge+'">'+escH(type)+'</span>';
+    if(src2)h+='<span style="font-size:10px;color:var(--tl)">'+src2+'</span>';
+    h+='<span style="font-size:10px;color:var(--dm)" title="'+escH(_fmtFull(pub))+'">'+_fmtTime(pub)+'</span>';
+    h+='</div>';
+    h+='<div style="font-size:13px;font-weight:600;color:var(--br);line-height:1.4;margin-bottom:3px">'+escH(a.title||'')+'</div>';
+    if(a.text||a.summary)h+='<div style="font-size:11px;color:var(--lb);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+escH(a.text||a.summary||'')+'</div>';
+    h+='</div></div>';
+  });
+  el.innerHTML=h;
 }
 
 // ── CALENDAR TAB ──────────────────────────────────────────
@@ -2431,7 +2462,11 @@ async function loadVtCapTable(){
       _sf('insider-trading/statistics?symbol='+encodeURIComponent(tkBase)).then(toArr),
       _sf('shares-float?symbol='+encodeURIComponent(tkBase)).then(toArr),
       _sf('institutional-ownership/symbol-positions-summary?symbol='+encodeURIComponent(tkBase)+'&year='+_yr+'&quarter='+_q).then(toArr),
-      _sf('institutional-ownership/institutional-holders/symbol-positions-summary?symbol='+encodeURIComponent(tkBase)+'&year='+_yr+'&quarter='+_q).then(toArr),
+      _sf('institutional-ownership/institutional-holders/symbol-positions-summary?symbol='+encodeURIComponent(tkBase)+'&year='+_yr+'&quarter='+_q).then(toArr).then(function(r){
+        // fallback to v3 if stable returned empty
+        if(r&&r.length)return r;
+        return _sfv('https://financialmodelingprep.com/api/v3/institutional-holder/'+encodeURIComponent(tkBase)+'?limit=100&apikey='+AK).then(toArr).catch(function(){return[];});
+      }),
     ]);
     var instHolder=instSum;
     console.log('[CapTable] insiders=',insiders&&insiders.length,'inst=',instHolder&&instHolder.length,'stats=',insStats,'float=',sharesFloat);
@@ -2607,7 +2642,7 @@ async function loadVtCapTable(){
           else if(isSold)chgHtml='<span style="font-size:9px;font-weight:700;color:var(--rd);background:rgba(239,68,68,0.12);padding:1px 5px;border-radius:3px">SOLD</span>';
           else if(chg!=null){var up=chg>0;chgHtml='<span style="font-size:10px;color:'+(up?'var(--gn)':'var(--rd)')+'">'+(up?'▲':'▼')+' '+Math.abs(chg).toFixed(1)+'%</span>';}
           h2+='<tr style="border-bottom:1px solid var(--bd)" onmouseover="this.style.background=\'rgba(56,139,253,0.04)\'" onmouseout="this.style.background=\'\'">';
-          h2+='<td style="padding:6px 10px;color:var(--br);font-weight:600">'+escH(h.holderName||h.name||'')+'</td>';
+          h2+='<td style="padding:6px 10px;color:var(--br);font-weight:600">'+escH(h.holderName||h.holder||h.name||'')+'</td>';
           h2+='<td style="padding:6px 10px;text-align:right;font-family:var(--m);color:var(--lb)">'+cm(shares)+'</td>';
           h2+='<td style="padding:6px 10px;text-align:right;font-family:var(--m);color:var(--bl)">'+(pct!=null?pct.toFixed(2)+'%':'—')+'</td>';
           h2+='<td style="padding:6px 10px;text-align:right;font-family:var(--m);color:var(--dm)">'+(val>0?'$'+D(val/1e6)+'M':'—')+'</td>';
