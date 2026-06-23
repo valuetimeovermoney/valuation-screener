@@ -379,7 +379,7 @@ async function buildCo(tk){
   oeH=oeH.map(function(x){return{y:x.y,v:+(x._raw+_dwcNorm3).toFixed(1),ni:x.ni,da:x.da,cx:x.cx,sbc:x.sbc,dwc:_dwcNorm3};});
   var sbcH=(cfA||[]).filter(Boolean).slice(0,10).map(function(y){return{y:yrOf(y),v:+((gf(y,'stockBasedCompensation'))/1e6).toFixed(1)};});
   var capexH=(cfA||[]).filter(Boolean).slice(0,10).map(function(y){return{y:yrOf(y),v:+(Math.abs(gf(y,'capitalExpenditure'))/1e6).toFixed(1)};});
-  var divH=(cfA||[]).filter(Boolean).slice(0,10).map(function(y){return{y:yrOf(y),v:+(Math.abs(gf(y,'dividendsPaid'))/1e6).toFixed(1)};});
+  var divH=(cfA||[]).filter(Boolean).slice(0,10).map(function(y){return{y:yrOf(y),v:+(Math.abs(gf(y,'dividendsPaid','commonDividendsPaid','netDividendsPaid','paymentsForDividends','dividendPaid'))/1e6).toFixed(1)};});
   var buyH=(cfA||[]).filter(Boolean).slice(0,10).map(function(y){return{y:yrOf(y),v:+(Math.abs(gf(y,'commonStockRepurchased'))/1e6).toFixed(1)};});
   var soH=(incA||[]).filter(Boolean).slice(0,10).map(function(y){var s=gf(y,'weightedAverageShsOut');if(!s)s=gf(y,'weightedAverageShsOutDil');return{y:yrOf(y),v:s>0?+(s/1e6).toFixed(1):null};});
 
@@ -939,7 +939,7 @@ function render(){
   // ── DIVIDEND STATUS ──────────────────────────────────────
   var _divArr=(d.divH||[]).filter(function(x){return x&&x.v>0;});
   var _divKm=(d.kmH||[]).filter(function(k){return k&&k.divYld>0;});
-  var _isDivPayer=_divArr.length>0||_divKm.length>0;
+  var _isDivPayer=_divArr.length>0||_divKm.length>0||d.divTTM>0||(d.divSched&&d.divSched.length>0)||!!d.divNextEx;
   if(_isDivPayer){
     var _latDivYld=_divKm.length?_divKm[0].divYld:0;
     var _annPS=d.divTTM>0?d.divTTM:(_latDivYld>0&&d.p>0?_latDivYld*d.p:0);
