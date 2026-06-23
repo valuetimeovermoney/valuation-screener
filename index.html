@@ -439,13 +439,13 @@ async function buildCo(tk){
     ps:_km('priceToSalesRatio','priceToSales')||(_mc>0&&_rev>0?_mc/_rev:0),
     pb:_km('pbRatio','priceToBookRatio')||(_mc>0&&_eq>0?_mc/_eq:0),
     ptb:_km('ptbRatio'),
-    ev:_ev2,mc:_mc,
+    ev:_ev2,mc:_mc,cfo:_cfo,fcf:_fcf,
     ebitda:_km('ebitda')||_ebitda,
     roic:_km('roic','returnOnInvestedCapital')||(_ic>0?_nopat/_ic:0),
     roce:_roce,
     roe:_km('roe','returnOnEquity')||(_eq>0?_ni/_eq:0),
     ic:_km('interestCoverage')||(_intE>0?_ebit/_intE:0),
-    divYld:_km('dividendYield'),
+    divYld:_km('dividendYield','dividendYieldTTM','dividendYielPercentage')||(_mc>0?Math.abs(gf(_cf,'dividendsPaid','commonDividendsPaid'))/_mc:0),
     fcfYld:_km('freeCashFlowYield','fcfYield')||(_ev2>0&&_fcf>0?_fcf/_ev2:0),
     cfoPs:_km('operatingCashFlowPerShare')||(_sh>0?_cfo/_sh:0),
     fcfPs:_km('freeCashFlowPerShare')||(_sh>0?_fcf/_sh:0),
@@ -495,10 +495,10 @@ async function buildCo(tk){
     _bvps:+(gf(bs0,'totalStockholdersEquity')/1e6).toFixed(1),
     _bsLoaded:true,
     ipoDate:p.ipoDate||'',
-    _pe:+(function(){var v=gf(km0,'peRatio','pe');return v?v:gf(p,'pe')||0;})(),
-    _ps:+(gf(km0,'priceToSalesRatio','priceSales')||0),
-    _pb:+(gf(km0,'pbRatio','priceToBookRatio')||0),
-    _evEb:+(km0.enterpriseValueOverEBITDA||km0.evToEbitda||0),
+    _pe:+(function(){var v=gf(km0,'peRatio','pe')||gf(p,'pe');if(v)return v;var ni=gf(incA[0]||{},'netIncome');return mcap>0&&ni>0?mcap/ni:0;})(),
+    _ps:+(function(){var v=gf(km0,'priceToSalesRatio','priceSales');if(v)return v;var rev=gf(incA[0]||{},'revenue');return mcap>0&&rev>0?mcap/rev:0;})(),
+    _pb:+(function(){var v=gf(km0,'pbRatio','priceToBookRatio');if(v)return v;var eq=gf(bs0,'totalStockholdersEquity');return mcap>0&&eq>0?mcap/eq:0;})(),
+    _evEb:+(function(){var v=km0.enterpriseValueOverEBITDA||km0.evToEbitda;if(v)return v;var i0=incA[0]||{};var ebitda=gf(i0,'ebitda')||(gf(i0,'operatingIncome')+Math.abs(gf(cf0,'depreciationAndAmortization')));var ev2=mcap+gf(bs0,'shortTermDebt')+gf(bs0,'longTermDebt')-(gf(bs0,'cashAndShortTermInvestments')||gf(bs0,'cashAndCashEquivalents'));return ebitda>0&&ev2>0?ev2/ebitda:0;})(),
     latQ:(qIncs&&qIncs[0])?qIncs[0].date||qIncs[0].period||'':'',
     qInc:Array.isArray(qIncs)?(qIncs||[]).filter(Boolean).slice(0,4):[],
     qCf:Array.isArray(qCfs)?(qCfs||[]).filter(Boolean).slice(0,4):[],
@@ -1171,7 +1171,7 @@ function render(){
       vmRow2('EV/EBITDA',function(k){return k.evEbitda;},_ttmEvEb,fmtXm,10,20,'<10x cheap, >20x expensive');
       vmRow2('EV/FCF',function(k){return k.evFcf||0;},_ttmEvFcf,fmtXm,15,30,'EV to free cash flow. <15x cheap');
       vmRow2('EV/CFO',function(k){return k.evCfo||0;},0,fmtXm,10,25,'EV to operating cash flow');
-      vmRow2('P/CFO',function(k){return k.mc&&k.cfoPs&&k.cfoPs>0?k.mc/1e6/k.cfoPs:0;},_ttmPCfo,fmtXm,10,20,'Price to cash from ops per share. <10x cheap');
+      vmRow2('P/CFO',function(k){return k.mc>0&&k.cfo>0?k.mc/k.cfo:0;},_ttmPCfo,fmtXm,10,20,'Market cap ÷ operating cash flow. <10x cheap');
       vmRow2('P/S',function(k){return k.ps;},_ttmPs,fmtXm,2,5,'<2x cheap, >5x premium');
       vmRow2('P/B',function(k){return k.pb;},_ttmPb,fmtXm,1,3,'<1x below book value');
       vmRow2('ROIC',function(k){return k.roic;},0,fmtPm,0.15,0.10,'NOPAT \u00f7 Invested Capital (Eq+Debt\u2212Cash). >15% good, >25% moat',true);
