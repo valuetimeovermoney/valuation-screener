@@ -361,6 +361,36 @@ async function buildCo(tk){
   var mcap=gf(p,'marketCap','mktCap');var px=gf(p,'price');
   var capex=Math.abs(gf(cf0,'capitalExpenditure'));var mpct=isL?50:70;
 
+  // ── Currency normalization ───────────────────────────────
+  // Statements are in the reporting currency; the quote price may be in a different
+  // (trading) currency — common for US-listed ADRs. Normalize price + market cap into
+  // the reporting currency so EV, FCF yield, DCF, ratios and the verdict are all consistent.
+  var curTrade=p.currency||'USD';
+  var curReport=(incA[0]&&incA[0].reportedCurrency)||(bsA[0]&&bsA[0].reportedCurrency)||(cfA[0]&&cfA[0].reportedCurrency)||curTrade;
+  var pxQuote=px; // original quoted price in trading currency (for the header)
+  var fxTradeToReport=1, fxResolved=true;
+  if(curReport&&curTrade&&curReport!==curTrade){
+    fxResolved=false;
+    var _pair=curReport+curTrade; // e.g. EURUSD → price = USD (trade) per 1 EUR (report)
+    var _fxUrls=[
+      BASE+'quote?symbol='+_pair+'&apikey='+AK,
+      'https://financialmodelingprep.com/api/v3/quote/'+_pair+'?apikey='+AK,
+      'https://financialmodelingprep.com/api/v3/fx/'+_pair+'?apikey='+AK
+    ];
+    for(var _fi=0;_fi<_fxUrls.length&&!fxResolved;_fi++){
+      try{
+        var _r=await _fetchT(_fxUrls[_fi]);
+        if(!_r.ok)continue;
+        var _j=await _r.json();
+        var _row=Array.isArray(_j)?_j[0]:_j;
+        var _rate=_row&&(_row.price!=null?_row.price:(_row.bid!=null?_row.bid:_row.rate));
+        if(_rate&&_rate>0){fxTradeToReport=1/_rate;fxResolved=true;}
+      }catch(e){}
+    }
+  }
+  px=px*fxTradeToReport;       // price now in reporting currency
+  mcap=mcap*fxTradeToReport;   // market cap now in reporting currency (shares = mcap/px unchanged)
+
   var years=(incA||[]).map(function(y){return getYr(y);}).filter(Boolean);
   var rev=(incA||[]).filter(Boolean).slice(0,10).map(function(y){return{y:yrOf(y),r:+((gf(y,'revenue'))/1e6).toFixed(1)};});
   var ni=(incA||[]).filter(Boolean).slice(0,10).map(function(y){return{y:yrOf(y),v:+((gf(y,'netIncome'))/1e6).toFixed(1)};});
@@ -529,7 +559,7 @@ async function buildCo(tk){
     qInc:Array.isArray(qIncs)?(qIncs||[]).filter(Boolean).slice(0,4):[],
     qCf:Array.isArray(qCfs)?(qCfs||[]).filter(Boolean).slice(0,4):[],
     qBs:Array.isArray(qBss)?(qBss||[]).filter(Boolean).slice(0,1):[],
-    cur:p.currency||'USD',
+    cur:curReport,curTrade:curTrade,pQuote:pxQuote,fxTradeToReport:fxTradeToReport,fxResolved:fxResolved,
     // 5yr arrays for BS health table
     bsH:(bsA||[]).filter(Boolean).slice(0,10),
     kmH:kmH,soHDil:soHDil,execList:execList,insiderList:insiderList,topHolders:topHolders,
@@ -886,7 +916,7 @@ function render(){
 
   var h='';
   // Header
-  h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;background:var(--cd);border-radius:8px;padding:14px 16px;border:1px solid var(--bd);margin-bottom:12px"><div><div style="font-size:18px;font-weight:800;color:var(--br)">'+d.n+'</div><div style="font-size:11px;color:var(--dm)">'+d.t+' · '+d.sec+' · '+d.industry+'</div><div style="font-size:10px;color:var(--dm);margin-top:2px">Fiscal year ends: '+d.fyEnd+' · Latest: '+d.fy+'</div></div><div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px"><div style="display:flex;align-items:center;gap:10px"><button id="wl-btn" style="background:none;border:1px solid var(--bd);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:13px;color:'+(wlHas(d.t)?'var(--yw)':'var(--lb)')+';font-family:var(--f)">'+(wlHas(d.t)?'★ Saved':'☆ Save')+'</button><div style="font-size:24px;font-weight:800;font-family:var(--m);color:var(--bl)">'+pr(d.p)+'</div></div><div style="font-size:10px;color:var(--dm)">'+d.pd+'</div></div></div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;background:var(--cd);border-radius:8px;padding:14px 16px;border:1px solid var(--bd);margin-bottom:12px"><div><div style="font-size:18px;font-weight:800;color:var(--br)">'+d.n+'</div><div style="font-size:11px;color:var(--dm)">'+d.t+' · '+d.sec+' · '+d.industry+'</div><div style="font-size:10px;color:var(--dm);margin-top:2px">Fiscal year ends: '+d.fyEnd+' · Latest: '+d.fy+'</div></div><div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px"><div style="display:flex;align-items:center;gap:10px"><button id="wl-btn" style="background:none;border:1px solid var(--bd);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:13px;color:'+(wlHas(d.t)?'var(--yw)':'var(--lb)')+';font-family:var(--f)">'+(wlHas(d.t)?'★ Saved':'☆ Save')+'</button><div style="font-size:24px;font-weight:800;font-family:var(--m);color:var(--bl)">'+pr(d.pQuote!=null?d.pQuote:d.p)+(d.curTrade&&d.curTrade!==d.cur?' <span style="font-size:11px;color:var(--dm);font-weight:600">'+d.curTrade+'</span>':'')+'</div></div><div style="font-size:10px;color:var(--dm)">'+d.pd+(d.curTrade&&d.curTrade!==d.cur?' · valued in '+d.cur+(d.fxResolved?' (≈'+pr(d.p)+' '+d.cur+')':' — FX rate unavailable'):'')+'</div></div></div>';
   // ── VALUATION VERDICT (synthesized one-liner) ──────────────
   (function(){
     var _vdRoic=(d.kmH&&d.kmH[0])?d.kmH[0].roic:0;
@@ -927,7 +957,13 @@ function render(){
     h+='</div>';
     if(_chips.length)h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+_chips.join('')+'</div>';
     var _fvParts=[];if(dcf&&dcf.iv>0)_fvParts.push('DCF '+pr(dcf.iv));if(c.tp!=null&&c.tp>0)_fvParts.push('FCF-yield '+pr(c.tp));if(_netCashPsV>0)_fvParts.push('net cash '+pr(_netCashPsV)+'/sh');
-    h+='<div style="font-size:9px;color:var(--dm);margin-top:6px">Fair value = max(avg of going-concern estimates, asset floor). Inputs: '+(_fvParts.join(' · ')||'n/a')+'. Tune assumptions in the DCF & Adj FCF sections below — this verdict updates live.</div>';
+    var _curClause='';
+    if(d.curTrade&&d.curTrade!==d.cur){
+      _curClause=d.fxResolved
+        ? ' Statements in '+d.cur+'; '+d.curTrade+' price converted to '+d.cur+' so all figures are one currency.'
+        : ' ⚠ Statements in '+d.cur+' but price in '+d.curTrade+' and the FX rate could not be fetched — multiples and this verdict mix currencies and may be distorted.';
+    }
+    h+='<div style="font-size:9px;color:'+(d.curTrade&&d.curTrade!==d.cur&&!d.fxResolved?'var(--rd)':'var(--dm)')+';margin-top:6px">Fair value = max(avg of going-concern estimates, asset floor). Inputs: '+(_fvParts.join(' · ')||'n/a')+'. Tune assumptions in the DCF & Adj FCF sections below — this verdict updates live.'+_curClause+'</div>';
     h+='</div>';
   })();
   h+='<div id="vt-subtabs" style="display:flex;gap:0;border-bottom:2px solid var(--bd);margin-bottom:16px;overflow-x:auto;white-space:nowrap">';
