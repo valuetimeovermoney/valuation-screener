@@ -44,6 +44,7 @@ body.light .mc{background:#f0f4f8;border:1px solid #e2e8f0}
 b.s{color:var(--lb)}
 @media(max-width:640px){.cs{display:none}}
 </style>
+<script src="../config.js"></script>
 </head>
 <body>
 <style>.vtm-nav{background:#0d1117;border-bottom:1px solid #30363d;padding:0 16px;display:flex;align-items:center;gap:2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;position:sticky;top:0;z-index:999}.vtm-nav a{color:#8b949e;text-decoration:none;padding:9px 13px;font-size:12px;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s}.vtm-nav a:hover{color:#e6edf3}.vtm-nav a.vtm-active{color:#58a6ff;border-bottom-color:#58a6ff}.vtm-brand{font-weight:800!important;font-size:14px!important;color:#e6edf3!important;padding-right:16px!important;border-bottom:none!important}</style>
@@ -75,10 +76,11 @@ b.s{color:var(--lb)}
   </div>
 </div>
 <script>
-var AK='zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J',BASE='https://financialmodelingprep.com/stable/';
+var AK=(window.VT_CONFIG&&window.VT_CONFIG.FMP_KEY)||'zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J',BASE=(window.VT_CONFIG&&window.VT_CONFIG.FMP_BASE)||'https://financialmodelingprep.com/stable/';
 
-function toggleTheme(){var l=document.body.classList.toggle('light');localStorage.setItem('vtheme2',l?'light':'dark');document.getElementById('thbtn').textContent=l?'🌙 Dark':'☀️ Day';}
-if(localStorage.getItem('vtheme2')==='light'){document.body.classList.add('light');setTimeout(function(){var b=document.getElementById('thbtn');if(b)b.textContent='🌙 Dark';},0);}
+function toggleTheme(){var l=document.body.classList.toggle('light');localStorage.setItem('pm_theme',l?'light':'dark');document.getElementById('thbtn').textContent=l?'🌙 Dark':'☀️ Day';}
+(function(){var legacy=localStorage.getItem('vtheme2');if(legacy&&!localStorage.getItem('pm_theme')){localStorage.setItem('pm_theme',legacy);localStorage.removeItem('vtheme2');}})();
+if(localStorage.getItem('pm_theme')==='light'){document.body.classList.add('light');setTimeout(function(){var b=document.getElementById('thbtn');if(b)b.textContent='🌙 Dark';},0);}
 
 async function fmp(ep,req){var u=BASE+ep+(ep.includes('?')?'&':'?')+'apikey='+AK;var r=await fetch(u);if(r.status===402||r.status===403){if(req)throw new Error('FMP '+r.status);return null;}if(!r.ok)throw new Error('FMP '+r.status);return r.json();}
 

@@ -204,6 +204,7 @@ select.ctrl-select:focus, input.ctrl-input:focus { border-color: var(--accent-bl
   .cal-day { min-height: 60px; }
 }
 </style>
+<script src="config.js"></script>
 </head>
 <body>
 
@@ -730,7 +731,7 @@ function toggleTheme() {
 
 // ─── SETTINGS ─────────────────────────────────────────────────────────────────
 const SETTINGS_KEY = 'pm_settings';
-const FMP_KEY = 'zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J'; // 32-char working key (same as screener)
+const FMP_KEY = (window.VT_CONFIG && window.VT_CONFIG.FMP_KEY) || 'zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J'; // shared via config.js; literal is fallback
 let settings = { fmp:FMP_KEY, av:'', napi:'', corsProxy:'' };
 
 // A valid FMP key is a 32-char alphanumeric string. Reject anything else.
@@ -1306,7 +1307,7 @@ async function lookupTicker() {
   const btn = document.getElementById('addLookupBtn');
   status.textContent = 'Looking up…'; status.style.color = 'var(--text-muted)';
   btn.disabled = true;
-  const fmpKey = settings.fmp || 'zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J';
+  const fmpKey = settings.fmp || FMP_KEY;
   try {
     const r = await fetch(`https://financialmodelingprep.com/stable/profile?symbol=${encodeURIComponent(tk.split('.')[0])}&apikey=${fmpKey}`);
     const data = await r.json();

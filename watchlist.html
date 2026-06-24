@@ -29,6 +29,7 @@ body{min-height:100vh;background:var(--bg);font-family:var(--f);color:var(--tx);
 .empty-state p{font-size:14px;line-height:1.7;margin-bottom:20px}
 .empty-state a{color:var(--bl);text-decoration:none;font-weight:600}
 </style>
+<script src="config.js"></script>
 </head>
 <body>
 <style>.vtm-nav{background:var(--cd);border-bottom:1px solid var(--bd);padding:0 16px;display:flex;align-items:center;gap:2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;position:sticky;top:0;z-index:999}.vtm-nav a{color:var(--lb);text-decoration:none;padding:9px 13px;font-size:12px;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s}.vtm-nav a:hover{color:var(--br)}.vtm-nav a.vtm-active{color:var(--bl);border-bottom-color:var(--bl)}.vtm-brand{font-weight:800!important;font-size:14px!important;color:var(--br)!important;padding-right:16px!important;border-bottom:none!important}</style>
@@ -50,8 +51,8 @@ body{min-height:100vh;background:var(--bg);font-family:var(--f);color:var(--tx);
 </div>
 
 <script>
-var AK='zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J';
-var BASE='https://financialmodelingprep.com/stable/';
+var AK=(window.VT_CONFIG&&window.VT_CONFIG.FMP_KEY)||'zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J';
+var BASE=(window.VT_CONFIG&&window.VT_CONFIG.FMP_BASE)||'https://financialmodelingprep.com/stable/';
 var WL_KEY='vtm_wl';
 
 (function(){if(localStorage.getItem('pm_theme')==='light'){document.body.classList.add('light');document.addEventListener('DOMContentLoaded',function(){var b=document.getElementById('wlThemeBtn');if(b)b.textContent='☾';});}})();

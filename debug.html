@@ -3,8 +3,9 @@
 <input id="q" value="aimia" style="padding:8px;width:300px;font-size:14px"/>
 <button onclick="test()">Test All Endpoints</button>
 <pre id="out" style="white-space:pre-wrap;margin-top:20px"></pre>
+<script src="config.js"></script>
 <script>
-var AK='zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J';
+var AK=(window.VT_CONFIG&&window.VT_CONFIG.FMP_KEY)||'zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J';
 async function test(){
   var q=document.getElementById('q').value.trim();
   var out=document.getElementById('out');
