@@ -488,6 +488,7 @@ async function buildCo(tk){
     var _ev2=_ev||(_mc+_debt-_cash); // calc EV if not in key-metrics
     return{
     yr:yrOf(y)||(y.date?y.date.slice(0,4):'')||'',
+    sh:_sh,
     pe:_km('peRatio','priceEarningsRatio')||(_mc>0&&_ni>0?_mc/_ni:0),
     evEbitda:_km('enterpriseValueOverEBITDA','evToEbitda')||(_ev2>0&&_ebitda>0?_ev2/_ebitda:0),
     evFcf:_km('evToFreeCashFlow','evFreeCashFlow')||(_ev2>0&&_fcf>0?_ev2/_fcf:0),
@@ -916,7 +917,7 @@ function render(){
 
   var h='';
   // Header
-  h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;background:var(--cd);border-radius:8px;padding:14px 16px;border:1px solid var(--bd);margin-bottom:12px"><div><div style="font-size:18px;font-weight:800;color:var(--br)">'+d.n+'</div><div style="font-size:11px;color:var(--dm)">'+d.t+' · '+d.sec+' · '+d.industry+'</div><div style="font-size:10px;color:var(--dm);margin-top:2px">Fiscal year ends: '+d.fyEnd+' · Latest: '+d.fy+'</div></div><div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px"><div style="display:flex;align-items:center;gap:10px"><button id="wl-btn" style="background:none;border:1px solid var(--bd);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:13px;color:'+(wlHas(d.t)?'var(--yw)':'var(--lb)')+';font-family:var(--f)">'+(wlHas(d.t)?'★ Saved':'☆ Save')+'</button><div style="font-size:24px;font-weight:800;font-family:var(--m);color:var(--bl)">'+pr(d.pQuote!=null?d.pQuote:d.p)+(d.curTrade&&d.curTrade!==d.cur?' <span style="font-size:11px;color:var(--dm);font-weight:600">'+d.curTrade+'</span>':'')+'</div></div><div style="font-size:10px;color:var(--dm)">'+d.pd+(d.curTrade&&d.curTrade!==d.cur?' · valued in '+d.cur+(d.fxResolved?' (≈'+pr(d.p)+' '+d.cur+')':' — FX rate unavailable'):'')+'</div></div></div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;background:var(--cd);border-radius:8px;padding:14px 16px;border:1px solid var(--bd);margin-bottom:12px"><div><div style="font-size:18px;font-weight:800;color:var(--br)">'+d.n+'</div><div style="font-size:11px;color:var(--dm)">'+d.t+' · '+d.sec+' · '+d.industry+'</div><div style="font-size:10px;color:var(--dm);margin-top:2px">Fiscal year ends: '+d.fyEnd+' · Latest: '+d.fy+'</div></div><div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px"><div style="display:flex;align-items:center;gap:10px"><button id="wl-btn" style="background:none;border:1px solid var(--bd);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:13px;color:'+(wlHas(d.t)?'var(--yw)':'var(--lb)')+';font-family:var(--f)">'+(wlHas(d.t)?'★ Saved':'☆ Save')+'</button><button id="pm-btn" onclick="pmToggle(ST.d.t,ST.d.n,ST.d.sec)" style="background:none;border:1px solid var(--bd);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:13px;color:'+(pmHas(d.t)?'var(--tl)':'var(--lb)')+';font-family:var(--f)">'+(pmHas(d.t)?'◉ Portfolio':'○ Portfolio')+'</button><div style="font-size:24px;font-weight:800;font-family:var(--m);color:var(--bl)">'+pr(d.pQuote!=null?d.pQuote:d.p)+(d.curTrade&&d.curTrade!==d.cur?' <span style="font-size:11px;color:var(--dm);font-weight:600">'+d.curTrade+'</span>':'')+'</div></div><div style="font-size:10px;color:var(--dm)">'+d.pd+(d.curTrade&&d.curTrade!==d.cur?' · valued in '+d.cur+(d.fxResolved?' (≈'+pr(d.p)+' '+d.cur+')':' — FX rate unavailable'):'')+'</div></div></div>';
   // ── VALUATION VERDICT (synthesized one-liner) ──────────────
   (function(){
     var _vdRoic=(d.kmH&&d.kmH[0])?d.kmH[0].roic:0;
@@ -1342,6 +1343,8 @@ function render(){
     var _bsHR2=(d.bsH||[]).slice(0,_hl).reverse();  // raw FMP objects
     var _incHR=(d.incH||[]).slice(0,_hl).reverse();
     var _yrPrices2={};(ST.priceHist||[]).forEach(function(p){var yr=p.date.slice(0,4);_yrPrices2[yr]=p.close;});
+    // Backfill missing historical market-cap using year-end price × diluted shares
+    (d.kmH||[]).forEach(function(k){if(!(k.mc>0)&&k.yr&&_yrPrices2[k.yr]&&k.sh>0){k.mc=_yrPrices2[k.yr]*k.sh;k._mcEst=true;}});
     var fsN=fsRv.length;
 
     // Check if latest FY is old — if so, compute TTM from quarters
@@ -2190,6 +2193,20 @@ function wlToggle(t,n,sec){
   wlSave(a);
   var btn=document.getElementById('wl-btn');
   if(btn){btn.textContent=idx>=0?'☆ Save':'★ Saved';btn.style.color=idx>=0?'var(--lb)':'var(--yw)';}
+}
+
+// ── PORTFOLIO ─────────────────────────────────────────────
+var PM_KEY='pm_portfolio';
+function pmGet(){try{return JSON.parse(localStorage.getItem(PM_KEY)||'[]');}catch(e){return[];}}
+function pmSave(a){localStorage.setItem(PM_KEY,JSON.stringify(a));}
+function pmHas(t){return pmGet().some(function(x){return x.t===t;});}
+function pmToggle(t,n,sec){
+  var a=pmGet();
+  var idx=a.findIndex(function(x){return x.t===t;});
+  if(idx>=0)a.splice(idx,1);else a.push({t:t,n:n||t,sec:sec||''});
+  pmSave(a);
+  var btn=document.getElementById('pm-btn');
+  if(btn){btn.textContent=idx>=0?'○ Portfolio':'◉ Portfolio';btn.style.color=idx>=0?'var(--lb)':'var(--tl)';}
 }
 
 // ── NAV TAB MANAGEMENT ────────────────────────────────────
