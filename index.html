@@ -804,7 +804,7 @@ function renderStockChart(ticker, pts, spPts, ipoYear) {
 
 
 
-var ST={d:null,co:[],priceHist:[],spHist:[],indMult:15,reYrs:5,reMult:null,cagrMethod:null,cagrCustom:null,mpOver:null,fcfMethod:'adj',hlYrs:5,showPath:true,showFS:true,showBS:true,showSeg:true,
+var ST={d:null,co:[],priceHist:[],spHist:[],indMult:15,reYrs:5,reMult:null,cagrMethod:null,cagrCustom:null,mpOver:null,fcfMethod:'adj',hlYrs:5,valHist:5,showPath:true,showFS:true,showBS:true,showSeg:true,
   dcf:{
     // Per-year revenue growth %
     r1:12,r2:10,r3:9,r4:8,r5:7,
@@ -847,11 +847,11 @@ function updDCF(){
 function togS(k){ST['show'+k]=!ST['show'+k];render();}
 function loadBS(){if(ST.d)render();}
 
-function calcDCF(){
+function calcDCF(waccOv,tgOv){
   var d=ST.d,v=ST.dcf;
   if(!d||!d.rv||!d.rv.length)return null;
   var latRev=d.rv[0].r;
-  var wacc=v.wacc/100,tg=v.tg/100,mp=v.mp/100;
+  var wacc=(waccOv!=null?waccOv:v.wacc)/100,tg=(tgOv!=null?tgOv:v.tg)/100,mp=v.mp/100;
   var pR=[],pNI=[],pCfo=[],pSbc=[],pCx=[],pMx=[],pFcf=[],pS=[],pV=[];
   var cR=latRev;
   for(var i=1;i<=5;i++){
@@ -894,6 +894,28 @@ function viInp(key,val,w){
   return '<input id="d_'+key+'" type="number" step="0.1" value="'+(Math.round((val||0)*10)/10)+'" oninput="updDCF()" onfocus="this.select()" style="width:'+(w||58)+'px;background:var(--ib);border:1px solid var(--ibd);border-radius:4px;padding:5px 6px;color:var(--br);font-family:var(--m);font-size:12px;outline:none;text-align:right;cursor:text"/>';
 }
 function reCalc(){var d=ST.d;if(!d)return;d.p=gv('fp');d.sh=gv('fsh');d.ca=gv('fca');d.de=gv('fde');d.cfo=gv('fcfo');d.sbc=gv('fsbc');d.cx=gv('fcx');d.mp=gv('fmp2');ST.indMult=gv('indm')||15;render();}
+function setValHist(n){ST.valHist=n;render();}
+// Historical DCF-driver series (per fiscal year, index 0 = latest) + trailing 3-year average.
+function dcfHist(d){
+  if(!d||!d.rv||!d.rv.length)return null;
+  var rv=d.rv,ni=d.ni||[],cfo=d.cfoH||[],sbc=d.sbcH||[],cx=d.capexH||[],fcf=d.fcf||[];
+  function at(a,i){return a[i]&&a[i].v!=null?a[i].v:null;}
+  var rows=[];
+  for(var i=0;i<rv.length;i++){
+    var r=rv[i].r,rPrev=rv[i+1]?rv[i+1].r:null;
+    rows.push({
+      y:rv[i].y, rev:r,
+      growth:(rPrev&&rPrev!==0)?(r/rPrev-1):null,
+      niM:r?at(ni,i)/r:null,
+      cfoM:r?at(cfo,i)/r:null,
+      sbcP:r?Math.abs(at(sbc,i)||0)/r:null,
+      cxP:r?Math.abs(at(cx,i)||0)/r:null,
+      fcf:at(fcf,i)
+    });
+  }
+  function avg(k){var v=rows.slice(0,3).map(function(x){return x[k];}).filter(function(x){return x!=null&&!isNaN(x);});return v.length?v.reduce(function(a,b){return a+b;},0)/v.length:null;}
+  return {rows:rows, avg3:{growth:avg('growth'),niM:avg('niM'),cfoM:avg('cfoM'),sbcP:avg('sbcP'),cxP:avg('cxP'),fcf:avg('fcf'),rev:avg('rev')}};
+}
 function togSection(sec){ST['show'+sec]=!ST['show'+sec];render();}
 function mkEI(id,lb,val,unit){return'<div class="ei"><label>'+lb+'</label><div style="display:flex;align-items:center;gap:3px"><input id="'+id+'" type="number" step="any" value="'+(val||'')+'" oninput="reCalc()" onfocus="this.select()"/><span class="u">'+unit+'</span></div></div>';}
 function mkRo(lb,val,bold,op,bt){var oH=op?'<span style="margin-right:4px;font-weight:700;font-family:var(--m);color:'+(op==='+'?'var(--bl)':'var(--rd)')+'">'+op+'</span>':'';return'<div class="rw'+(bt?' bt':'')+'"><span style="font-size:12px;color:var(--lb)">'+oH+lb+'</span><span style="font-family:var(--m);font-size:12px;color:'+(bold?'var(--br)':'#a0aab8')+';font-weight:'+(bold?700:400)+'">'+val+'</span></div>';}
@@ -911,41 +933,27 @@ function render(){
   var c=calcM(d);
   // Override quality ratio with selected revenue growth if user changed it
   if(ST._revGrowth!=null){c.qr=(c.fy||0)+ST._revGrowth;c.gap=0.25-c.qr;c.rc=ST._revGrowth;}
-  // Seed DCF from historical data on first load
+  // Seed DCF from historical data on first load.
+  // Each Year-1 driver = the LOWER of (trailing 3-yr average, most-recent full year) — a
+  // conservative starting point. Years 2-5 default to the Year-1 value (flat) and stay there
+  // unless the user edits a later year directly. All values remain fully editable afterward.
   if(!ST.dcf._seeded&&d.rv&&d.rv.length){
     var v2=ST.dcf;
-    var lr=d.rv[0].r||1;
-    // Revenue growth tapering from historical CAGR
-    var hrc=c.rc?Math.round(c.rc*100):10;
-    v2.r1=Math.max(1,hrc);v2.r2=Math.max(1,hrc-2);v2.r3=Math.max(1,hrc-3);v2.r4=Math.max(1,hrc-4);v2.r5=Math.max(1,hrc-5);
-    // NI margin from latest year
-    var lni=d.ni&&d.ni[0]?d.ni[0].v:0;
-    var nim=Math.round(lni/lr*1000)/10;
-    for(var _i=1;_i<=5;_i++)v2['ni'+_i]=nim;
-    // SBC % of rev from latest year (computed first — needed for CFO back-calc below)
-    var lsbc=d.sbcH&&d.sbcH[0]?d.sbcH[0].v:0;
-    var sbcm=Math.round(lsbc/lr*1000)/10;
-    for(var _i=1;_i<=5;_i++)v2['sbc'+_i]=sbcm;
-    // Total CapEx % of rev from latest year (computed first — needed for CFO back-calc below)
-    var lcx=d.capexH&&d.capexH[0]?d.capexH[0].v:0;
-    var cxm=Math.round(lcx/lr*1000)/10;
-    for(var _i=1;_i<=5;_i++)v2['cx'+_i]=cxm;
-    // Maint CapEx % default by sector
+    var _H=dcfHist(d);
+    function _lo(a,b){var c2=[];if(a!=null&&!isNaN(a))c2.push(a);if(b!=null&&!isNaN(b))c2.push(b);return c2.length?Math.min.apply(null,c2):0;}
+    function _seed(key,avgv,latv,scale){var y1=Math.round(_lo(avgv,latv)*(scale||1)*10)/10;for(var _i=1;_i<=5;_i++)v2[key+_i]=y1;}
+    if(_H){
+      var a=_H.avg3,l=_H.rows[0];
+      _seed('r',a.growth,l.growth,100);   // revenue growth %
+      _seed('ni',a.niM,l.niM,100);        // net margin %
+      _seed('cfo',a.cfoM,l.cfoM,100);     // CFO margin %
+      _seed('sbc',a.sbcP,l.sbcP,100);     // SBC % of revenue
+      _seed('cx',a.cxP,l.cxP,100);        // CapEx % of revenue
+    }
     v2.mp=d.mp||50;
-    // CFO margin — back-calculated from conservative FCF seed:
-    // FCF seed = min(most recent FY FCF, 3-year avg FCF) to avoid overweighting a peak year
-    var _fcfArr=(d.fcf||[]).slice(0,3).map(function(x){return x&&x.v!=null?x.v:null;}).filter(function(x){return x!==null;});
-    var _lastFcf=_fcfArr.length?_fcfArr[0]:0;
-    var _avg3Fcf=_fcfArr.length?_fcfArr.reduce(function(a,b){return a+b;},0)/_fcfArr.length:_lastFcf;
-    var _seedFcf=Math.min(_lastFcf,_avg3Fcf);
-    // CFO = FCF + SBC + maint CapEx (adding back what gets subtracted in calcDCF)
-    var _seedCfo=_seedFcf+lsbc+Math.abs(lcx)*(v2.mp/100);
-    var cfom=lr>0?Math.round(_seedCfo/lr*1000)/10:0;
-    for(var _i=1;_i<=5;_i++)v2['cfo'+_i]=cfom;
-    // Shares from historical trend + slight annual buyback
-    var lsh=d.soH&&d.soH[0]?d.soH[0].v:d.sh;
-    var shcagr=d.soH&&d.soH.length>=2?cagr(d.soH[d.soH.length-1].v||1,d.soH[0].v||1,d.soH.length-1):0;
-    for(var _i=1;_i<=5;_i++)v2['sh'+_i]=Math.round(lsh*Math.pow(1+shcagr,_i)*10)/10;
+    // Shares held flat at the most recent count (also "follows Year 1")
+    var lsh=d.soH&&d.soH[0]&&d.soH[0].v?d.soH[0].v:d.sh;
+    for(var _i=1;_i<=5;_i++)v2['sh'+_i]=Math.round(lsh*10)/10;
     v2._seeded=true;
   }
   var dcf=calcDCF();
@@ -2250,6 +2258,32 @@ h+='<td></td></tr>';
     vh+='<label style="font-size:12px;color:var(--lb)">Terminal growth '+viInp('_tg',v.tg,56)+' <span style="color:var(--dm)">%</span></label>';
     vh+='<label style="font-size:12px;color:var(--lb)">Maint CapEx '+viInp('_mp',v.mp,56)+' <span style="color:var(--dm)">% of CapEx</span></label>';
     vh+='</div>';
+    // ── Historical drivers (5y / 10y toggle, with trailing 3-yr average) ──
+    var _H=dcfHist(d);
+    if(_H){
+      var nH=ST.valHist||5;
+      var disp=_H.rows.slice(0,nH).reverse(); // oldest → newest
+      var a3=_H.avg3;
+      vh+='<div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px"><div style="font-size:13px;font-weight:700;color:var(--br)">Historical drivers</div><div style="display:flex;gap:4px">';
+      [5,10].forEach(function(n){var on=nH===n;vh+='<button onclick="setValHist('+n+')" style="background:'+(on?'var(--bl)':'var(--ib)')+';color:'+(on?'#fff':'var(--lb)')+';border:1px solid var(--bd);border-radius:5px;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--f)">'+n+'Y</button>';});
+      vh+='</div></div>';
+      vh+='<div style="overflow-x:auto"><table class="t" style="min-width:520px"><thead><tr><th style="text-align:left">Driver</th>';
+      disp.forEach(function(r){vh+='<th>'+r.y+'</th>';});
+      vh+='<th style="color:var(--bl)">3Y Avg</th></tr></thead><tbody>';
+      function hRow(lb,key,fmt){var r='<tr><td style="color:var(--lb)">'+lb+'</td>';disp.forEach(function(row){r+='<td>'+fmt(row[key])+'</td>';});return r+'<td style="color:var(--bl);font-weight:700">'+fmt(a3[key])+'</td></tr>';}
+      var _pcF=function(x){return x==null||isNaN(x)?'—':pc(x);};var _dF=function(x){return D(x);};
+      vh+=hRow('Revenue ($M)','rev',_dF);
+      vh+=hRow('Rev growth %','growth',_pcF);
+      vh+=hRow('Net margin %','niM',_pcF);
+      vh+=hRow('CFO margin %','cfoM',_pcF);
+      vh+=hRow('SBC % rev','sbcP',_pcF);
+      vh+=hRow('CapEx % rev','cxP',_pcF);
+      vh+=hRow('Adj FCF ($M)','fcf',_dF);
+      vh+='</tbody></table></div>';
+      vh+='<div style="font-size:11px;color:var(--dm);margin:8px 0 18px;line-height:1.5">Forecast Year 1 seeds to the <b style="color:var(--lb)">lower of the 3-yr average and the latest full year</b> for each driver; Years 2–5 follow Year 1 until you edit a later year directly.</div>';
+    }
+    // ── Forecast (editable) ──
+    vh+='<div style="font-size:13px;font-weight:700;color:var(--br);margin-bottom:8px">Forecast (editable)</div>';
     // Per-year projection table
     vh+='<div style="overflow-x:auto"><table class="t" style="min-width:520px"><thead><tr><th style="text-align:left">Assumption</th>';
     yrs.forEach(function(y){vh+='<th>'+y+'</th>';});
@@ -2278,6 +2312,29 @@ h+='<td></td></tr>';
     vh+=bridge('= Fair value / share',pr(dcf.iv),null,1);
     vh+='</div>';
     vh+='<div style="margin-top:14px;font-size:9px;color:var(--dm);line-height:1.6">Adj FCF = CFO − SBC − Maint CapEx. Terminal value uses Gordon growth: FCF₅·(1+g)/(WACC−g). Net debt = Debt + senior claims − (Cash + investments). This is the going-concern leg of the Overview verdict, which also floors fair value at net cash per share.</div>';
+    // ── Sensitivity: fair value / share across WACC × terminal growth ──
+    (function(){
+      var baseW=v.wacc,baseG=v.tg;
+      var wList=[baseW-4,baseW-2,baseW,baseW+2,baseW+4].filter(function(x){return x>0;});
+      var gList=[baseG-2,baseG-1,baseG,baseG+1,baseG+2];
+      vh+='<div style="margin-top:24px;font-size:13px;font-weight:700;color:var(--br);margin-bottom:4px">Sensitivity — fair value / share</div>';
+      vh+='<div style="font-size:10px;color:var(--dm);margin-bottom:8px">Rows = WACC, columns = terminal growth. Each cell recomputes the full DCF; colour = margin of safety vs current price '+pr(d.p)+'. Current case outlined.</div>';
+      vh+='<div style="overflow-x:auto"><table class="t" style="min-width:520px"><thead><tr><th style="text-align:left">WACC \\ g →</th>';
+      gList.forEach(function(g){vh+='<th'+(g===baseG?' style="color:var(--bl)"':'')+'>'+g.toFixed(1)+'%</th>';});
+      vh+='</tr></thead><tbody>';
+      wList.forEach(function(w){
+        vh+='<tr><td style="color:'+(w===baseW?'var(--bl)':'var(--lb)')+';font-weight:'+(w===baseW?700:400)+'">'+w.toFixed(1)+'%</td>';
+        gList.forEach(function(g){
+          var res=calcDCF(w,g),iv=res?res.iv:0;
+          var mos=d.p>0?(iv-d.p)/d.p:null;
+          var col=mos==null?'transparent':mos>=0.30?'rgba(34,197,94,0.20)':mos>=0.10?'rgba(52,211,153,0.14)':mos>=-0.10?'rgba(234,179,8,0.13)':'rgba(239,68,68,0.15)';
+          var isBase=(w===baseW&&g===baseG);
+          vh+='<td style="background:'+col+(isBase?';outline:2px solid var(--bl);outline-offset:-2px':'')+'"><div style="font-weight:700;color:var(--br)">'+pr(iv)+'</div><div style="font-size:8px;color:var(--dm)">'+(mos==null?'':(mos>=0?'+':'')+pc(mos))+'</div></td>';
+        });
+        vh+='</tr>';
+      });
+      vh+='</tbody></table></div>';
+    })();
     vh+='</div>';
     h+=vh;
   })();
