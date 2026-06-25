@@ -2569,7 +2569,38 @@ async function loadVtCal(){
     var upcoming=merged.filter(function(e){return e.date>=today;});
     var past=merged.filter(function(e){return e.date<today;});
 
+    // Dividends & splits hoisted up so the Key Dates panel can reference them
+    var divArr=Array.isArray(divData)?divData:(divData&&divData.historical?divData.historical:[]);
+    var splitArr=Array.isArray(splitData)?splitData:(splitData&&splitData.historical?splitData.historical:[]);
+    function _dvDate(x){return x.date||x.exDividendDate||'';}
+    var _futDiv=divArr.filter(function(x){return _dvDate(x)>=today;}).sort(function(a,b){return _dvDate(a)<_dvDate(b)?-1:1;});
+    var _pastDiv=divArr.filter(function(x){return _dvDate(x)<today;}).sort(function(a,b){return _dvDate(a)>_dvDate(b)?-1:1;});
+    var _nextDiv=_futDiv[0]||null,_lastDiv=_pastDiv[0]||null;
+    var _nextEarn=upcoming.length?upcoming[upcoming.length-1]:null; // nearest upcoming (list is desc)
+    var _lastEarn=past[0]||null;
+
     var h2='<div style="display:flex;flex-direction:column;gap:24px">';
+
+    // ── Key Dates ──────────────────────────────────
+    (function(){
+      function _amt(dv){if(!dv)return'';var a=dv.dividend!=null?dv.dividend:dv.adjDividend!=null?dv.adjDividend:dv.amount;return a!=null?' · $'+a:'';}
+      var cards=[
+        ['Next Earnings',_nextEarn?_nextEarn.date:null,_nextEarn?((_nextEarn.quarter?'Q'+_nextEarn.quarter+' '+(_nextEarn.year||''):'')+(_nextEarn.time==='bmo'?' · BMO':_nextEarn.time==='amc'?' · AMC':'')):'',_nextEarn?'var(--bl)':'var(--dm)'],
+        ['Last Earnings',_lastEarn?_lastEarn.date:null,_lastEarn?(_lastEarn.quarter?'Q'+_lastEarn.quarter+' '+(_lastEarn.year||''):'')+(_lastEarn.beat===true?' · beat':_lastEarn.beat===false?' · miss':''):'','var(--lb)'],
+        ['Next Ex-Dividend',_nextDiv?_dvDate(_nextDiv):null,_nextDiv?('pay '+(_nextDiv.paymentDate||_nextDiv.payDate||'?')+_amt(_nextDiv)):'','var(--gn)'],
+        ['Last Ex-Dividend',_lastDiv?_dvDate(_lastDiv):null,_lastDiv?_amt(_lastDiv).replace(' · ',''):'','var(--tl)'],
+      ];
+      if(!cards.some(function(c){return c[1];}))return;
+      h2+='<div><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Key Dates</div>';
+      h2+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">';
+      cards.forEach(function(c){
+        h2+='<div style="background:var(--cd);border:1px solid var(--bd);border-radius:8px;padding:12px"><div style="font-size:9px;color:var(--dm);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">'+c[0]+'</div>';
+        h2+='<div style="font-size:16px;font-weight:800;font-family:var(--m);color:'+c[3]+'">'+(c[1]||'—')+'</div>';
+        if(c[1]&&c[2])h2+='<div style="font-size:10px;color:var(--dm);margin-top:3px">'+escH(c[2])+'</div>';
+        h2+='</div>';
+      });
+      h2+='</div></div>';
+    })();
 
     // ── Earnings ──────────────────────────────────
     if(merged.length){
@@ -2608,7 +2639,6 @@ async function loadVtCal(){
     }
 
     // ── Dividends ──────────────────────────────────
-    var divArr=Array.isArray(divData)?divData:(divData&&divData.historical?divData.historical:[]);
     if(divArr.length){
       h2+='<div><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Dividends  <span style="font-weight:400;color:var(--dm)">'+divArr.length+' payments</span></div>';
       h2+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
@@ -2626,7 +2656,6 @@ async function loadVtCal(){
     }
 
     // ── Splits ──────────────────────────────────
-    var splitArr=Array.isArray(splitData)?splitData:(splitData&&splitData.historical?splitData.historical:[]);
     if(splitArr.length){
       h2+='<div><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Stock Splits</div>';
       h2+='<div style="display:flex;flex-direction:column;gap:4px">';
@@ -2663,11 +2692,7 @@ async function loadVtCapTable(){
       _sf('insider-trading/statistics?symbol='+encodeURIComponent(tkBase)),
       _sfBoth('shares-float?symbol='+encodeURIComponent(tkBase), V4+'shares_float?symbol='+encodeURIComponent(tkBase)),
       _sfBoth('institutional-ownership/symbol-positions-summary?symbol='+encodeURIComponent(tkBase)+'&year='+_yr+'&quarter='+_q, V4+'institutional-ownership/symbol-ownership?symbol='+encodeURIComponent(tkBase)+'&includeCurrentQuarter=true'),
-      _sf('institutional-ownership/institutional-holders/symbol-positions-summary?symbol='+encodeURIComponent(tkBase)+'&year='+_yr+'&quarter='+_q).then(toArr).then(function(r){
-        // fallback to v3 if stable returned empty
-        if(r&&r.length)return r;
-        return _sfv('https://financialmodelingprep.com/api/v3/institutional-holder/'+encodeURIComponent(tkBase)+'?limit=100&apikey='+AK).then(toArr).catch(function(){return[];});
-      }),
+      _sfBoth('institutional-ownership/holders?symbol='+encodeURIComponent(tkBase)+'&year='+_yr+'&quarter='+_q, V3+'institutional-holder/'+encodeURIComponent(tkBase)+'?limit=100'),
     ]);
     if(insR===null&&statR===null&&floatR===null&&sumR===null){_loadErr('vt-ct-body','loadVtCapTable');return;}
     var insiders=toArr(insR), insStats=toArr(statR), sharesFloat=toArr(floatR), instSum=toArr(sumR);
@@ -2772,25 +2797,23 @@ async function loadVtCapTable(){
       }
     }
     if(insArr.length){
-      h2+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:520px">';
-      h2+='<tr style="border-bottom:2px solid var(--bd)"><th style="text-align:left;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Name</th><th style="text-align:left;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Title</th><th style="text-align:left;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Date</th><th style="text-align:center;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Type</th><th style="text-align:right;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Shares</th><th style="text-align:right;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Price</th><th style="text-align:right;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Value</th></tr>';
-      insArr.slice(0,50).forEach(function(tx){
+      // Normalize once; store globally so the buy/sell filter can re-render without refetching.
+      var _insNorm=insArr.map(function(tx){
         var typ=(tx.transactionType||tx.acquistionOrDisposition||'').toLowerCase();
-        var isBuy=typ.includes('purchase')||typ==='p-purchase'||typ==='buy'||typ==='a';
+        var isBuy=typ.indexOf('purchase')>=0||typ==='p-purchase'||typ==='buy'||typ==='a'||typ.indexOf('-purchase')>=0;
         var shares=Math.abs(tx.securitiesTransacted||tx.shares||0);
         var price=tx.price||tx.transactionPrice||0;
-        var val=shares*price;
-        h2+='<tr style="border-bottom:1px solid var(--bd)" onmouseover="this.style.background=\'rgba(56,139,253,0.04)\'" onmouseout="this.style.background=\'\'">';
-        h2+='<td style="padding:7px 10px;color:var(--br);font-weight:600;white-space:nowrap">'+escH(tx.reportingName||tx.insiderName||tx.name||'')+'</td>';
-        h2+='<td style="padding:7px 10px;color:var(--dm);font-size:11px">'+escH(tx.typeOfOwner||tx.position||tx.officerTitle||'')+'</td>';
-        h2+='<td style="padding:7px 10px;font-family:var(--m);color:var(--lb);white-space:nowrap">'+(tx.transactionDate||tx.filingDate||tx.date||'')+'</td>';
-        h2+='<td style="padding:7px 10px;text-align:center"><span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:'+(isBuy?'rgba(34,197,94,0.15)':'rgba(239,68,68,0.15)')+';color:'+(isBuy?'var(--gn)':'var(--rd)')+'">'+( isBuy?'BUY':'SELL')+'</span></td>';
-        h2+='<td style="padding:7px 10px;text-align:right;font-family:var(--m);color:var(--lb)">'+cm(shares)+'</td>';
-        h2+='<td style="padding:7px 10px;text-align:right;font-family:var(--m);color:var(--dm)">'+(price?'$'+price:'—')+'</td>';
-        h2+='<td style="padding:7px 10px;text-align:right;font-family:var(--m);color:var(--lb)">'+(val>0?'$'+cm(Math.round(val)):'—')+'</td>';
-        h2+='</tr>';
+        return{name:tx.reportingName||tx.insiderName||tx.name||'',title:tx.typeOfOwner||tx.position||tx.officerTitle||'',
+          date:tx.transactionDate||tx.filingDate||tx.date||'',isBuy:isBuy,shares:shares,price:price,val:shares*price};
       });
-      h2+='</table></div>';
+      window._vtInsAll=_insNorm;
+      var _nBuy=_insNorm.filter(function(x){return x.isBuy;}).length,_nSell=_insNorm.length-_nBuy;
+      h2+='<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">';
+      [['all','All ('+_insNorm.length+')'],['buy','Buys ('+_nBuy+')'],['sell','Sells ('+_nSell+')']].forEach(function(f){
+        h2+='<button id="vt-ins-f-'+f[0]+'" onclick="_vtInsFilter(\''+f[0]+'\')" class="vt-ins-fbtn" style="background:var(--ib);border:1px solid var(--bd);border-radius:6px;padding:4px 12px;cursor:pointer;font-size:11px;font-weight:600;color:var(--dm);font-family:var(--f)">'+f[1]+'</button>';
+      });
+      h2+='</div>';
+      h2+='<div id="vt-ins-table"></div>';
     }else{
       h2+='<div style="font-size:12px;color:var(--dm);padding:12px 0">No recent insider transactions found.</div>';
     }
@@ -2799,7 +2822,8 @@ async function loadVtCapTable(){
     // ── Institutional Ownership (13F aggregate summary) ──────────────────────
     var io=Array.isArray(instHolder)?instHolder[0]:instHolder;
     if(io&&(io.investorsHolding!=null||io.numberOf13Fshares!=null||io.ownershipPercent!=null)){
-      h2+='<div><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Institutional Ownership (13F)  <span style="font-weight:400;color:var(--dm)">'+(io.date||io.year&&('Q'+io.quarter+' '+io.year)||'')+'</span></div>';
+      h2+='<div><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Institutional Ownership (13F)  <span style="font-weight:400;color:var(--dm)">'+(io.date||io.year&&('Q'+io.quarter+' '+io.year)||'')+'</span></div>';
+      h2+='<div style="font-size:10px;color:var(--dm);margin-bottom:10px;line-height:1.5">A <b style="color:var(--lb)">Form 13F</b> is the quarterly SEC filing every institutional manager with &gt;$100M in US equities must submit, listing their holdings. <b style="color:var(--lb)">13F Shares</b> = total shares of this company reported across all those filings — i.e. the aggregate held by institutions (funds, banks, advisors).</div>';
       h2+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px">';
       var _ioPct=io.ownershipPercent!=null?(io.ownershipPercent>1?io.ownershipPercent:io.ownershipPercent*100):null;
       var _ioStats=[
@@ -2824,37 +2848,38 @@ async function loadVtCapTable(){
         });
         h2+='</div>';
       }
-      // Top institutional holders ranked list
-      var _instH=Array.isArray(instHolders)?instHolders:[];
-      if(_instH.length){
-        // Sort by sharesNumber descending
-        _instH.sort(function(a,b){return (b.sharesNumber||b.shares||0)-(a.sharesNumber||a.shares||0);});
-        var _totalShares=sf0&&sf0.outstandingShares?sf0.outstandingShares:null;
-        h2+='<div style="margin-top:14px"><div style="font-size:10px;font-weight:700;color:var(--dm);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">Top Institutional Holders</div>';
-        h2+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:440px">';
-        h2+='<tr style="border-bottom:2px solid var(--bd)"><th style="text-align:left;padding:5px 10px;color:var(--dm);font-weight:600;font-size:10px">Holder</th><th style="text-align:right;padding:5px 10px;color:var(--dm);font-weight:600;font-size:10px">Shares</th><th style="text-align:right;padding:5px 10px;color:var(--dm);font-weight:600;font-size:10px">% Outstanding</th><th style="text-align:right;padding:5px 10px;color:var(--dm);font-weight:600;font-size:10px">Value</th><th style="text-align:center;padding:5px 10px;color:var(--dm);font-weight:600;font-size:10px">QoQ</th></tr>';
-        _instH.slice(0,25).forEach(function(h,idx){
-          var shares=h.sharesNumber||h.shares||0;
-          var pct=h.ownershipPercent!=null?(h.ownershipPercent>1?h.ownershipPercent:h.ownershipPercent*100):(_totalShares&&shares?shares/_totalShares*100:null);
-          var val=h.marketValue||h.value||0;
-          var chg=h.changeInSharesNumberPercentage||h.changePercent||null;
-          var isNew=h.isNew||false;
-          var isSold=h.isSoldOut||false;
-          var chgHtml='';
-          if(isNew)chgHtml='<span style="font-size:9px;font-weight:700;color:var(--gn);background:rgba(34,197,94,0.12);padding:1px 5px;border-radius:3px">NEW</span>';
-          else if(isSold)chgHtml='<span style="font-size:9px;font-weight:700;color:var(--rd);background:rgba(239,68,68,0.12);padding:1px 5px;border-radius:3px">SOLD</span>';
-          else if(chg!=null){var up=chg>0;chgHtml='<span style="font-size:10px;color:'+(up?'var(--gn)':'var(--rd)')+'">'+(up?'▲':'▼')+' '+Math.abs(chg).toFixed(1)+'%</span>';}
-          h2+='<tr style="border-bottom:1px solid var(--bd)" onmouseover="this.style.background=\'rgba(56,139,253,0.04)\'" onmouseout="this.style.background=\'\'">';
-          h2+='<td style="padding:6px 10px;color:var(--br);font-weight:600">'+escH(h.holderName||h.holder||h.name||'')+'</td>';
-          h2+='<td style="padding:6px 10px;text-align:right;font-family:var(--m);color:var(--lb)">'+cm(shares)+'</td>';
-          h2+='<td style="padding:6px 10px;text-align:right;font-family:var(--m);color:var(--bl)">'+(pct!=null?pct.toFixed(2)+'%':'—')+'</td>';
-          h2+='<td style="padding:6px 10px;text-align:right;font-family:var(--m);color:var(--dm)">'+(val>0?'$'+D(val/1e6)+'M':'—')+'</td>';
-          h2+='<td style="padding:6px 10px;text-align:center">'+chgHtml+'</td>';
-          h2+='</tr>';
-        });
-        h2+='</table></div></div>';
-      }
       h2+='</div>';
+    }
+
+    // ── Key Institutional Owners (named 13F holders) ──────────────────────
+    // Rendered independently of the aggregate summary so it shows whenever holder data exists.
+    var _instH=Array.isArray(instHolders)?instHolders.slice():[];
+    if(_instH.length){
+      _instH.sort(function(a,b){return (b.sharesNumber||b.shares||0)-(a.sharesNumber||a.shares||0);});
+      var _totalShares=(sf0&&sf0.outstandingShares)?sf0.outstandingShares:((ST.d&&ST.d.sh)?ST.d.sh*1e6:null);
+      h2+='<div><div style="font-size:11px;font-weight:700;color:var(--lb);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Key Institutional Owners  <span style="font-weight:400;color:var(--dm)">'+_instH.length+' filers · top 25</span></div>';
+      h2+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:460px">';
+      h2+='<tr style="border-bottom:2px solid var(--bd)"><th style="text-align:left;padding:5px 10px;color:var(--dm);font-weight:600;font-size:10px">#</th><th style="text-align:left;padding:5px 10px;color:var(--dm);font-weight:600;font-size:10px">Holder</th><th style="text-align:right;padding:5px 10px;color:var(--dm);font-weight:600;font-size:10px">Shares</th><th style="text-align:right;padding:5px 10px;color:var(--dm);font-weight:600;font-size:10px">% Out</th><th style="text-align:right;padding:5px 10px;color:var(--dm);font-weight:600;font-size:10px">Value</th><th style="text-align:center;padding:5px 10px;color:var(--dm);font-weight:600;font-size:10px">QoQ</th></tr>';
+      _instH.slice(0,25).forEach(function(hld,idx){
+        var shares=hld.sharesNumber||hld.shares||0;
+        var pct=hld.ownershipPercent!=null?(hld.ownershipPercent>1?hld.ownershipPercent:hld.ownershipPercent*100):(_totalShares&&shares?shares/_totalShares*100:null);
+        var val=hld.marketValue||hld.value||0;
+        var chg=hld.changeInSharesNumberPercentage!=null?hld.changeInSharesNumberPercentage:(hld.changePercent!=null?hld.changePercent:(hld.change!=null&&shares?hld.change/Math.max(1,shares-hld.change)*100:null));
+        var isNew=hld.isNew||false,isSold=hld.isSoldOut||false;
+        var chgHtml='';
+        if(isNew)chgHtml='<span style="font-size:9px;font-weight:700;color:var(--gn);background:rgba(34,197,94,0.12);padding:1px 5px;border-radius:3px">NEW</span>';
+        else if(isSold)chgHtml='<span style="font-size:9px;font-weight:700;color:var(--rd);background:rgba(239,68,68,0.12);padding:1px 5px;border-radius:3px">SOLD</span>';
+        else if(chg!=null&&isFinite(chg)){var up=chg>0;chgHtml='<span style="font-size:10px;color:'+(up?'var(--gn)':'var(--rd)')+'">'+(up?'▲':'▼')+' '+Math.abs(chg).toFixed(1)+'%</span>';}
+        h2+='<tr style="border-bottom:1px solid var(--bd)" onmouseover="this.style.background=\'rgba(56,139,253,0.04)\'" onmouseout="this.style.background=\'\'">';
+        h2+='<td style="padding:6px 10px;color:var(--dm);font-family:var(--m)">'+(idx+1)+'</td>';
+        h2+='<td style="padding:6px 10px;color:var(--br);font-weight:600">'+escH(hld.holderName||hld.holder||hld.investorName||hld.name||'—')+'</td>';
+        h2+='<td style="padding:6px 10px;text-align:right;font-family:var(--m);color:var(--lb)">'+cm(shares)+'</td>';
+        h2+='<td style="padding:6px 10px;text-align:right;font-family:var(--m);color:var(--bl)">'+(pct!=null?pct.toFixed(2)+'%':'—')+'</td>';
+        h2+='<td style="padding:6px 10px;text-align:right;font-family:var(--m);color:var(--dm)">'+(val>0?'$'+D(val/1e6)+'M':'—')+'</td>';
+        h2+='<td style="padding:6px 10px;text-align:center">'+chgHtml+'</td>';
+        h2+='</tr>';
+      });
+      h2+='</table></div></div>';
     }
 
     if(!insArr.length&&!io&&!sf0){
@@ -2862,7 +2887,41 @@ async function loadVtCapTable(){
     }
     h2+='</div>';
     el=document.getElementById('vt-ct-body');if(el)el.innerHTML=h2;
+    if(window._vtInsAll&&window._vtInsAll.length)_vtInsFilter('all');
   }catch(e){console.error('[CapTable]',e);var _el=document.getElementById('vt-ct-body');if(_el)_el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
+}
+// Insider buy/sell filter — re-renders the table from the cached transaction list.
+var _vtInsFilterVal='all';
+function _vtInsFilter(f){
+  _vtInsFilterVal=f;
+  ['all','buy','sell'].forEach(function(k){
+    var b=document.getElementById('vt-ins-f-'+k);if(!b)return;
+    var on=(k===f);
+    b.style.background=on?(k==='buy'?'rgba(34,197,94,0.15)':k==='sell'?'rgba(239,68,68,0.15)':'var(--bl)'):'var(--ib)';
+    b.style.color=on?(k==='buy'?'var(--gn)':k==='sell'?'var(--rd)':'#fff'):'var(--dm)';
+    b.style.borderColor=on?(k==='buy'?'var(--gn)':k==='sell'?'var(--rd)':'var(--bl)'):'var(--bd)';
+  });
+  _vtInsRender();
+}
+function _vtInsRender(){
+  var el=document.getElementById('vt-ins-table');if(!el)return;
+  var rows=(window._vtInsAll||[]).filter(function(x){return _vtInsFilterVal==='all'?true:_vtInsFilterVal==='buy'?x.isBuy:!x.isBuy;});
+  if(!rows.length){el.innerHTML='<div style="font-size:12px;color:var(--dm);padding:12px 0">No '+_vtInsFilterVal+' transactions.</div>';return;}
+  var h='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:520px">';
+  h+='<tr style="border-bottom:2px solid var(--bd)"><th style="text-align:left;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Name</th><th style="text-align:left;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Title</th><th style="text-align:left;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Date</th><th style="text-align:center;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Type</th><th style="text-align:right;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Shares</th><th style="text-align:right;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Price</th><th style="text-align:right;padding:6px 10px;color:var(--dm);font-weight:600;font-size:10px">Value</th></tr>';
+  rows.slice(0,80).forEach(function(tx){
+    h+='<tr style="border-bottom:1px solid var(--bd)" onmouseover="this.style.background=\'rgba(56,139,253,0.04)\'" onmouseout="this.style.background=\'\'">';
+    h+='<td style="padding:7px 10px;color:var(--br);font-weight:600;white-space:nowrap">'+escH(tx.name)+'</td>';
+    h+='<td style="padding:7px 10px;color:var(--dm);font-size:11px">'+escH(tx.title)+'</td>';
+    h+='<td style="padding:7px 10px;font-family:var(--m);color:var(--lb);white-space:nowrap">'+escH(tx.date)+'</td>';
+    h+='<td style="padding:7px 10px;text-align:center"><span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:'+(tx.isBuy?'rgba(34,197,94,0.15)':'rgba(239,68,68,0.15)')+';color:'+(tx.isBuy?'var(--gn)':'var(--rd)')+'">'+(tx.isBuy?'BUY':'SELL')+'</span></td>';
+    h+='<td style="padding:7px 10px;text-align:right;font-family:var(--m);color:var(--lb)">'+cm(tx.shares)+'</td>';
+    h+='<td style="padding:7px 10px;text-align:right;font-family:var(--m);color:var(--dm)">'+(tx.price?'$'+tx.price:'—')+'</td>';
+    h+='<td style="padding:7px 10px;text-align:right;font-family:var(--m);color:var(--lb)">'+(tx.val>0?'$'+cm(Math.round(tx.val)):'—')+'</td>';
+    h+='</tr>';
+  });
+  h+='</table></div>';
+  el.innerHTML=h;
 }
 
 // ── TRANSCRIPTS TAB ───────────────────────────────────────
@@ -2925,32 +2984,75 @@ async function loadVtTranscripts(){
       return txt.slice(0,480);
     }
 
-    var h2='<div>';
-    h2+='<div style="font-size:11px;color:var(--dm);margin-bottom:14px"><b style="color:var(--br)">'+escH(tkBase)+'</b> — '+deduped.length+' transcript'+(deduped.length!==1?'s':'')+' · click header to expand full text</div>';
-    h2+='<div style="display:flex;flex-direction:column;gap:6px">';
-    deduped.forEach(function(tr,i){
-      var uid='vt-tr-'+i;
+    // Cache normalized transcripts globally so search re-renders without refetching
+    window._vtTrAll=deduped.map(function(tr){
       var txt=tr.content||tr.transcript||'';
-      var qLabel='Q'+(tr.quarter||'?')+' '+(tr.year||'');
-      var dateStr=(tr.date||'').slice(0,10);
-      var snip=summarize(txt);
-      h2+='<div style="background:var(--cd);border:1px solid var(--bd);border-radius:8px;overflow:hidden">';
-      h2+='<div onclick="(function(b,ic){b.style.display=b.style.display===\'none\'?\'block\':\'none\';ic.textContent=b.style.display===\'none\'?\'▼\':\'▲\';})(document.getElementById(\''+uid+'\'),document.getElementById(\''+uid+'i\'))" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer" onmouseover="this.style.background=\'rgba(56,139,253,0.06)\'" onmouseout="this.style.background=\'transparent\'">';
-      h2+='<div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:700;color:var(--bl);font-family:var(--m)">'+escH(qLabel)+'</span>'+(dateStr?'<span style="font-size:11px;color:var(--dm)">'+dateStr+'</span>':'')+'</div>';
-      h2+='<span id="'+uid+'i" style="font-size:11px;color:var(--dm)">▼</span></div>';
-      if(snip){
-        h2+='<div style="padding:10px 16px 12px;border-top:1px solid var(--bd)">';
-        h2+='<div style="font-size:11px;color:var(--lb);line-height:1.6;font-style:italic">'+escH(snip)+'…</div>';
-        h2+='</div>';
-      }
-      if(txt){
-        h2+='<div id="'+uid+'" style="display:none;border-top:1px solid var(--bd)"><div style="padding:16px;font-size:12px;color:var(--lb);line-height:1.7;white-space:pre-wrap;max-height:600px;overflow-y:auto">'+escH(txt)+'</div></div>';
-      }
-      h2+='</div>';
+      return{q:tr.quarter||'?',y:tr.year||'',date:(tr.date||'').slice(0,10),txt:txt,snip:summarize(txt)};
     });
-    h2+='</div></div>';
+    window._vtTrTk=tkBase;
+    var h2='<div>';
+    h2+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">';
+    h2+='<input id="vt-tr-search" type="text" placeholder="Search across all transcripts…" oninput="_vtTrRender()" style="flex:1;min-width:200px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:7px 11px;font-size:12px;color:var(--br);font-family:var(--f)">';
+    h2+='<span id="vt-tr-count" style="font-size:11px;color:var(--dm);white-space:nowrap"></span>';
+    h2+='</div>';
+    h2+='<div id="vt-tr-list" style="display:flex;flex-direction:column;gap:6px"></div></div>';
     el=document.getElementById('vt-tr-body');if(el)el.innerHTML=h2;
+    _vtTrRender();
   }catch(e){console.error('[Transcripts]',e);var _el=document.getElementById('vt-tr-body');if(_el)_el.innerHTML='<div style="padding:20px;color:var(--rd)">Error: '+escH(e.message)+'</div>';}
+}
+// Highlight query matches inside an already-escaped HTML string.
+function _vtHL(escaped,q){
+  if(!q)return escaped;
+  try{var re=new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','ig');
+    return escaped.replace(re,'<mark style="background:rgba(234,179,8,0.35);color:inherit;border-radius:2px">$1</mark>');}catch(e){return escaped;}
+}
+// Turn a raw transcript into speaker-separated paragraphs (bold speaker, readable spacing).
+function _vtFmtTranscript(txt,q){
+  if(!txt)return'';
+  // Split into "Speaker Name: utterance" turns where present; else fall back to paragraphs.
+  var parts=txt.split(/\n+/).filter(function(l){return l.trim();});
+  var out='';
+  parts.forEach(function(p){
+    p=p.trim();
+    var m=p.match(/^([A-Z][A-Za-z.,'&\- ]{1,48}?):\s+([\s\S]+)$/);
+    if(m){
+      var spk=escH(m[1]),body=_vtHL(escH(m[2]),q);
+      out+='<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--bl);margin-bottom:2px">'+spk+'</div><div style="font-size:12px;color:var(--lb);line-height:1.7">'+body+'</div></div>';
+    }else{
+      out+='<div style="font-size:12px;color:var(--lb);line-height:1.7;margin-bottom:10px">'+_vtHL(escH(p),q)+'</div>';
+    }
+  });
+  return out;
+}
+function _vtTrRender(){
+  var listEl=document.getElementById('vt-tr-list');if(!listEl)return;
+  var all=window._vtTrAll||[];
+  var q=((document.getElementById('vt-tr-search')||{}).value||'').trim();
+  var qL=q.toLowerCase();
+  var shown=qL?all.filter(function(t){return (t.txt||'').toLowerCase().indexOf(qL)>=0||('q'+t.q+' '+t.y).toLowerCase().indexOf(qL)>=0;}):all;
+  var cnt=document.getElementById('vt-tr-count');
+  if(cnt)cnt.textContent=(qL?shown.length+' of '+all.length:all.length)+' transcript'+(all.length!==1?'s':'')+(qL?' match':'');
+  if(!shown.length){listEl.innerHTML='<div style="font-size:12px;color:var(--dm);padding:14px 0">No transcripts mention “'+escH(q)+'”.</div>';return;}
+  var h='';
+  shown.forEach(function(tr,i){
+    var uid='vt-tr-c'+i;
+    var qLabel='Q'+tr.q+' '+tr.y;
+    // count matches in this transcript for a quick relevance hint
+    var mCount=0;if(qL){var idx=0,t=(tr.txt||'').toLowerCase();while((idx=t.indexOf(qL,idx))>=0){mCount++;idx+=qL.length;}}
+    var openByDefault=qL?'block':'none';
+    h+='<div style="background:var(--cd);border:1px solid var(--bd);border-radius:8px;overflow:hidden">';
+    h+='<div onclick="(function(b,ic){b.style.display=b.style.display===\'none\'?\'block\':\'none\';ic.textContent=b.style.display===\'none\'?\'▼\':\'▲\';})(document.getElementById(\''+uid+'\'),document.getElementById(\''+uid+'i\'))" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer" onmouseover="this.style.background=\'rgba(56,139,253,0.06)\'" onmouseout="this.style.background=\'transparent\'">';
+    h+='<div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:700;color:var(--bl);font-family:var(--m)">'+escH(qLabel)+'</span>'+(tr.date?'<span style="font-size:11px;color:var(--dm)">'+tr.date+'</span>':'')+(mCount?'<span style="font-size:10px;font-weight:700;color:var(--yw);background:rgba(234,179,8,0.12);padding:1px 7px;border-radius:10px">'+mCount+' match'+(mCount!==1?'es':'')+'</span>':'')+'</div>';
+    h+='<span id="'+uid+'i" style="font-size:11px;color:var(--dm)">'+(qL?'▲':'▼')+'</span></div>';
+    if(tr.snip&&!qL){
+      h+='<div style="padding:10px 16px 12px;border-top:1px solid var(--bd)"><div style="font-size:11px;color:var(--lb);line-height:1.6;font-style:italic">'+escH(tr.snip)+'…</div></div>';
+    }
+    if(tr.txt){
+      h+='<div id="'+uid+'" style="display:'+openByDefault+';border-top:1px solid var(--bd)"><div style="padding:16px;max-height:600px;overflow-y:auto">'+_vtFmtTranscript(tr.txt,q)+'</div></div>';
+    }
+    h+='</div>';
+  });
+  listEl.innerHTML=h;
 }
 function escH(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
