@@ -129,7 +129,27 @@ async function _fetchT(url,opts,ms){
     }
   }
 }
-async function fmp(ep,req){var u=BASE+ep+(ep.includes('?')?'&':'?')+'apikey='+AK;var r=await _fetchT(u);if(r.status===402||r.status===403){if(req)throw new Error('FMP '+r.status);return null;}if(!r.ok)throw new Error('FMP '+r.status);return r.json();}
+// ── PER-TICKER RESPONSE CACHE (sessionStorage, 15-min TTL) ──
+var _CACHE_TTL=15*60*1000;
+function _cacheGet(k){try{var raw=sessionStorage.getItem(k);if(!raw)return undefined;var o=JSON.parse(raw);if(!o||(Date.now()-o.t)>_CACHE_TTL){sessionStorage.removeItem(k);return undefined;}return o.v;}catch(e){return undefined;}}
+function _cacheSet(k,v){
+  try{sessionStorage.setItem(k,JSON.stringify({t:Date.now(),v:v}));}
+  catch(e){ // quota hit — evict all our cache entries and retry once
+    try{for(var i=sessionStorage.length-1;i>=0;i--){var kk=sessionStorage.key(i);if(kk&&kk.indexOf('fmpc:')===0)sessionStorage.removeItem(kk);}sessionStorage.setItem(k,JSON.stringify({t:Date.now(),v:v}));}catch(e2){}
+  }
+}
+async function fmp(ep,req){
+  var u=BASE+ep+(ep.includes('?')?'&':'?')+'apikey='+AK;
+  var ck='fmpc:'+BASE+ep;
+  var hit=_cacheGet(ck);
+  if(hit!==undefined)return hit;
+  var r=await _fetchT(u);
+  if(r.status===402||r.status===403){if(req)throw new Error('FMP '+r.status);return null;}
+  if(!r.ok)throw new Error('FMP '+r.status);
+  var j=await r.json();
+  _cacheSet(ck,j);
+  return j;
+}
 // Render a "couldn't load — retry" panel into a container, wired to re-run a loader fn
 function _loadErr(elId,loaderName){
   var el=document.getElementById(elId);if(!el)return;
@@ -965,6 +985,28 @@ function render(){
         : ' ⚠ Statements in '+d.cur+' but price in '+d.curTrade+' and the FX rate could not be fetched — multiples and this verdict mix currencies and may be distorted.';
     }
     h+='<div style="font-size:9px;color:'+(d.curTrade&&d.curTrade!==d.cur&&!d.fxResolved?'var(--rd)':'var(--dm)')+';margin-top:6px">Fair value = max(avg of going-concern estimates, asset floor). Inputs: '+(_fvParts.join(' · ')||'n/a')+'. Tune assumptions in the DCF & Adj FCF sections below — this verdict updates live.'+_curClause+'</div>';
+    h+='</div>';
+  })();
+  // ── DATA AS-OF / COHERENCE STRIP ──────────────────────────
+  (function(){
+    var _today=new Date();
+    var _annual=d.bsDate||'';
+    var _q=(d.qInc&&d.qInc[0]&&d.qInc[0].date)?String(d.qInc[0].date).slice(0,10):'';
+    function _moAgo(ds){if(!ds)return null;var dt=new Date(ds);if(isNaN(dt))return null;return Math.round((_today-dt)/(30.44*86400000));}
+    var _am=_moAgo(_annual),_qm=_moAgo(_q);
+    var parts=[];
+    parts.push('<span>Price '+(d.pd||'—')+'</span>');
+    if(_annual)parts.push('<span>Annual '+d.fy+' ('+_annual+(_am!=null?', '+_am+'mo':'')+')</span>');
+    if(_q)parts.push('<span>Latest quarter '+_q+(_qm!=null?' ('+_qm+'mo)':'')+'</span>');
+    var _warn=null;
+    if(_am!=null&&_am>14){
+      _warn=(_q&&_qm!=null&&_qm<=6)
+        ? 'Annual statements are '+_am+' months old — any TTM figures use quarters through '+_q+'.'
+        : 'Latest annual statements are '+_am+' months stale and no recent quarter was found — figures may be outdated.';
+    }
+    h+='<div style="font-size:10px;color:var(--dm);margin-bottom:12px;display:flex;flex-wrap:wrap;gap:3px 14px;align-items:center">';
+    h+='<span style="color:var(--dm);font-weight:600">Data as-of:</span> '+parts.join('');
+    if(_warn)h+='<div style="width:100%;color:var(--yw);margin-top:3px">⚠ '+_warn+'</div>';
     h+='</div>';
   })();
   h+='<div id="vt-subtabs" style="display:flex;gap:0;border-bottom:2px solid var(--bd);margin-bottom:16px;overflow-x:auto;white-space:nowrap">';
@@ -2241,6 +2283,8 @@ function _vtNavActive(id){
 }
 function vtSwitch(id){
   _vtCurrent=id;
+  // Reflect the active sub-tab in the URL hash so the view is shareable/bookmarkable
+  try{var _h=(id&&id!=='overview')?'#'+id:'#';if(history&&history.replaceState)history.replaceState(null,'',location.pathname+location.search+_h);else location.hash=_h;}catch(e){}
   _vtShowTab(id);
   _vtNavActive(id);
   _vtSubNavActive(id);
@@ -2272,7 +2316,30 @@ var _vtNewsLoaded=false,_vtCalLoaded=false,_vtCtLoaded=false;
 
 // shared safe fetch: tries stable/ first (via fmp()), falls back to raw v3/v4 with apikey
 function _sf(ep){return fmp(ep).catch(function(){return null;});}
-function _sfv(url){return fetch(url+(url.includes('?')?'&':'?')+'apikey='+AK).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});}
+function _sfv(url){
+  var ck='fmpc:'+url;var hit=_cacheGet(ck);
+  if(hit!==undefined)return Promise.resolve(hit);
+  return fetch(url+(url.includes('?')?'&':'?')+'apikey='+AK).then(function(r){return r.ok?r.json():null;}).then(function(j){if(j!=null)_cacheSet(ck,j);return j;}).catch(function(){return null;});
+}
+// Normalize any FMP payload shape to an array (or null on hard error).
+function _toArrAny(r){if(r==null)return null;if(Array.isArray(r))return r;if(r.content&&Array.isArray(r.content))return r.content;if(r.data&&Array.isArray(r.data))return r.data;if(r.historical&&Array.isArray(r.historical))return r.historical;return[r];}
+// Try the stable endpoint first; if it errors OR returns an empty array, fall back to a
+// legacy v3/v4 URL (these are broadly populated even when the stable namespace is sparse).
+// Returns: array of rows, [] if both loaded-but-empty, or null if the stable call hard-errored
+// and there was no legacy fallback that succeeded.
+async function _sfBoth(stableEp,legacyUrl){
+  var r=await _sf(stableEp);
+  var a=_toArrAny(r);
+  if(Array.isArray(a)&&a.length)return a;
+  if(legacyUrl){
+    var r2=await _sfv(legacyUrl);
+    var a2=_toArrAny(r2);
+    if(Array.isArray(a2)&&a2.length)return a2;
+    if(a==null&&a2!=null)return a2; // stable errored, legacy loaded (even if empty)
+  }
+  return a; // [] (loaded-empty) or null (errored)
+}
+var V3='https://financialmodelingprep.com/api/v3/',V4='https://financialmodelingprep.com/api/v4/';
 // Fetch Google News RSS for a query via a CORS proxy; returns normalized article objects.
 async function _rssNews(query){
   var proxies=[
@@ -2334,8 +2401,8 @@ async function loadVtNews(){
     function toArr(r){if(!r)return[];if(Array.isArray(r))return r;if(r.content&&Array.isArray(r.content))return r.content;if(r.data&&Array.isArray(r.data))return r.data;return[];}
     var rssQuery='"'+(nm||tkBase)+'"'+(nm&&nm.length>3?'':' stock '+tkBase);
     var [sNewsR, pressR, rssArr] = await Promise.all([
-      _sf('news/stock?symbols='+encodeURIComponent(tkBase)+'&limit=250'),
-      _sf('news/press-releases?symbols='+encodeURIComponent(tkBase)+'&limit=100'),
+      _sfBoth('news/stock?symbols='+encodeURIComponent(tkBase)+'&limit=250', V3+'stock_news?tickers='+encodeURIComponent(tkBase)+'&limit=250'),
+      _sfBoth('news/press-releases?symbols='+encodeURIComponent(tkBase)+'&limit=100', V3+'press-releases/'+encodeURIComponent(tkBase)+'?limit=100'),
       _rssNews(rssQuery),
     ]);
     // null = provider error/rate-limit; [] = loaded but empty. Distinguish them.
@@ -2470,9 +2537,9 @@ async function loadVtCal(){
   try{
     function toArr(r){if(!r)return[];if(Array.isArray(r))return r;if(r.historical&&Array.isArray(r.historical))return r.historical;if(r.data&&Array.isArray(r.data))return r.data;return[];}
     var [earnR, divR, splitR] = await Promise.all([
-      _sf('earnings?symbol='+encodeURIComponent(tkBase)+'&limit=120'),
-      _sf('dividends?symbol='+encodeURIComponent(tkBase)+'&limit=80'),
-      _sf('splits?symbol='+encodeURIComponent(tkBase)+'&limit=40'),
+      _sfBoth('earnings?symbol='+encodeURIComponent(tkBase)+'&limit=120', V3+'historical/earning_calendar/'+encodeURIComponent(tkBase)),
+      _sfBoth('dividends?symbol='+encodeURIComponent(tkBase)+'&limit=80', V3+'historical-price-full/stock_dividend/'+encodeURIComponent(tkBase)),
+      _sfBoth('splits?symbol='+encodeURIComponent(tkBase)+'&limit=40', V3+'historical-price-full/stock_split/'+encodeURIComponent(tkBase)),
     ]);
     if(earnR===null&&divR===null&&splitR===null){_loadErr('vt-cal-body','loadVtCal');return;}
     var earningsAll=toArr(earnR), divData=toArr(divR), splitData=toArr(splitR);
@@ -2592,10 +2659,10 @@ async function loadVtCapTable(){
     var _nowD=new Date(),_yr=_nowD.getFullYear(),_q=Math.floor(_nowD.getMonth()/3)+1;
     _q-=1;if(_q<1){_q=4;_yr-=1;} // step back to last completed filing quarter
     var [insR, statR, floatR, sumR, instHolders] = await Promise.all([
-      _sf('insider-trading/search?symbol='+encodeURIComponent(tkBase)+'&limit=100'),
+      _sfBoth('insider-trading/search?symbol='+encodeURIComponent(tkBase)+'&limit=100', V4+'insider-trading?symbol='+encodeURIComponent(tkBase)+'&page=0'),
       _sf('insider-trading/statistics?symbol='+encodeURIComponent(tkBase)),
-      _sf('shares-float?symbol='+encodeURIComponent(tkBase)),
-      _sf('institutional-ownership/symbol-positions-summary?symbol='+encodeURIComponent(tkBase)+'&year='+_yr+'&quarter='+_q),
+      _sfBoth('shares-float?symbol='+encodeURIComponent(tkBase), V4+'shares_float?symbol='+encodeURIComponent(tkBase)),
+      _sfBoth('institutional-ownership/symbol-positions-summary?symbol='+encodeURIComponent(tkBase)+'&year='+_yr+'&quarter='+_q, V4+'institutional-ownership/symbol-ownership?symbol='+encodeURIComponent(tkBase)+'&includeCurrentQuarter=true'),
       _sf('institutional-ownership/institutional-holders/symbol-positions-summary?symbol='+encodeURIComponent(tkBase)+'&year='+_yr+'&quarter='+_q).then(toArr).then(function(r){
         // fallback to v3 if stable returned empty
         if(r&&r.length)return r;
@@ -2807,12 +2874,12 @@ async function loadVtTranscripts(){
   try{
     function toArr(r){if(!r)return[];if(Array.isArray(r))return r;if(r.data&&Array.isArray(r.data))return r.data;return[];}
     // 1) Enumerate every available transcript (year+quarter) for the symbol
-    var datesR=await _sf('earning-call-transcript-dates?symbol='+encodeURIComponent(tkBase));
+    var datesR=await _sfBoth('earning-call-transcript-dates?symbol='+encodeURIComponent(tkBase), V4+'earning_call_transcript?symbol='+encodeURIComponent(tkBase));
     if(datesR===null){_loadErr('vt-tr-body','loadVtTranscripts');return;}
     var dates=toArr(datesR);
     var pairs=[];
     dates.forEach(function(d){
-      // rows look like {quarter, year, date} or arrays like [quarter,year,date]
+      // rows look like {quarter, year, date} or arrays like [quarter,year,date] (v4: [quarter,year,date])
       var q=d.quarter!=null?d.quarter:Array.isArray(d)?d[0]:null;
       var y=d.year!=null?d.year:Array.isArray(d)?d[1]:null;
       if(q!=null&&y!=null)pairs.push({q:q,y:y});
@@ -2829,7 +2896,7 @@ async function loadVtTranscripts(){
     for(var i=0;i<pairs.length;i+=CC){
       var chunk=pairs.slice(i,i+CC);
       var res=await Promise.all(chunk.map(function(p){
-        return _sf('earning-call-transcript?symbol='+encodeURIComponent(tkBase)+'&year='+p.y+'&quarter='+p.q).then(toArr);
+        return _sfBoth('earning-call-transcript?symbol='+encodeURIComponent(tkBase)+'&year='+p.y+'&quarter='+p.q, V3+'earning_call_transcript/'+encodeURIComponent(tkBase)+'?quarter='+p.q+'&year='+p.y).then(toArr);
       }));
       res.forEach(function(arr){arr.forEach(function(t){if(t&&(t.content||t.transcript))all.push(t);});});
     }
@@ -2975,7 +3042,12 @@ async function go(forceSymbol){
   }finally{document.getElementById('ld').style.display='none';document.getElementById('gb').disabled=false;document.getElementById('gb').textContent='Analyze';}
 }
 
-(function(){var p=new URLSearchParams(window.location.search);var t=p.get('t');if(t){document.getElementById('qi').value=t;go(t);}})();
+(function(){
+  // Restore sub-tab from URL hash (e.g. ?t=AAPL#news) so the view is bookmarkable
+  var _hash=(location.hash||'').replace('#','');
+  if(_vtTabs.indexOf(_hash)>=0)_vtCurrent=_hash;
+  var p=new URLSearchParams(window.location.search);var t=p.get('t');if(t){document.getElementById('qi').value=t;go(t);}
+})();
 </script>
 </body>
 </html>
