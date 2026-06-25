@@ -25,23 +25,23 @@ h1{font-size:20px;font-weight:800;color:var(--br);margin:2px 0 0}
 .cs{width:230px;flex-shrink:0;padding-left:14px;border-left:1px solid var(--bd);margin-left:12px;font-size:10px;color:var(--dm);line-height:1.5}
 .ct{font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px}
 .rw{display:flex;justify-content:space-between;align-items:baseline;padding:4px 0}
-.bt{border-top:1px solid #1e2a3a}
+.bt{border-top:1px solid var(--bd)}
 .ei{display:flex;align-items:center;justify-content:space-between;padding:3px 0}
-.ei label{font-size:12px;color:var(--lb)}.ei input{width:100px;background:var(--ib);border:1px solid var(--ibd);border-radius:4px;padding:3px 6px;color:#e0e7f0;font-size:12px;font-family:var(--m);outline:none;text-align:right}
+.ei label{font-size:12px;color:var(--lb)}.ei input{width:100px;background:var(--ib);border:1px solid var(--ibd);border-radius:4px;padding:5px 8px;color:var(--br);font-size:13px;font-family:var(--m);outline:none;text-align:right;cursor:text}
 .ei .u{font-size:10px;color:var(--dm);width:28px;margin-left:3px}
 .bg{padding:2px 7px;border-radius:3px;font-size:10px;font-weight:700;display:inline-block}
 .sp{width:28px;height:28px;border:3px solid var(--bd);border-top-color:var(--bl);border-radius:50%;margin:0 auto 12px;animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 table.t{width:100%;border-collapse:collapse;font-size:10px}
-table.t th{text-align:right;padding:3px 5px;font-weight:700;font-family:var(--m);font-size:10px;border-bottom:1px solid #1e2a3a;color:var(--lb);white-space:nowrap}
+table.t th{text-align:right;padding:3px 5px;font-weight:700;font-family:var(--m);font-size:10px;border-bottom:1px solid var(--bd);color:var(--lb);white-space:nowrap}
 table.t th:first-child{text-align:left}
-table.t td{text-align:right;padding:3px 5px;font-family:var(--m);font-size:10px;border-bottom:1px solid #131a28;color:#a0aab8;white-space:nowrap}
+table.t td{text-align:right;padding:3px 5px;font-family:var(--m);font-size:10px;border-bottom:1px solid var(--bd);color:var(--lb);white-space:nowrap}
 table.t td:first-child{text-align:left;font-family:var(--f);color:var(--lb)}
-table.t tr.yoy td{font-size:9px;color:var(--dm);border-bottom:1px solid #0d1220}
+table.t tr.yoy td{font-size:9px;color:var(--dm);border-bottom:1px solid var(--bd)}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .mc{background:var(--ib);border-radius:5px;padding:10px 12px;border:1px solid var(--bd)}
-.val-box{background:var(--ib);border-radius:5px;padding:10px;border:1px solid #232d3f;text-align:center}
+.val-box{background:var(--ib);border-radius:5px;padding:10px;border:1px solid var(--bd);text-align:center}
 .val-label{font-size:9px;color:var(--dm);font-weight:600;text-transform:uppercase;margin-bottom:4px}
 .val-num{font-size:16px;font-weight:800;font-family:var(--m);color:var(--bl);margin-bottom:2px}
 .val-note{font-size:9px;color:var(--dm)}
@@ -49,7 +49,7 @@ table.t tr.yoy td{font-size:9px;color:var(--dm);border-bottom:1px solid #0d1220}
 .tog.on{background:var(--bl)22;color:var(--bl);border-color:var(--bl)44}
 b.s{color:var(--lb)}
 .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.val-box{background:var(--ib);border-radius:5px;padding:10px;border:1px solid #232d3f;text-align:center}
+.val-box{background:var(--ib);border-radius:5px;padding:10px;border:1px solid var(--bd);text-align:center}
 .val-label{font-size:9px;color:var(--dm);font-weight:600;text-transform:uppercase;margin-bottom:4px}
 .val-num{font-size:16px;font-weight:800;font-family:var(--m);color:var(--bl);margin-bottom:2px}
 .val-note{font-size:9px;color:var(--dm)}
@@ -74,7 +74,7 @@ b.s{color:var(--lb)}
   <div id="ld" style="display:none;text-align:center;padding:50px 0;color:var(--dm)"><div class="sp"></div><div>Fetching…</div></div>
   <div id="er" style="display:none;background:rgba(220,38,38,0.12);border:1px solid #dc2626;border-radius:6px;padding:12px;color:var(--rd);font-size:13px;margin-bottom:16px"></div>
   <div id="out"></div>
-  <div id="es" style="text-align:center;padding:60px 20px;color:#1e2a3a"><div style="font-size:36px;margin-bottom:10px">⬡</div><div style="font-size:13px;color:var(--dm)">Enter a ticker to auto-populate</div></div>
+  <div id="es" style="text-align:center;padding:60px 20px;color:var(--dm)"><div style="font-size:36px;margin-bottom:10px">⬡</div><div style="font-size:13px;color:var(--dm)">Enter a ticker to auto-populate</div></div>
 </div>
 <script>
 var AK=(window.VT_CONFIG&&window.VT_CONFIG.FMP_KEY)||'zT4AbJZ4WU2SMLjcOQ98PMqIa3NErK3J', BASE=(window.VT_CONFIG&&window.VT_CONFIG.FMP_BASE)||'https://financialmodelingprep.com/stable/';
@@ -821,7 +821,7 @@ var ST={d:null,co:[],priceHist:[],spHist:[],indMult:15,reYrs:5,reMult:null,cagrM
     // Per-year shares (M) - filled from historical trend
     sh1:0,sh2:0,sh3:0,sh4:0,sh5:0,
     // Global assumptions
-    wacc:9,tg:3,
+    wacc:20,tg:2,
     _seeded:false
   }};
 
@@ -882,16 +882,16 @@ function updDCF(){
     for(var i=1;i<=5;i++){var e=document.getElementById('d_'+k+i);if(e)v[k+i]=parseFloat(e.value)||0;}
   });
   var mp=document.getElementById('d__mp');if(mp)v.mp=parseFloat(mp.value)||50;
-  var wc=document.getElementById('d__wacc');if(wc)v.wacc=parseFloat(wc.value)||9;
-  var tg=document.getElementById('d__tg');if(tg)v.tg=parseFloat(tg.value)||3;
+  var wc=document.getElementById('d__wacc');if(wc)v.wacc=parseFloat(wc.value)||20;
+  var tg=document.getElementById('d__tg');if(tg)v.tg=parseFloat(tg.value)||2;
   render();
 }
 function dcfInp(key,val,w){
-  return '<input id="d_'+key+'" type="number" step="0.1" value="'+(Math.round(val*10)/10)+'" oninput="updDCF()" style="width:'+(w||48)+'px;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:2px 3px;color:var(--br);font-family:var(--m);font-size:9px;outline:none;text-align:right"/>';
+  return '<input id="d_'+key+'" type="number" step="0.1" value="'+(Math.round(val*10)/10)+'" oninput="updDCF()" onfocus="this.select()" style="width:'+(w||48)+'px;background:var(--ib);border:1px solid var(--ibd);border-radius:3px;padding:2px 3px;color:var(--br);font-family:var(--m);font-size:9px;outline:none;text-align:right"/>';
 }
 function reCalc(){var d=ST.d;if(!d)return;d.p=gv('fp');d.sh=gv('fsh');d.ca=gv('fca');d.de=gv('fde');d.cfo=gv('fcfo');d.sbc=gv('fsbc');d.cx=gv('fcx');d.mp=gv('fmp2');ST.indMult=gv('indm')||15;render();}
 function togSection(sec){ST['show'+sec]=!ST['show'+sec];render();}
-function mkEI(id,lb,val,unit){return'<div class="ei"><label>'+lb+'</label><div style="display:flex;align-items:center;gap:3px"><input id="'+id+'" type="number" step="any" value="'+(val||'')+'" oninput="reCalc()"/><span class="u">'+unit+'</span></div></div>';}
+function mkEI(id,lb,val,unit){return'<div class="ei"><label>'+lb+'</label><div style="display:flex;align-items:center;gap:3px"><input id="'+id+'" type="number" step="any" value="'+(val||'')+'" oninput="reCalc()" onfocus="this.select()"/><span class="u">'+unit+'</span></div></div>';}
 function mkRo(lb,val,bold,op,bt){var oH=op?'<span style="margin-right:4px;font-weight:700;font-family:var(--m);color:'+(op==='+'?'var(--bl)':'var(--rd)')+'">'+op+'</span>':'';return'<div class="rw'+(bt?' bt':'')+'"><span style="font-size:12px;color:var(--lb)">'+oH+lb+'</span><span style="font-family:var(--m);font-size:12px;color:'+(bold?'var(--br)':'#a0aab8')+';font-weight:'+(bold?700:400)+'">'+val+'</span></div>';}
 
 
@@ -918,20 +918,26 @@ function render(){
     var lni=d.ni&&d.ni[0]?d.ni[0].v:0;
     var nim=Math.round(lni/lr*1000)/10;
     for(var _i=1;_i<=5;_i++)v2['ni'+_i]=nim;
-    // CFO margin from latest year
-    var lcfo=d.cfoH&&d.cfoH[0]?d.cfoH[0].v:0;
-    var cfom=Math.round(lcfo/lr*1000)/10;
-    for(var _i=1;_i<=5;_i++)v2['cfo'+_i]=cfom;
-    // SBC % of rev from latest year
+    // SBC % of rev from latest year (computed first — needed for CFO back-calc below)
     var lsbc=d.sbcH&&d.sbcH[0]?d.sbcH[0].v:0;
     var sbcm=Math.round(lsbc/lr*1000)/10;
     for(var _i=1;_i<=5;_i++)v2['sbc'+_i]=sbcm;
-    // Total CapEx % of rev from latest year
+    // Total CapEx % of rev from latest year (computed first — needed for CFO back-calc below)
     var lcx=d.capexH&&d.capexH[0]?d.capexH[0].v:0;
     var cxm=Math.round(lcx/lr*1000)/10;
     for(var _i=1;_i<=5;_i++)v2['cx'+_i]=cxm;
     // Maint CapEx % default by sector
     v2.mp=d.mp||50;
+    // CFO margin — back-calculated from conservative FCF seed:
+    // FCF seed = min(most recent FY FCF, 3-year avg FCF) to avoid overweighting a peak year
+    var _fcfArr=(d.fcf||[]).slice(0,3).map(function(x){return x&&x.v!=null?x.v:null;}).filter(function(x){return x!==null;});
+    var _lastFcf=_fcfArr.length?_fcfArr[0]:0;
+    var _avg3Fcf=_fcfArr.length?_fcfArr.reduce(function(a,b){return a+b;},0)/_fcfArr.length:_lastFcf;
+    var _seedFcf=Math.min(_lastFcf,_avg3Fcf);
+    // CFO = FCF + SBC + maint CapEx (adding back what gets subtracted in calcDCF)
+    var _seedCfo=_seedFcf+lsbc+Math.abs(lcx)*(v2.mp/100);
+    var cfom=lr>0?Math.round(_seedCfo/lr*1000)/10:0;
+    for(var _i=1;_i<=5;_i++)v2['cfo'+_i]=cfom;
     // Shares from historical trend + slight annual buyback
     var lsh=d.soH&&d.soH[0]?d.soH[0].v:d.sh;
     var shcagr=d.soH&&d.soH.length>=2?cagr(d.soH[d.soH.length-1].v||1,d.soH[0].v||1,d.soH.length-1):0;
@@ -940,7 +946,7 @@ function render(){
   }
   var dcf=calcDCF();
   var qC=c.qr>=0.25?'var(--gn)':c.qr>=0.20?'var(--yw)':'var(--rd)';
-  var qB=c.qr>=0.25?'#052e1688':c.qr>=0.20?'#42200688':'#450a0a88';
+  var qB=c.qr>=0.25?'rgba(34,197,94,0.08)':c.qr>=0.20?'rgba(234,179,8,0.08)':'rgba(239,68,68,0.08)';
   var qL=c.qr>=0.25?'Ready to Invest':c.qr>=0.20?'Watchlist':'Below Threshold';
   var all=[d].concat(co);
   var cms=(all||[]).map(function(x){var m=calcM(x);return{t:x.t,mc:m.mc,ev:m.ev,iNC:m.iNC,ncP:m.ncP,af:m.af,fy:m.fy,rc:m.rc,qr:m.qr,sbcP:m.sbcP,evF:m.evF};});
@@ -1958,7 +1964,7 @@ h+='<td></td></tr>';
     h+='<span style="color:var(--dm)">FCF/EV <b style="color:var(--tl)">'+pc(fcfYield)+'</b></span>';
     h+='<span style="color:var(--dm)">+ Growth <b style="color:var(--bl)">'+pc(revGrowth)+'</b></span>';
     h+='<span style="color:var(--dm)">+ Re-rating <b style="color:'+(reRateAnn>0?'var(--gn)':'var(--rd)')+'">'+pc(reRateAnn)+'</b></span>';
-    h+='<span style="padding:2px 10px;border-radius:4px;background:'+(totalAnn>=0.25?'#052e1644':totalAnn>=0.15?'#42200644':'#450a0a44')+';border:1px solid '+(totalAnn>=0.25?'#22c55e44':totalAnn>=0.15?'#eab30844':'#ef444444')+'"><b style="color:'+(totalAnn>=0.25?'var(--gn)':totalAnn>=0.15?'var(--yw)':'var(--rd)')+'">= '+pc(totalAnn)+'</b></span>';
+    h+='<span style="padding:2px 10px;border-radius:4px;background:'+(totalAnn>=0.25?'rgba(34,197,94,0.10)':totalAnn>=0.15?'rgba(234,179,8,0.10)':'rgba(239,68,68,0.10)')+';border:1px solid '+(totalAnn>=0.25?'rgba(34,197,94,0.3)':totalAnn>=0.15?'rgba(234,179,8,0.3)':'rgba(239,68,68,0.3)')+'"><b style="color:'+(totalAnn>=0.25?'var(--gn)':totalAnn>=0.15?'var(--yw)':'var(--rd)')+'">= '+pc(totalAnn)+'</b></span>';
     h+='</div>';
     h+='<div style="font-size:9px;color:var(--dm)">Re-rating: ('+fx(reMult)+'÷'+fx(curMult)+')^(1/'+reYrs+')−1 = '+pc(reRateAnn)+'&nbsp;&nbsp;|&nbsp;&nbsp;Target ≥25%</div>';
     h+='</div>';
